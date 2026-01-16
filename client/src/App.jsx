@@ -6,8 +6,10 @@ import { getCurrentUser, loginURL, devLoginURL, logout } from './api/auth';
 import { getPresets, savePreset } from './api/presets';
 import TransportControls from './components/Transport/TransportControls';
 import SynthControls from './components/Synth/SynthControls';
+import FXControls from './components/Audio/FXControls';
 import PadSettingsModal from './components/Settings/PadSettingsModal';
 import TrackList from './components/Mixer/TrackList';
+import BackgroundVisualizer from './components/Visualizer/BackgroundVisualizer';
 import './App.css';
 
 function App() {
@@ -34,7 +36,7 @@ function App() {
       const data = await getPresets();
       setTempPresets(data);
     } catch (e) {
-      console.error(e);
+      // console.error(e);
     }
   };
 
@@ -54,10 +56,6 @@ function App() {
             let fileUrl = null;
             if (mapping.Asset) {
               fileUrl = `http://localhost:3001/uploads/${mapping.Asset.filename}`;
-              // sampler.loadSample(padId, fileUrl); // Assuming sampler is globally available or imported in Pad/Store
-              // We need to trigger load in sampler. Ideally store update triggers it or we assume Pad component handles it?
-              // The Load Preset logic in previous step had sampler.loadSample(padId, fileUrl); import. 
-              // We should duplicate that import here or accessible.
               import('./audio/Sampler').then(mod => mod.sampler.loadSample(padId, fileUrl));
             }
 
@@ -100,9 +98,6 @@ function App() {
     } catch (e) {
       console.error('[App] Start Error:', e);
       alert('Error starting Audio Engine: ' + (e.message || e));
-      // Fallback: Try to force entry if it was just a logic error, 
-      // but risky if audio context is dead.
-      // setAudioContextReady(true); 
     }
   };
 
@@ -138,6 +133,7 @@ function App() {
 
   return (
     <div className="App">
+      <BackgroundVisualizer />
       {!isAudioContextReady ? (
         <div className="overlay">
           <div className="welcome-modal">
@@ -175,6 +171,7 @@ function App() {
               <TransportControls />
               <div style={{ marginTop: '10px' }}>
                 <SynthControls />
+                <FXControls />
               </div>
             </div>
           </header>

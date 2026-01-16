@@ -45,6 +45,44 @@ class AudioEngine {
             throw error;
         }
 
+        // Initialize Effects
+        this.reverb = new Tone.Reverb({
+            decay: 1.5,
+            preDelay: 0.01,
+            wet: 0 // Start dry
+        });
+        await this.reverb.generate(); // Reverb requires generation
+
+        // Initialize Analyser (FFT)
+        this.analyser = new Tone.Analyser("fft", 256);
+
+        // Chain: Delay -> Reverb -> Analyser -> Destination
+        this.reverb.connect(this.analyser);
+        this.analyser.toDestination();
+
+        this.delay = new Tone.FeedbackDelay({
+            delayTime: 0.25,
+            feedback: 0.5,
+            wet: 0 // Start dry
+        }).connect(this.reverb);
+
+        // create a main bus from simpler/synth to effects
+        // We need to reconnect synth and samplers to this chain instead of destination
+        // Currently Sampler goes toDestination() and Synth goes toDestination()
+
+        // Re-routing Synth
+        this.synth.disconnect();
+        this.synth.connect(this.delay);
+
+        // Note: Sampler is in a separate file. We need a way to route it too.
+        // Ideally, Sampler should expose its output node or allow connecting.
+        // For now, let's assume we handle Synth first, and maybe update Sampler later or exposed method.
+        import('./Sampler').then(({ sampler }) => {
+            sampler.connectTo(this.delay);
+        });
+
+        console.log('[AudioEngine] Effects Initialized');
+
         // Set default Transport settings
         Tone.Transport.bpm.value = 120;
 
@@ -120,6 +158,24 @@ class AudioEngine {
         if (params.envelope) {
             this.synth.set({ envelope: params.envelope });
         }
+    }
+
+    setReverbParams(params) {
+        if (!this.reverb) return;
+        if (params.mix !== undefined) this.reverb.wet.value = params.mix;
+        if (params.decay !== undefined) this.reverb.decay = params.decay;
+    }
+
+    setDelayParams(params) {
+        if (!this.delay) return;
+        if (params.mix !== undefined) this.delay.wet.value = params.mix;
+        if (params.time !== undefined) this.delay.delayTime.value = params.time;
+        if (params.feedback !== undefined) this.delay.feedback.value = params.feedback;
+    }
+
+    getAudioData() {
+        if (!this.analyser) return null;
+        return this.analyser.getValue(); // Returns Float32Array of dB values
     }
 }
 

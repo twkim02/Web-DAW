@@ -2,8 +2,15 @@ import * as Tone from 'tone';
 
 class Sampler {
     constructor() {
-        this.players = new Tone.Players().toDestination();
-        // Connect to a limiter/compressor for safety later
+        this.players = new Tone.Players();
+        // Default to destination until connected elsewhere
+        this.players.toDestination();
+    }
+
+    connectTo(node) {
+        this.players.disconnect();
+        this.players.connect(node);
+        console.log('[Sampler] Connected to custom node (FX Chain)');
     }
 
     /**

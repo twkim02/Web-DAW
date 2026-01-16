@@ -69,6 +69,18 @@ const useStore = create((set) => ({
         tracks: state.tracks.map(t => t.id === id ? { ...t, ...updates } : t)
     })),
     setTracks: (tracks) => set({ tracks }),
+
+    // Global FX State
+    effects: {
+        reverb: { mix: 0, decay: 1.5 },
+        delay: { mix: 0, time: 0.25, feedback: 0.5 }
+    },
+    setEffectParams: (type, params) => set((state) => ({
+        effects: {
+            ...state.effects,
+            [type]: { ...state.effects[type], ...params }
+        }
+    })),
 }));
 
 export default useStore;
