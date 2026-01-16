@@ -1,0 +1,55 @@
+.wrapper {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+    background: #111;
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid #333;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+    user-select: none;
+}
+
+.topRow {
+    display: grid;
+    grid-template-columns: repeat(8, 80px);
+    /* 8 columns total width */
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+/* Actually, the reference image has 8 top buttons and 8 side buttons.
+   But our grid is 4x4. The user asked for "4x4인것 잊지 말고".
+   So I will stick to 4 top buttons and 4 side buttons to align with the 4x4 grid.
+   
+   Top Row: 4 buttons aligned with the 4 columns.
+   Side Col: 4 buttons aligned with the 4 rows.
+*/
+
+.topRow {
+    display: grid;
+    grid-template-columns: repeat(4, 80px);
+    gap: 10px;
+    /* Main pads are 80px. Gap is 10px. */
+    width: 350px;
+    /* 4*80 + 3*10 = 350 */
+}
+
+.middleRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.gridContainer {
+    display: grid;
+    grid-template-columns: repeat(4, 80px);
+    gap: 10px;
+}
+
+.sideColumn {
+    display: grid;
+    grid-template-rows: repeat(4, 80px);
+    gap: 10px;
+}

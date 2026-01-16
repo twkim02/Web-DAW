@@ -1,0 +1,168 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: #1e1e1e;
+    width: 400px;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid #333;
+    color: white;
+}
+
+.modal header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 12px;
+}
+
+.modal h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #00ffcc;
+}
+
+.closeBtn {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.closeBtn:hover {
+    color: white;
+}
+
+.section {
+    margin-bottom: 20px;
+    background: #2a2a2a;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.section label {
+    display: block;
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.fileInfo {
+    font-size: 0.9rem;
+    color: #fff;
+    margin-bottom: 10px;
+    font-style: italic;
+    word-break: break-all;
+}
+
+.section button {
+    background: #444;
+    color: white;
+    border: 1px solid #666;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+/* Wizard Styles */
+.stepContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 250px;
+    /* Ensure consistent height */
+    justify-content: center;
+}
+
+.stepTitle {
+    font-size: 1.2rem;
+    color: #00ffcc;
+    margin-bottom: 10px;
+    text-align: center;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
+}
+
+.navigation {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+}
+
+.navBtn {
+    background: #444;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.navBtn:hover {
+    background: #666;
+}
+
+.navBtn.primary {
+    background: #00ffcc;
+    color: black;
+}
+
+.navBtn.primary:hover {
+    background: #00ccaa;
+}
+
+.colorGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    justify-items: center;
+}
+
+.colorBtn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.colorBtn:hover {
+    transform: scale(1.1);
+}
+
+.section button:hover {
+    background: #555;
+    border-color: #888;
+}
+
+.section select,
+.section input[type="range"] {
+    width: 100%;
+    background: #111;
+    color: white;
+    border: 1px solid #444;
+    padding: 8px;
+    border-radius: 4px;
+}
