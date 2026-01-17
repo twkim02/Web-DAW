@@ -4,11 +4,13 @@ import useStore from '../../store/useStore';
 import usePadTrigger from '../../hooks/usePadTrigger';
 import { uploadFile } from '../../api/upload';
 import { sampler } from '../../audio/Sampler';
+import { instrumentManager } from '../../audio/InstrumentManager';
 
 const Pad = ({ id, label }) => {
     const isActive = useStore((state) => !!state.activePads[id]);
     const updatePadMapping = useStore((state) => state.updatePadMapping);
     const setEditingPadId = useStore((state) => state.setEditingPadId);
+    const setPlayingPadId = useStore((state) => state.setPlayingPadId);
     const { triggerPad } = usePadTrigger();
 
     const handleMouseDown = (e) => {
@@ -20,6 +22,18 @@ const Pad = ({ id, label }) => {
         }
         triggerPad(id, 'down');
     };
+
+    // Right Click to Open Virtual Instrument
+    const handleContextMenu = (e) => {
+        e.preventDefault();
+        const mapping = useStore.getState().padMappings[id];
+        if (mapping && (mapping.type === 'piano' || mapping.type === 'synth' || mapping.type === 'drums')) {
+            setPlayingPadId(id);
+        } else {
+            setEditingPadId(id);
+        }
+    };
+
     const handleMouseUp = () => triggerPad(id, 'up');
     const handleMouseLeave = () => triggerPad(id, 'up');
 
@@ -35,28 +49,67 @@ const Pad = ({ id, label }) => {
         if (jsonData) {
             try {
                 const data = JSON.parse(jsonData);
-                if (data.type === 'asset' && data.asset) {
+                console.log('Drop Data:', data); // DEBUG LOG
+
+                // CASE A: Audio File or Recording
+                if ((data.type === 'asset' || data.type === 'recording') && data.asset) {
                     const { asset } = data;
-                    console.log('Dropped Asset:', asset.originalName);
+                    console.log('Dropped Asset/Rec:', asset.originalName);
 
                     const fileUrl = `http://localhost:3001/uploads/${encodeURIComponent(asset.filename)}`;
 
-                    // OPTIMISTIC UPDATE: Update UI first
                     updatePadMapping(id, {
                         file: fileUrl,
                         assetId: asset.id,
                         originalName: asset.originalName,
-                        type: 'sample',
-                        name: null
+                        type: 'sample', // It's an audio sample
+                        name: null,
+                        mode: 'one-shot'
                     });
 
-                    // Load Audio (Async)
-                    sampler.loadSample(id, fileUrl).catch(err => {
-                        console.error('Failed to load sample audio:', err);
+                    sampler.loadSample(id, fileUrl).catch(err => console.error('Load failed:', err));
+                    return;
+                }
+
+                // CASE B: Synth Preset
+                if (data.type === 'synth' && data.preset) {
+                    const { preset } = data;
+                    console.log('Dropped Synth:', preset.name);
+
+                    updatePadMapping(id, {
+                        type: 'synth',
+                        name: preset.name,
+                        mode: 'gate', // Synths usually gate
+                        note: 'C4',   // Default note
+                        synthPreset: preset.id // Save preset ID for engine to use?
+                    });
+
+                    // TODO: Tell AudioEngine to set params for this pad/synth if polyphonic per pad?
+                    // For now, usePadTrigger just triggers generic synth note.
+                    // Ideally we'd store oscillator type in mapping to change sound on trigger.
+                    updatePadMapping(id, {
+                        synthParams: { oscillator: { type: preset.osc } }
                     });
 
                     return;
                 }
+
+                // CASE C: Instrument
+                if (data.type === 'instrument' && data.instrument) {
+                    const { instrument } = data;
+                    console.log('Dropped Instrument:', instrument.name);
+
+                    // For now, treat instruments as special synths or placeholders
+                    updatePadMapping(id, {
+                        type: 'synth', // Fallback to synth for now until Sampler has instrument support
+                        name: instrument.name,
+                        mode: 'one-shot',
+                        note: 'C3',
+                        color: '#ff99cc'
+                    });
+                    return;
+                }
+
             } catch (err) {
                 console.error('JSON Parse Error', err);
             }
@@ -115,6 +168,7 @@ const Pad = ({ id, label }) => {
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
+            onContextMenu={handleContextMenu}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >

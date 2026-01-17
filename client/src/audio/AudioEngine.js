@@ -106,14 +106,21 @@ class AudioEngine {
         return Tone.Transport.state;
     }
 
-    triggerSynth(note, duration = '8n') {
+    triggerSynth(note, duration = '8n', params = {}) {
         if (this.synth) {
+            // Apply params if provided (e.g., change oscillator type)
+            if (params.oscillator) {
+                this.synth.set({ oscillator: params.oscillator });
+            }
             this.synth.triggerAttackRelease(note, duration);
         }
     }
 
-    startSynthNote(note) {
+    startSynthNote(note, params = {}) {
         if (this.synth) {
+            if (params.oscillator) {
+                this.synth.set({ oscillator: params.oscillator });
+            }
             this.synth.triggerAttack(note);
         }
     }

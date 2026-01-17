@@ -19,8 +19,9 @@ const useKeyboardMap = () => {
 
         const handleKeyDown = (e) => {
             if (e.repeat) return;
-            // Disable global map if a modal is open (editingPadId is set)
-            if (useStore.getState().editingPadId !== null) return;
+            // Disable global map if a modal is open (editingPadId is set, or Playing Mode, or Preview Mode)
+            const state = useStore.getState();
+            if (state.editingPadId !== null || state.playingPadId !== null || state.previewMode.isOpen) return;
 
             const code = e.code;
             const key = e.key.toLowerCase(); // Keep for arrows check? Arrows have codes too.

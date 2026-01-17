@@ -87,6 +87,20 @@ const useStore = create((set) => ({
     editingPadId: null,
     setEditingPadId: (id) => set({ editingPadId: id }),
 
+    // Virtual Instrument State
+    playingPadId: null,
+    setPlayingPadId: (id) => set({ playingPadId: id }),
+
+    // Preview Mode
+    previewMode: { isOpen: false, type: null, preset: null },
+    setPreviewMode: (isOpen, type = null, preset = null) => set({
+        previewMode: { isOpen, type, preset }
+    }),
+
+    // Library Refresh
+    lastLibraryUpdate: 0,
+    triggerLibraryRefresh: () => set({ lastLibraryUpdate: Date.now() }),
+
     // Loop/Track State
     tracks: [], // { id, name, isMuted, isSolo }
     addTrack: (track) => set((state) => ({ tracks: [...state.tracks, track] })),

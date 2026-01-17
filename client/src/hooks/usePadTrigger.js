@@ -3,6 +3,7 @@ import useStore from '../store/useStore';
 import { sampler } from '../audio/Sampler';
 import { sequencer } from '../audio/Sequencer';
 import { audioEngine } from '../audio/AudioEngine';
+import { instrumentManager } from '../audio/InstrumentManager';
 
 const usePadTrigger = () => {
     const setPadActive = useStore((state) => state.setPadActive);
@@ -53,35 +54,29 @@ const usePadTrigger = () => {
             // Non-Toggle Down Logic
             setPadActive(padId, true);
 
-            if (type === 'synth') {
+            if (['synth', 'piano', 'drums'].includes(type)) {
+                // High-Quality System
                 const note = mapping.note || 'C4';
-                if (mode === 'gate') {
-                    audioEngine.startSynthNote(note);
-                } else {
-                    // One-Shot
-                    audioEngine.triggerSynth(note);
-                }
+                // Drums might use mapping.note as the sample name (e.g., 'kick')
+                instrumentManager.trigger(padId, note, '8n');
             } else {
-                // Sample
+                // Legacy Sample
                 if (mode === 'gate') {
-                    // Gate: Play on down, stop on up. Loop? Usually Gate samples loop while held or play long.
-                    // Let's assume Gate plays normally (one-shot style) but stops on release.
-                    sampler.play(padId, { loop: true }); // Gate usually sustains
+                    sampler.play(padId, { loop: true });
                 } else {
-                    // One-Shot
                     sampler.play(padId, { loop: false });
                 }
             }
 
         } else if (eventType === 'up') {
             // Up Logic
-            if (mode === 'toggle') return; // Toggle ignores key up
+            if (mode === 'toggle') return;
 
             setPadActive(padId, false);
 
             if (mode === 'gate') {
-                if (type === 'synth') {
-                    audioEngine.stopSynthNote(mapping.note || 'C4');
+                if (['synth', 'piano'].includes(type)) {
+                    instrumentManager.stopNote(padId, mapping.note || 'C4');
                 } else {
                     sampler.stop(padId);
                 }

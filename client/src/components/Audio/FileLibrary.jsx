@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
+import useStore from '../../store/useStore';
 import { uploadFile } from '../../api/upload';
 
-const SoundLibrary = () => {
+const FileLibrary = () => {
     const [assets, setAssets] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -16,12 +17,12 @@ const SoundLibrary = () => {
 
         try {
             setLoading(true);
-            console.log('[SoundLibrary] Uploading file:', file.name);
+            console.log('[FileLibrary] Uploading file:', file.name);
             await uploadFile(file);
-            console.log('[SoundLibrary] Upload success, refreshing list...');
+            console.log('[FileLibrary] Upload success, refreshing list...');
             await fetchAssets();
         } catch (err) {
-            console.error('[SoundLibrary] Upload failed', err);
+            console.error('[FileLibrary] Upload failed', err);
             alert('Failed to upload file');
         } finally {
             setLoading(false);
@@ -79,9 +80,11 @@ const SoundLibrary = () => {
         setSelectedIds(newSet);
     };
 
+    const lastLibraryUpdate = useStore(state => state.lastLibraryUpdate);
+
     useEffect(() => {
         fetchAssets();
-    }, []);
+    }, [lastLibraryUpdate]);
 
     const handleDragStart = (e, asset) => {
         if (isSelectionMode) {
@@ -89,17 +92,18 @@ const SoundLibrary = () => {
             return;
         }
         e.dataTransfer.setData('application/json', JSON.stringify({
-            type: 'asset',
-            asset
+            type: 'asset', // Keep legacy type for compatibility or update Pad to handle both
+            asset,         // Pass full asset object
+            libraryType: 'file' // Extra metadata
         }));
         e.dataTransfer.effectAllowed = 'copy';
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: '#ccc' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: '#ccc', padding: '16px', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>
-                    {isSelectionMode ? `${selectedIds.size} SELECTED` : `LIBRARY (${assets.length})`}
+                    {isSelectionMode ? `${selectedIds.size} SELECTED` : `FILES (${assets.length})`}
                 </span>
 
                 <div style={{ display: 'flex', gap: '5px' }}>
@@ -232,4 +236,4 @@ const SoundLibrary = () => {
     );
 };
 
-export default SoundLibrary;
+export default FileLibrary;

@@ -18,44 +18,61 @@ const ThreeVisualizer = () => {
         const BAR_COUNT = 140;
         const RADIUS = 4.2;
         const STAR_COUNT = 1500;
+        let resizeObserver;
 
         try {
+            const container = mountRef.current;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
             // 1. Setup
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
             camera.position.z = 6;
 
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(width, height);
             renderer.setClearColor(0x000000, 1);
 
-            if (mountRef.current) {
-                mountRef.current.innerHTML = '';
-                mountRef.current.appendChild(renderer.domElement);
+            if (container) {
+                container.innerHTML = '';
+                container.appendChild(renderer.domElement);
             }
 
             // --- 2. Random Space Background ---
+            // --- 2. Random Space Background ---
             const textureLoader = new THREE.TextureLoader();
+            textureLoader.setCrossOrigin('anonymous'); // Enable CORS
             const randomImage = SPACE_IMAGES[Math.floor(Math.random() * SPACE_IMAGES.length)];
 
-            const bgGeometry = new THREE.PlaneGeometry(60, 40); // Large plane
+            const bgGeometry = new THREE.PlaneGeometry(120, 80); // Increased size
             const bgMaterial = new THREE.MeshBasicMaterial({
                 color: 0x888888, // Dim it slightly
                 transparent: true,
                 opacity: 0, // Fade in
             });
 
-            textureLoader.load(randomImage, (texture) => {
-                bgMaterial.map = texture;
-                bgMaterial.needsUpdate = true;
-                // Fade in effect
-                let opacity = 0;
-                const fadeIn = setInterval(() => {
-                    opacity += 0.05;
-                    bgMaterial.opacity = opacity;
-                    if (opacity >= 0.6) clearInterval(fadeIn); // Max opacity 0.6
-                }, 50);
-            });
+            textureLoader.load(
+                randomImage,
+                (texture) => {
+                    bgMaterial.map = texture;
+                    bgMaterial.needsUpdate = true;
+                    // Fade in effect
+                    let opacity = 0;
+                    const fadeIn = setInterval(() => {
+                        opacity += 0.05;
+                        bgMaterial.opacity = opacity;
+                        if (opacity >= 0.6) clearInterval(fadeIn);
+                    }, 50);
+                },
+                undefined,
+                (err) => {
+                    console.error("Error loading space background:", err);
+                    // Fallback to visible grey if image fails
+                    bgMaterial.color.setHex(0x222222);
+                    bgMaterial.opacity = 1;
+                }
+            );
 
             backgroundPlane = new THREE.Mesh(bgGeometry, bgMaterial);
             backgroundPlane.position.z = -20;
@@ -168,21 +185,29 @@ const ThreeVisualizer = () => {
             };
             animate();
 
-            const handleResize = () => {
-                if (camera && renderer) {
-                    camera.aspect = window.innerWidth / window.innerHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(window.innerWidth, window.innerHeight);
+            // --- Resize Handling ---
+            resizeObserver = new ResizeObserver((entries) => {
+                for (let entry of entries) {
+                    const { width, height } = entry.contentRect;
+                    if (camera && renderer) {
+                        camera.aspect = width / height;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(width, height);
+                    }
                 }
-            };
-            window.addEventListener('resize', handleResize);
+            });
+
+            if (container) {
+                resizeObserver.observe(container);
+            }
+
 
         } catch (e) {
             console.error("ThreeVisualizer Init Error", e);
         }
 
         return () => {
-            window.removeEventListener('resize', () => { });
+            if (resizeObserver) resizeObserver.disconnect();
             if (frameId) cancelAnimationFrame(frameId);
             if (renderer) renderer.dispose();
             bars.forEach(b => { b.geometry.dispose(); b.material.dispose(); });
@@ -192,6 +217,7 @@ const ThreeVisualizer = () => {
     }, []);
 
     function createCircleTexture() {
+        // ... (as before)
         const matCanvas = document.createElement('canvas');
         matCanvas.width = matCanvas.height = 32;
         const matContext = matCanvas.getContext('2d');
@@ -210,7 +236,7 @@ const ThreeVisualizer = () => {
         <div
             ref={mountRef}
             style={{
-                position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
                 zIndex: 0, pointerEvents: 'none'
             }}
         />
