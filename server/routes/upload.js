@@ -88,4 +88,28 @@ router.post('/delete', async (req, res) => {
     }
 });
 
+// PUT /upload/rename
+router.put('/rename', async (req, res) => {
+    try {
+        const { id, newName } = req.body;
+
+        if (!id || !newName) {
+            return res.status(400).json({ message: 'Missing id or newName' });
+        }
+
+        const asset = await db.Asset.findByPk(id);
+        if (!asset) {
+            return res.status(404).json({ message: 'Asset not found' });
+        }
+
+        asset.originalName = newName;
+        await asset.save();
+
+        res.json({ message: 'Asset renamed successfully', asset });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
 module.exports = router;

@@ -5,11 +5,11 @@ export const DRUM_KITS = {
             "kick": "kick.mp3",
             "snare": "snare.mp3",
             "hh_closed": "hihat.mp3",
-            "hh_open": "cymbal.mp3", // Techno kit doesn't have open hat, using cymbal
+            "hh_open": "hihat.mp3",    // Fallback: use hihat, as cymbal.mp3 was 404
             "tom_low": "tom1.mp3",
             "tom_mid": "tom2.mp3",
             "tom_high": "tom3.mp3",
-            "clap": "clap.mp3"
+            "clap": "snare.mp3"        // Fallback: use snare, as clap.mp3 was 404
         }
     },
 };

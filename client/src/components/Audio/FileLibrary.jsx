@@ -8,6 +8,29 @@ const FileLibrary = () => {
     const [loading, setLoading] = useState(false);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [renamingId, setRenamingId] = useState(null);
+    const [renameValue, setRenameValue] = useState('');
+
+    const startRename = (e, asset) => {
+        e.stopPropagation();
+        setRenamingId(asset.id);
+        setRenameValue(asset.originalName);
+    };
+
+    const confirmRename = async (id) => {
+        if (!renameValue.trim()) return;
+        try {
+            await axios.put('http://localhost:3001/upload/rename', {
+                id,
+                newName: renameValue.trim()
+            });
+            setRenamingId(null);
+            fetchAssets();
+        } catch (err) {
+            console.error('Rename failed', err);
+            alert('Failed to rename');
+        }
+    };
 
     const fileInputRef = useRef(null);
 
@@ -180,10 +203,12 @@ const FileLibrary = () => {
 
                 {Array.isArray(assets) && assets.map(asset => {
                     const isSelected = selectedIds.has(asset.id);
+                    const isRenaming = renamingId === asset.id;
+
                     return (
                         <div
                             key={asset.id}
-                            draggable={!isSelectionMode}
+                            draggable={!isSelectionMode && !isRenaming}
                             onDragStart={(e) => handleDragStart(e, asset)}
                             onClick={() => {
                                 if (isSelectionMode) toggleSelection(asset.id);
@@ -202,6 +227,7 @@ const FileLibrary = () => {
                                 gap: '8px'
                             }}
                         >
+                            {/* Selection Checkbox */}
                             {isSelectionMode && (
                                 <div style={{
                                     width: '16px', height: '16px',
@@ -220,14 +246,63 @@ const FileLibrary = () => {
                                 </div>
                             )}
 
+                            {/* Content */}
                             <div style={{ flex: 1, overflow: 'hidden' }}>
-                                <div style={{ color: isSelected ? '#00ffcc' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {asset.originalName}
-                                </div>
-                                <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '2px' }}>
-                                    {new Date(asset.createdAt).toLocaleDateString()}
-                                </div>
+                                {isRenaming ? (
+                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                        <input
+                                            type="text"
+                                            value={renameValue}
+                                            onChange={(e) => setRenameValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') confirmRename(asset.id);
+                                                if (e.key === 'Escape') setRenamingId(null);
+                                            }}
+                                            onClick={(e) => e.stopPropagation()} // Prevent selection toggle
+                                            autoFocus
+                                            style={{
+                                                flex: 1, background: '#111', border: '1px solid #666',
+                                                color: '#fff', fontSize: '0.85rem', padding: '2px 4px'
+                                            }}
+                                        />
+                                        <button onClick={(e) => { e.stopPropagation(); confirmRename(asset.id); }} style={{ cursor: 'pointer', background: 'none', border: 'none', color: '#0f0' }}>✔</button>
+                                        <button onClick={(e) => { e.stopPropagation(); setRenamingId(null); }} style={{ cursor: 'pointer', background: 'none', border: 'none', color: '#f00' }}>✖</button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ color: isSelected ? '#00ffcc' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {asset.originalName}
+                                            </div>
+
+                                            {/* Rename Button (Only on Hover or Always Visible if not selection mode) */}
+                                            {!isSelectionMode && (
+                                                <button
+                                                    onClick={(e) => startRename(e, asset)}
+                                                    style={{
+                                                        background: 'transparent', border: 'none', color: '#666',
+                                                        cursor: 'pointer', fontSize: '0.9rem', padding: '0 4px',
+                                                        display: 'none' // Hidden by default, show on parent hover? 
+                                                        // Actually, keep it simple: show a small edit icon always or just have it there
+                                                    }}
+                                                    className="rename-btn"
+                                                >
+                                                    ✎
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '2px' }}>
+                                            {new Date(asset.createdAt).toLocaleDateString()}
+                                        </div>
+                                    </>
+                                )}
                             </div>
+
+                            {/* Enable Hover CSS */}
+                            <style>{`
+                                .rename-btn { display: none !important; }
+                                div:hover > div > div > .rename-btn { display: block !important; }
+                            `}</style>
                         </div>
                     );
                 })}
