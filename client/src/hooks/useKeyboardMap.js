@@ -53,7 +53,11 @@ const useKeyboardMap = () => {
                 // NEW: Alt Key to Reset Pad
                 else if (e.altKey) {
                     e.preventDefault();
-                    sampler.unload(globalIndex); // Unload audio
+                    try {
+                        sampler.unload(globalIndex); // Unload audio
+                    } catch (err) {
+                        console.warn('Audio unload failed, forcing UI reset:', err);
+                    }
                     useStore.getState().resetPad(globalIndex); // Reset state
                     // Optional: Visual feedback or toast could go here
                 }
