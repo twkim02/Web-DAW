@@ -6,12 +6,23 @@ import { uploadFile } from '../../api/upload';
 import { sampler } from '../../audio/Sampler';
 import { instrumentManager } from '../../audio/InstrumentManager';
 
-const Pad = ({ id, label }) => {
+const Pad = React.memo(({ id, label }) => {
     const isActive = useStore((state) => !!state.activePads[id]);
     const updatePadMapping = useStore((state) => state.updatePadMapping);
     const setEditingPadId = useStore((state) => state.setEditingPadId);
     const setPlayingPadId = useStore((state) => state.setPlayingPadId);
     const { triggerPad } = usePadTrigger();
+
+    // Select mapping individually to avoid re-renders from full map changes? 
+    // Actually selecting `state.padMappings[id]` is good, but `useStore` needs to be optimized in the component body or via selector?
+    // In strict mode `useStore(state => state.padMappings[id])` might re-run if object reference changes.
+    // However, Zustand is good at this.
+    // The main issue is the `console.log` and parent re-renders.
+
+    // Let's rely on React.memo for props. But ID and Label are static.
+    // The internal state selection triggers re-renders. 
+    // We can use `useStore` with an equality function or just select specific field.
+    const mapping = useStore(state => state.padMappings[id]);
 
     const handleMouseDown = (e) => {
         if (e.shiftKey) {
@@ -26,8 +37,8 @@ const Pad = ({ id, label }) => {
     // Right Click to Open Virtual Instrument
     const handleContextMenu = (e) => {
         e.preventDefault();
-        const mapping = useStore.getState().padMappings[id];
-        if (mapping && (mapping.type === 'piano' || mapping.type === 'synth' || mapping.type === 'drums')) {
+        const m = useStore.getState().padMappings[id];
+        if (m && (m.type === 'piano' || m.type === 'synth' || m.type === 'drums')) {
             setPlayingPadId(id);
         } else {
             setEditingPadId(id);
@@ -146,15 +157,12 @@ const Pad = ({ id, label }) => {
         }
     };
 
-
-
     // Construct dynamic style
     const padStyle = {};
-    const mapping = useStore(state => state.padMappings[id]);
     const customColor = mapping?.color;
 
-    // DEBUG: Check mapping on render
-    console.log(`[Pad ${id}] Render. Mapping:`, mapping);
+    // Remove Debug Log
+    // console.log(`[Pad ${id}] Render. Mapping:`, mapping);
 
     if (isActive) {
         padStyle.backgroundColor = customColor || '#00ffcc'; // Default cyan if no color
@@ -181,6 +189,6 @@ const Pad = ({ id, label }) => {
             <span className={styles.keyLabel}>{label}</span>
         </button>
     );
-};
+});
 
 export default Pad;

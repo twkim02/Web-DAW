@@ -131,8 +131,37 @@ const useStore = create((set) => ({
     }),
 
     // Zoom UI State
-    isZoomed: true, // Default to zoomed in view? Or false? Let's try true to match current feeling but better.
+    isZoomed: true,
     setIsZoomed: (isZoomed) => set({ isZoomed }),
+
+    // Launchpad View Mode
+    viewMode: 'SESSION', // 'SESSION', 'NOTE', 'MIXER_SELECTION', 'VOLUME', 'PAN', 'MUTE', 'SOLO', 'REC'
+    setViewMode: (mode) => set({ viewMode: mode }),
+
+    // Mixer State (8 tracks corresponding to 8 columns)
+    mixerLevels: {
+        vol: Array(8).fill(0.8), // 0-1
+        pan: Array(8).fill(0),   // -1 to 1
+        sendA: Array(8).fill(0),
+        sendB: Array(8).fill(0)
+    },
+    trackStates: {
+        mute: Array(8).fill(false),
+        solo: Array(8).fill(false),
+        arm: Array(8).fill(false)
+    },
+
+    setMixerLevel: (type, index, value) => set((state) => {
+        const newLevels = [...state.mixerLevels[type]];
+        newLevels[index] = value;
+        return { mixerLevels: { ...state.mixerLevels, [type]: newLevels } };
+    }),
+
+    toggleTrackState: (type, index) => set((state) => {
+        const newStates = [...state.trackStates[type]];
+        newStates[index] = !newStates[index];
+        return { trackStates: { ...state.trackStates, [type]: newStates } };
+    }),
 }));
 
 export default useStore;

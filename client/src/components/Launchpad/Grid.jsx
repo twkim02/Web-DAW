@@ -1,47 +1,79 @@
 import React from 'react';
-import Pad from './Pad';
+import Pad from './Pad'; // Keep Pad for Session Mode
 import styles from './Grid.module.css';
 import useKeyboardMap from '../../hooks/useKeyboardMap';
 import useStore from '../../store/useStore';
-import { sequencer } from '../../audio/Sequencer'; // Import at top level
-
+import { sequencer } from '../../audio/Sequencer';
 import SubButton from './SubButton';
 
+const FaderColumn = ({ index, type, value, onChange, color }) => {
+    // value 0-1. display as 8 segments.
+    const segments = 8;
+    const filled = Math.round(value * segments);
+
+    const handleClick = (segmentIndex) => {
+        // segmentIndex 0 (bottom) to 7 (top)
+        const newValue = (segmentIndex + 1) / segments;
+        onChange(newValue);
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: '2px', height: '100%', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+            {Array.from({ length: segments }).map((_, i) => (
+                <div
+                    key={i}
+                    onClick={() => handleClick(i)}
+                    style={{
+                        width: '80%',
+                        height: '10%',
+                        backgroundColor: i < filled ? color : 'rgba(255,255,255,0.1)',
+                        cursor: 'pointer',
+                        borderRadius: '2px',
+                        transition: 'background 0.1s'
+                    }}
+                />
+            ))}
+        </div>
+    );
+};
+
 const Grid = () => {
-    useKeyboardMap(); // Initialize keyboard listeners
+    useKeyboardMap();
 
-    // Generate 64 pads
-    const pads = Array.from({ length: 64 }, (_, i) => i);
-    // Key labels - sparse mapping for now or algorithmic
-    // For 8x8, let's just clear labels or mapped ones
-    const keyLabels = Array(64).fill('');
-
-    // Top Sub Buttons (8 items for 8 columns) - Menu/Navigation
-    const topButtons = ['▲', '▼', '◀', '▶', 'Session', 'Note', 'Custom', 'Mixer'];
-
-    // Side Sub Buttons (8 items for 8 rows) - Scene Launch / Transport
-    const sideButtons = ['Vol', 'Pan', 'Snd A', 'Snd B', 'Stop', 'Mute', 'Solo', 'Rec'];
-
-    // Store access
-    const isRecording = useStore((state) => state.isRecording);
+    // Store State
+    const viewMode = useStore((state) => state.viewMode);
+    const setViewMode = useStore((state) => state.setViewMode);
     const bankCoords = useStore((state) => state.bankCoords);
+    const moveBank = useStore((state) => state.moveBank);
     const isZoomed = useStore((state) => state.isZoomed);
     const setIsZoomed = useStore((state) => state.setIsZoomed);
-    const editingPadId = useStore((state) => state.editingPadId);
+    const isRecording = useStore((state) => state.isRecording);
+    const isPlaying = useStore((state) => state.isPlaying);
+    const mixerLevels = useStore((state) => state.mixerLevels);
+    const setMixerLevel = useStore((state) => state.setMixerLevel);
+    const trackStates = useStore((state) => state.trackStates);
+    const toggleTrackState = useStore((state) => state.toggleTrackState);
+    const editingPadId = useStore((state) => state.editingPadId); // Restored missing selector
 
-    // Zoom Calculation
-    // When Zoomed: Scale 2.2 (aggressive). Focus on quadrant.
-    // When Overview: Scale 0.9 (fit all). Focus Center.
+    // --- Button Logic ---
+    const topButtons = ['▲', '▼', '◀', '▶', 'Session', 'Note', 'Custom', 'Mixer'];
 
-    const originX = bankCoords.x === 0 ? '25%' : '75%';
-    const originY = bankCoords.y === 0 ? '25%' : '75%';
+    // Side Buttons depend on View Mode
+    // If in Mixer Selection Mode, show Controls. Otherwise, show Scene Launch?
+    // User requested "Mixer" buttons.
+    // Let's use the 'Mixer' top button to TOGGLE side menu? 
+    // Or let's make the Side Buttons CONSTANTLY be the Mode Switchers (Vol/Pan/etc) IF we are in a Mixer View?
+    // And if we are in Session, they are Scene Launchers.
 
-    const zoomStyle = {
-        transform: isZoomed ? `scale(2.2)` : `scale(0.9)`,
-        transformOrigin: isZoomed ? `${originX} ${originY}` : 'center center',
-        transition: 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)', // Snappy spring
-        cursor: isZoomed ? 'zoom-out' : 'zoom-in'
-    };
+    const isSession = viewMode === 'SESSION';
+    const isNote = viewMode === 'NOTE';
+
+    // Derived state for side buttons
+    // Standard Reference: Right side is Scene Launch 1-8 in Session Mode.
+    // Mixer Mode: Right side is Vol, Pan, Snd A, Snd B, Stop, Mute, Solo, Rec Arm.
+    const sideButtons = (isSession || isNote)
+        ? Array(8).fill('►')
+        : ['Vol', 'Pan', 'Snd A', 'Snd B', 'Stop', 'Mute', 'Solo', 'Rec'];
 
     // ESC to Zoom Out
     React.useEffect(() => {
@@ -55,92 +87,220 @@ const Grid = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [editingPadId, setIsZoomed]);
 
-    // Click on Grid to toggle Zoom?
-    // Maybe better on specific pads? For now, leave it to logic.
-
     const handleTopClick = (label) => {
-        const { moveBank, bankCoords, setIsZoomed } = useStore.getState();
-
         switch (label) {
             case '▲': moveBank(0, -1); setIsZoomed(true); break;
             case '▼': moveBank(0, 1); setIsZoomed(true); break;
             case '◀': moveBank(-1, 0); setIsZoomed(true); break;
             case '▶': moveBank(1, 0); setIsZoomed(true); break;
-            case 'Session':
-                // Reset to 0,0 (Overview)
-                useStore.setState({ bankCoords: { x: 0, y: 0 } });
+            case 'Session': setViewMode('SESSION'); break;
+            case 'Note': setViewMode('NOTE'); break;
+            // case 'Custom': setViewMode('CUSTOM'); break; 
+            case 'Mixer':
+                // Toggle Mixer Selection or Go to Volume?
+                setViewMode('MIXER_SELECTION');
                 break;
-            default:
-                console.log('Top Button:', label);
+            default: console.log('Top:', label);
         }
     };
 
-    const handleSideClick = (label) => {
-        switch (label) {
-            case 'Rec':
-                if (isRecording) {
-                    sequencer.stopRecording();
-                } else {
-                    sequencer.startRecording();
-                }
-                break;
-            case 'Stop':
-                sequencer.stop();
-                useStore.getState().setIsPlaying(false);
-                break;
-            case 'Vol':
-            case 'Pan':
-            case 'Mute':
-            case 'Solo':
-                alert(`[${label}] - Feature coming soon! (Select a track first)`);
-                break;
-            default:
-                console.log('Side Button:', label);
+    const handleSideClick = (label, index) => {
+        if (label === '►') {
+            // Scene Launch
+            sequencer.playScene(index);
+            return;
         }
+
+        switch (label) {
+            case 'Vol': setViewMode('VOLUME'); break;
+            case 'Pan': setViewMode('PAN'); break;
+            case 'Snd A': setViewMode('SEND_A'); break;
+            case 'Snd B': setViewMode('SEND_B'); break;
+            case 'Mute': setViewMode('MUTE'); break;
+            case 'Solo': setViewMode('SOLO'); break;
+            case 'Stop': setViewMode('STOP'); break; // Or Transport Stop?
+            case 'Stop': setViewMode('STOP'); break;
+            case 'Rec': setViewMode('ARM'); break; // Mixer Rec = Record Arm
+            default: console.log('Side:', label);
+        }
+    };
+
+    // --- Render Content ---
+    const renderGridContent = () => {
+        if (viewMode === 'SESSION') {
+            const pads = Array.from({ length: 64 }, (_, i) => i);
+            return (
+                <>
+                    {/* Neon Bank Border */}
+                    <div
+                        className={`${styles.bankBorder} ${isZoomed ? styles.visible : ''}`}
+                        style={{
+                            left: bankCoords.x === 0 ? '-2px' : '262px',
+                            top: bankCoords.y === 0 ? '-2px' : '262px' // Adjusted for border width
+                        }}
+                    />
+                    {pads.map((id) => <Pad key={id} id={id} label="" />)}
+                </>
+            );
+        }
+
+        if (viewMode === 'NOTE') {
+            // Placeholder for Note Mode (just pads for now, maybe diff colors later)
+            const pads = Array.from({ length: 64 }, (_, i) => i);
+            return pads.map((id) => <Pad key={id} id={id} label="♪" />);
+        }
+
+        if (['VOLUME', 'PAN', 'SEND_A', 'SEND_B'].includes(viewMode)) {
+            // Render 8 Fader Columns
+            const typeMap = { 'VOLUME': 'vol', 'PAN': 'pan', 'SEND_A': 'sendA', 'SEND_B': 'sendB' };
+            const type = typeMap[viewMode];
+            const data = mixerLevels[type];
+            const color = viewMode === 'VOLUME' ? '#00ffcc' : viewMode === 'PAN' ? '#ffaa00' : '#cc00ff';
+
+            return Array(8).fill(null).map((_, i) => (
+                <div key={i} className={styles.columnCell} style={{ border: '1px solid #333', padding: '2px' }}>
+                    <FaderColumn
+                        index={i}
+                        type={type}
+                        value={data[i]}
+                        onChange={(val) => setMixerLevel(type, i, val)}
+                        color={color}
+                    />
+                </div>
+            ));
+        }
+
+        if (['MUTE', 'SOLO', 'ARM'].includes(viewMode)) {
+            // Render Toggle Switches
+            const typeMap = { 'MUTE': 'mute', 'SOLO': 'solo', 'ARM': 'arm' };
+            const type = typeMap[viewMode];
+            const data = trackStates[type] || Array(8).fill(false);
+
+            return Array(64).fill(null).map((_, i) => {
+                // Whole column toggles track state
+                const col = i % 8;
+                const isActive = data[col];
+                let color = '#222';
+
+                // Colors based on standard Launchpad / DAW conventions
+                if (viewMode === 'MUTE') { color = isActive ? '#ffca00' : '#222'; } // Mute Active (Silent) = Yellow
+                if (viewMode === 'SOLO') { color = isActive ? '#00ccff' : '#222'; } // Solo Active = Blue
+                if (viewMode === 'ARM') { color = isActive ? '#ff0000' : '#222'; } // Arm Active = Red
+
+                return (
+                    <div
+                        key={i}
+                        onClick={() => toggleTrackState(type, col)}
+                        style={{
+                            width: '100%', height: '100%',
+                            backgroundColor: color,
+                            border: '1px solid #444',
+                            opacity: isActive ? 1 : 0.3,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#fff', fontSize: '10px'
+                        }}
+                    >
+                        {/* Show label on bottom row */}
+                        {i >= 56 ? (viewMode === 'MUTE' ? 'M' : viewMode === 'SOLO' ? 'S' : 'R') : ''}
+                    </div>
+                );
+            });
+        }
+
+        if (viewMode === 'STOP') {
+            // Stop Clip View: Red pads in column. Click to stop track.
+            return Array(64).fill(null).map((_, i) => {
+                const col = i % 8;
+                return (
+                    <div
+                        key={i}
+                        onClick={() => {
+                            // Stop Track Logic (Visual for now, Audio Engine needed)
+                            console.log(`Stopping Track ${col}`);
+                            // sequencer.stopTrack(col); // TODO: implement
+                        }}
+                        style={{
+                            width: '100%', height: '100%',
+                            backgroundColor: '#ff4444',
+                            border: '1px solid #444',
+                            opacity: 0.2, // Dim red when not interacting
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer'
+                        }}
+                        onMouseOver={(e) => e.target.style.opacity = 0.8}
+                        onMouseOut={(e) => e.target.style.opacity = 0.2}
+                    >
+                        {i >= 56 ? 'STOP' : ''}
+                    </div>
+                );
+            });
+        }
+
+        // Fallback (Mixer Selection Menu or Default)
+        return <div style={{ color: 'white', padding: 20, gridColumn: 'span 8' }}>Select a Mode from Side Menu</div>;
+    };
+
+    // Zoom Style
+    const originX = bankCoords.x === 0 ? '25%' : '75%';
+    const originY = bankCoords.y === 0 ? '25%' : '75%';
+    const zoomStyle = {
+        transform: isZoomed ? `scale(2.2)` : `scale(0.9)`,
+        transformOrigin: isZoomed ? `${originX} ${originY}` : 'center center',
+        transition: 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        cursor: isZoomed ? 'zoom-out' : 'zoom-in'
     };
 
     return (
         <div className={styles.wrapper} style={zoomStyle}>
-            {/* 1. Top Row (Buttons) */}
+            {/* 1. Top Row */}
             <div className={styles.topSection}>
                 {topButtons.map((label, i) => (
                     <SubButton key={`top-${i}`} label={label} onClick={() => handleTopClick(label)} />
                 ))}
             </div>
 
-            {/* 2. Top Right Corner (Empty/Logo) */}
+            {/* 2. Top Right Corner */}
             <div className={styles.corner}>
                 <div style={{ fontSize: '10px', color: '#666' }}>DAW</div>
             </div>
 
-            {/* 3. Main Pad Grid */}
+            {/* 3. Main Grid */}
             <div className={styles.gridSection}>
-                {/* Neon Bank Border */}
-                <div
-                    className={`${styles.bankBorder} ${isZoomed ? styles.visible : ''}`}
-                    style={{
-                        left: bankCoords.x === 0 ? '-2px' : '262px',
-                        top: bankCoords.y === 0 ? '-2px' : '262px' // Adjusted for border width
-                    }}
-                />
-
-                {pads.map((id) => (
-                    <Pad key={id} id={id} label={keyLabels[id]} />
-                ))}
+                {renderGridContent()}
             </div>
 
-            {/* 4. Side Column (Buttons) */}
+            {/* 4. Side Column */}
             <div className={styles.sideSection}>
                 {sideButtons.map((label, i) => {
-                    const isRecActive = label === 'Rec' && isRecording;
-                    const btnStyle = isRecActive ? { backgroundColor: 'red', borderColor: 'red', color: 'white' } : {};
+                    // Logic for Active State
+                    let isActive = false;
+                    let customStyle = {};
+
+                    if (isSession) {
+                        // In Session Mode, Side Buttons are Scene Launchers. 
+                        // They don't stick "Active" unless playing? 
+                        // For now, let's flash them on click? Or just simple trigger.
+                        // Maybe toggle green if scene is playing? (requires sequencer state)
+                    } else {
+                        // Mixer Mode
+                        if (label === 'Vol' && viewMode === 'VOLUME') isActive = true;
+                        if (label === 'Pan' && viewMode === 'PAN') isActive = true;
+                        if (label === 'Snd A' && viewMode === 'SEND_A') isActive = true;
+                        if (label === 'Snd B' && viewMode === 'SEND_B') isActive = true;
+                        if (label === 'Mute' && viewMode === 'MUTE') { isActive = true; customStyle = { borderColor: '#ffca00', color: '#ffca00', boxShadow: '0 0 15px rgba(255, 202, 0, 0.4)' }; }
+                        if (label === 'Solo' && viewMode === 'SOLO') { isActive = true; customStyle = { borderColor: '#00ccff', color: '#00ccff', boxShadow: '0 0 15px rgba(0, 204, 255, 0.4)' }; }
+                        if (label === 'Stop' && viewMode === 'STOP') { isActive = true; customStyle = { borderColor: '#ff4444', color: '#ff4444', boxShadow: '0 0 15px rgba(255, 68, 68, 0.4)' }; }
+                        if (label === 'Rec' && viewMode === 'ARM') { isActive = true; customStyle = { borderColor: '#ff0000', color: '#ff0000', boxShadow: '0 0 15px rgba(255, 0, 0, 0.4)' }; }
+                    }
 
                     return (
                         <SubButton
                             key={`side-${i}`}
                             label={label}
-                            onClick={() => handleSideClick(label)}
-                            style={btnStyle}
+                            onClick={() => handleSideClick(label, i)}
+                            isActive={isActive}
+                            style={customStyle}
                         />
                     );
                 })}

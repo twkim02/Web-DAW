@@ -40,7 +40,20 @@ class Sampler {
                     console.error(`[Sampler] Failed to load sample for key: ${key}`, err);
                     reject(err);
                 }
-            }).connect(this.destination);
+            });
+
+            // Routing Logic: Pad ID -> Track Column (0-7)
+            const trackIndex = parseInt(key) % 8;
+
+            // Connect to Audio Engine Channel if available
+            import('./AudioEngine').then(({ audioEngine }) => {
+                if (audioEngine.channels && audioEngine.channels[trackIndex]) {
+                    player.connect(audioEngine.channels[trackIndex]);
+                } else {
+                    // Fallback to destination if channel not ready
+                    player.connect(this.destination);
+                }
+            });
 
             this.players.set(key, player);
         });

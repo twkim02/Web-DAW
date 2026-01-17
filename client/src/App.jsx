@@ -48,6 +48,10 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+import AudioController from './components/Audio/AudioController'; // Import it
+
+// ... (other imports)
+
 function App() {
   const isAudioContextReady = useStore((state) => state.isAudioContextReady);
   const setAudioContextReady = useStore((state) => state.setAudioContextReady);
@@ -56,13 +60,17 @@ function App() {
   const padMappings = useStore((state) => state.padMappings);
   const bpm = useStore((state) => state.bpm);
 
-  // Hoisted state selectors (Must be at top level, not inside conditional render)
+  // Hoisted state selectors
   const editingPadId = useStore((state) => state.editingPadId);
   const playingPadId = useStore((state) => state.playingPadId);
   const previewMode = useStore((state) => state.previewMode);
 
+  // Mixer State selectors removed from App to prevent re-renders
+  // They are now in AudioController
+
   const [tempPresets, setTempPresets] = React.useState([]);
 
+  // useEffect for User/Presets (Kept)
   useEffect(() => {
     getCurrentUser().then(userData => {
       if (userData) {
@@ -172,12 +180,15 @@ function App() {
     }
   };
 
+  // RENDER
   return (
     <div className="App">
+      {/* Audio Controller: Syncs Store -> AudioEngine without re-rendering App UI */}
+      <AudioController />
+
       <ErrorBoundary>
-
-
         {!isAudioContextReady ? (
+          // ... (Welcome Modal)
           <div className="overlay">
             <div className="welcome-modal">
               <h1>Web Loop Station</h1>
@@ -186,7 +197,9 @@ function App() {
             </div>
           </div>
         ) : (
+          // ... (Main Layout)
           <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden', display: 'flex' }}>
+            {/* ... Sidebars ... */}
 
             {/* 1. Left Sidebar (Static width) */}
             <LeftSidebar />

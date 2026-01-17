@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { audioEngine } from './AudioEngine'; // Static Import
 
 // Instrument Definitions
 import { SAMPLER_PRESETS } from './instruments/Samplers';
@@ -32,6 +33,7 @@ class InstrumentManager {
         try {
             let instrument;
             let finalType = instrumentType;
+            const trackIndex = parseInt(padId) % 8;
 
             if (SAMPLER_PRESETS[presetId]) {
                 instrument = await this.createSampler(SAMPLER_PRESETS[presetId]);
@@ -45,7 +47,18 @@ class InstrumentManager {
             }
 
             if (instrument) {
-                instrument.connect(this.destination);
+                // Routing Logic
+                // If Mixer Audio Engine is ready and has channel for this track, connect to it.
+                if (audioEngine && audioEngine.channels && audioEngine.channels[trackIndex]) {
+                    // Force disconnect from default destination first (if it was connected implicitly)
+                    instrument.disconnect();
+                    instrument.connect(audioEngine.channels[trackIndex]);
+                    console.log(`[InstrumentManager] Routed Pad ${padId} to Track ${trackIndex}`);
+                } else {
+                    // Fallback to global destination
+                    instrument.connect(this.destination);
+                }
+
                 this.activeInstruments.set(padId, {
                     type: finalType,
                     instance: instrument,
@@ -57,8 +70,6 @@ class InstrumentManager {
             console.error(`[InstrumentManager] Failed to load instrument for Pad ${padId}`, err);
         }
     }
-
-
 
     async createSampler(config) {
         return new Promise((resolve, reject) => {
@@ -132,6 +143,14 @@ class InstrumentManager {
         const item = this.activeInstruments.get(padId);
         if (!item) return;
         if (item.instance.triggerRelease) item.instance.triggerRelease(note);
+    }
+
+    unload(padId) {
+        const item = this.activeInstruments.get(padId);
+        if (item) {
+            item.instance.dispose();
+            this.activeInstruments.delete(padId);
+        }
     }
 
     async loadPreview(type, preset) {

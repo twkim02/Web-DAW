@@ -146,6 +146,40 @@ class Sequencer {
         }
     }
 
+    /**
+     * Stop a specific track (Column 0-7)
+     * In reality, tracks might not align 1:1 with columns if created dynamically.
+     * But for Launchpad Grid workflow, we assume Column N = Track N.
+     * We need to map Column Index to Track ID?
+     * For now, let's just stop ALL clips in that column?
+     * Or if we have `useStore.tracks` as an array, we can index it.
+     */
+    stopTrack(colIndex) {
+        // Find track by index in store
+        const tracks = useStore.getState().tracks;
+        if (tracks[colIndex]) {
+            const trackId = tracks[colIndex].id;
+            const trackData = this.tracks.get(trackId);
+            if (trackData) {
+                trackData.part.stop();
+                console.log(`Stopped Track ${colIndex} (${trackId})`);
+            }
+        } else {
+            // Fallback: Stop all pads in this column?
+            // Since Phase 1 is just pads playing...
+            // Let's stop all active pads in this column (id % 8 === colIndex)
+            console.log(`Stopping Column ${colIndex}`);
+            const activePads = useStore.getState().activePads;
+            Object.keys(activePads).forEach(padId => {
+                if (parseInt(padId) % 8 === colIndex) {
+                    // Stop pad
+                    import('./Sampler').then(({ sampler }) => sampler.stop(padId));
+                    useStore.getState().setPadActive(padId, false);
+                }
+            });
+        }
+    }
+
     clearSequence() {
         // Clear ALL tracks? The user asked to clear sequence before, now we have tracks.
         // Let's interpret "ClearButton" as "Clear All" or maybe remove it in favor of track delete?
@@ -160,6 +194,39 @@ class Sequencer {
     }
 
     // Removed createLoop() as it is replaced by createTrack()
+
+    /**
+     * Launch a Scene (Row)
+     * @param {number} rowIndex 0-7
+     */
+    playScene(rowIndex) {
+        console.log(`[Sequencer] Launching Scene ${rowIndex}`);
+        const startPad = rowIndex * 8;
+        const endPad = startPad + 7;
+
+        for (let i = startPad; i <= endPad; i++) {
+            const mapping = useStore.getState().padMappings[i];
+            if (!mapping || (!mapping.file && !mapping.type)) continue;
+
+            const type = mapping.type || 'sample';
+            const note = mapping.note || 'C4';
+
+            // Visual Feedback
+            useStore.getState().setPadActive(i, true);
+            setTimeout(() => useStore.getState().setPadActive(i, false), 200);
+
+            // Audio Trigger
+            if (['synth', 'piano', 'drums'].includes(type) || mapping.assetId) {
+                // Use Instrument Manager
+                import('./InstrumentManager').then(({ instrumentManager }) => {
+                    instrumentManager.trigger(i, note, '8n');
+                });
+            } else {
+                // Legacy Sample
+                sampler.play(i);
+            }
+        }
+    }
 }
 
 export const sequencer = new Sequencer();
