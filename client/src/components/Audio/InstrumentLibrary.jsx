@@ -32,7 +32,7 @@ const InstrumentLibrary = () => {
                 VIRTUAL INSTRUMENTS
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', alignContent: 'start' }}>
                 {instruments.map(inst => (
                     <div
                         key={inst.id}
@@ -44,19 +44,22 @@ const InstrumentLibrary = () => {
                         }}
                         style={{
                             background: '#222',
-                            marginBottom: '4px',
-                            padding: '12px',
+                            padding: '12px 8px',
                             borderRadius: '4px',
-                            cursor: 'pointer', // Changed to pointer
-                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
                             border: '1px solid #993366',
                             color: '#ff99cc',
                             display: 'flex',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            transition: 'all 0.1s',
+                            overflow: 'hidden'
                         }}
-                        title="Click to Preview"
+                        title={inst.name}
                     >
-                        <span>🎻 {inst.name}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎻 {inst.name}</span>
                     </div>
                 ))}
             </div>

@@ -10,7 +10,7 @@ const SPACE_IMAGES = [
     'https://images.unsplash.com/photo-1506318137071-a8bcbf6dd043?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80'  // Purple Nebula
 ];
 
-const ThreeVisualizer = () => {
+const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc' }) => {
     const mountRef = useRef(null);
 
     useEffect(() => {
@@ -32,63 +32,77 @@ const ThreeVisualizer = () => {
 
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
             renderer.setSize(width, height);
-            renderer.setClearColor(0x000000, 1);
+
+            // Logic: If Dynamic, use black. Else transparent.
+            if (themeType === 'dynamic') {
+                renderer.setClearColor(0x000000, 1);
+            } else {
+                renderer.setClearColor(0x000000, 0);
+            }
 
             if (container) {
                 container.innerHTML = '';
                 container.appendChild(renderer.domElement);
             }
 
-            // --- 2. Random Space Background ---
-            // --- 2. Random Space Background ---
-            const textureLoader = new THREE.TextureLoader();
-            textureLoader.setCrossOrigin('anonymous'); // Enable CORS
-            const randomImage = SPACE_IMAGES[Math.floor(Math.random() * SPACE_IMAGES.length)];
+            // --- 2. Random Space Background (Only for Dynamic) ---
+            if (themeType === 'dynamic') {
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.setCrossOrigin('anonymous');
+                const randomImage = SPACE_IMAGES[Math.floor(Math.random() * SPACE_IMAGES.length)];
 
-            const bgGeometry = new THREE.PlaneGeometry(120, 80); // Increased size
-            const bgMaterial = new THREE.MeshBasicMaterial({
-                color: 0x888888, // Dim it slightly
-                transparent: true,
-                opacity: 0, // Fade in
-            });
+                const bgGeometry = new THREE.PlaneGeometry(120, 80);
+                const bgMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x888888,
+                    transparent: true,
+                    opacity: 0,
+                });
 
-            textureLoader.load(
-                randomImage,
-                (texture) => {
-                    bgMaterial.map = texture;
-                    bgMaterial.needsUpdate = true;
-                    // Fade in effect
-                    let opacity = 0;
-                    const fadeIn = setInterval(() => {
-                        opacity += 0.05;
-                        bgMaterial.opacity = opacity;
-                        if (opacity >= 0.6) clearInterval(fadeIn);
-                    }, 50);
-                },
-                undefined,
-                (err) => {
-                    console.error("Error loading space background:", err);
-                    // Fallback to visible grey if image fails
-                    bgMaterial.color.setHex(0x222222);
-                    bgMaterial.opacity = 1;
+                textureLoader.load(
+                    randomImage,
+                    (texture) => {
+                        bgMaterial.map = texture;
+                        bgMaterial.needsUpdate = true;
+                        let opacity = 0;
+                        const fadeIn = setInterval(() => {
+                            opacity += 0.05;
+                            bgMaterial.opacity = opacity;
+                            if (opacity >= 0.6) clearInterval(fadeIn);
+                        }, 50);
+                    },
+                    undefined,
+                    (err) => {
+                        bgMaterial.color.setHex(0x222222);
+                        bgMaterial.opacity = 1;
+                    }
+                );
+
+                backgroundPlane = new THREE.Mesh(bgGeometry, bgMaterial);
+                backgroundPlane.position.z = -20;
+                scene.add(backgroundPlane);
+
+                // Stars
+                const starGeo = new THREE.BufferGeometry();
+                const starPos = new Float32Array(STAR_COUNT * 3);
+                for (let i = 0; i < STAR_COUNT * 3; i++) {
+                    starPos[i] = (Math.random() - 0.5) * 100;
                 }
-            );
-
-            backgroundPlane = new THREE.Mesh(bgGeometry, bgMaterial);
-            backgroundPlane.position.z = -20;
-            scene.add(backgroundPlane);
-
+                starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+                const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
+                stars = new THREE.Points(starGeo, starMat);
+                scene.add(stars);
+            }
 
             // --- 3. NCS Visualizer (Bars) ---
             const circleGroup = new THREE.Group();
             scene.add(circleGroup);
-            // Thinner, cleaner bars
             const geometry = new THREE.BoxGeometry(0.1, 0.6, 0.05);
-            const material = new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.9 });
+            // Theme Color
+            const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(primaryColor), transparent: true, opacity: 0.9 });
 
             // Inner Glow Ring
             const ringGeo = new THREE.RingGeometry(RADIUS - 0.15, RADIUS - 0.05, 128);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+            const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(primaryColor), side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
             const ring = new THREE.Mesh(ringGeo, ringMat);
             scene.add(ring);
 
@@ -102,145 +116,79 @@ const ThreeVisualizer = () => {
                 bars.push(bar);
             }
 
-            // --- 4. Warp Stars (Overlay) ---
-            const starGeo = new THREE.BufferGeometry();
-            const positions = new Float32Array(STAR_COUNT * 3);
-            const velocities = new Float32Array(STAR_COUNT);
-
-            for (let i = 0; i < STAR_COUNT; i++) {
-                positions[i * 3] = (Math.random() - 0.5) * 400;
-                positions[i * 3 + 1] = (Math.random() - 0.5) * 400;
-                positions[i * 3 + 2] = (Math.random() - 0.5) * 400;
-                velocities[i] = Math.random() * 0.5 + 0.1;
-            }
-            starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-            const starMat = new THREE.PointsMaterial({
-                color: 0xffffff,
-                size: 0.5,
-                transparent: true,
-                opacity: 0.7,
-                map: createCircleTexture()
-            });
-            stars = new THREE.Points(starGeo, starMat);
-            scene.add(stars);
-
-
-            // --- 5. Animation ---
-            const clock = new THREE.Clock();
-
+            // --- 4. Animation ---
             const animate = () => {
                 frameId = requestAnimationFrame(animate);
-                const elapsedTime = clock.getElapsedTime();
-                const data = audioEngine.getAudioData();
 
-                let bassEnergy = 0;
-                let volume = 0;
-
-                if (data) {
-                    const step = Math.floor(data.length / BAR_COUNT);
+                const array = audioEngine.getFrequencyData();
+                if (array && array.length > 0) {
                     for (let i = 0; i < BAR_COUNT; i++) {
-                        const dataIndex = i * step;
-                        let val = data[dataIndex] || -100;
-                        if (!isFinite(val)) val = -100;
-                        const norm = Math.max(0, (val + 100) / 100);
-                        const scaleY = 0.1 + (norm * norm * 9.0);
-
-                        if (bars[i]) {
-                            bars[i].scale.y = scaleY;
-                            // Clean Cyan to White
-                            bars[i].material.color.setHSL(0.5, 1.0, 0.5 + norm * 0.5);
-                        }
-
-                        volume += norm;
-                        if (i < 10) bassEnergy += norm;
+                        const index = Math.floor((i / BAR_COUNT) * array.length * 0.5);
+                        const val = array[index] || 0;
+                        const scale = 1 + (val / 255) * 4;
+                        bars[i].scale.y = scale;
                     }
-                    volume /= BAR_COUNT;
-                    bassEnergy /= 10;
+                    const bass = array[10] || 0;
+                    const scaleBase = 1 + (bass / 255) * 0.1;
+                    ring.scale.set(scaleBase, scaleBase, 1);
                 }
 
-                // Background Pulse
-                if (backgroundPlane) {
-                    const pulse = 1 + (bassEnergy * 0.05);
-                    backgroundPlane.scale.set(pulse, pulse, 1);
-                    // Slow drift
-                    backgroundPlane.rotation.z = Math.sin(elapsedTime * 0.05) * 0.02;
-                }
-
-                // Warp Stars
-                const pos = stars.geometry.attributes.position.array;
-                const speedMultiplier = 1 + (bassEnergy * 15);
-
-                for (let i = 0; i < STAR_COUNT; i++) {
-                    pos[i * 3 + 2] += velocities[i] * speedMultiplier;
-                    if (pos[i * 3 + 2] > 50) pos[i * 3 + 2] = -300;
-                }
-                stars.geometry.attributes.position.needsUpdate = true;
-
-                // Camera Beat Logic
-                camera.position.z = 6 + (bassEnergy * 0.3);
-                circleGroup.rotation.z -= 0.002; // Constant slow spin
+                if (circleGroup) circleGroup.rotation.z -= 0.002;
+                if (stars) stars.rotation.y += 0.0005;
 
                 renderer.render(scene, camera);
             };
+
             animate();
 
-            // --- Resize Handling ---
-            resizeObserver = new ResizeObserver((entries) => {
-                for (let entry of entries) {
-                    const { width, height } = entry.contentRect;
-                    if (camera && renderer) {
-                        camera.aspect = width / height;
-                        camera.updateProjectionMatrix();
-                        renderer.setSize(width, height);
-                    }
-                }
-            });
+            // Resize
+            const handleResize = () => {
+                if (!container) return;
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                renderer.setSize(w, h);
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+            };
 
-            if (container) {
-                resizeObserver.observe(container);
-            }
+            resizeObserver = new ResizeObserver(() => handleResize());
+            resizeObserver.observe(container);
 
-
-        } catch (e) {
-            console.error("ThreeVisualizer Init Error", e);
+        } catch (error) {
+            console.error("Three.js Init Error:", error);
         }
 
+        // Cleanup
         return () => {
-            if (resizeObserver) resizeObserver.disconnect();
             if (frameId) cancelAnimationFrame(frameId);
             if (renderer) renderer.dispose();
-            bars.forEach(b => { b.geometry.dispose(); b.material.dispose(); });
-            if (stars) { stars.geometry.dispose(); stars.material.dispose(); }
-            if (backgroundPlane) { backgroundPlane.geometry.dispose(); backgroundPlane.material.dispose(); }
+            if (mountRef.current && renderer.domElement && mountRef.current.contains(renderer.domElement)) {
+                mountRef.current.removeChild(renderer.domElement);
+            }
+            if (resizeObserver) resizeObserver.disconnect();
+
+            // Dispose Three.js objects
+            bars.forEach(b => {
+                if (b.geometry) b.geometry.dispose();
+                if (b.material) b.material.dispose();
+            });
+            if (scene) {
+                scene.traverse((object) => {
+                    if (object.geometry) object.geometry.dispose();
+                    if (object.material) {
+                        if (object.material.length) {
+                            for (let i = 0; i < object.material.length; ++i) object.material[i].dispose();
+                        } else {
+                            object.material.dispose();
+                        }
+                    }
+                });
+            }
         };
-    }, []);
 
-    function createCircleTexture() {
-        // ... (as before)
-        const matCanvas = document.createElement('canvas');
-        matCanvas.width = matCanvas.height = 32;
-        const matContext = matCanvas.getContext('2d');
-        const texture = new THREE.CanvasTexture(matCanvas);
-        const center = 16;
-        const radius = 16;
-        const gradient = matContext.createRadialGradient(center, center, 0, center, center, radius);
-        gradient.addColorStop(0, 'rgba(255,255,255,1)');
-        gradient.addColorStop(1, 'rgba(255,255,255,0)');
-        matContext.fillStyle = gradient;
-        matContext.fillRect(0, 0, 32, 32);
-        return texture;
-    }
+    }, [themeType, primaryColor]);
 
-    return (
-        <div
-            ref={mountRef}
-            style={{
-                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-                zIndex: 0, pointerEvents: 'none'
-            }}
-        />
-    );
+    return <div ref={mountRef} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0 }} />;
 };
 
 export default ThreeVisualizer;

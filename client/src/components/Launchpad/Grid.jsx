@@ -5,7 +5,11 @@ import useKeyboardMap from '../../hooks/useKeyboardMap';
 import useStore from '../../store/useStore';
 import { sequencer } from '../../audio/Sequencer';
 import SubButton from './SubButton';
+import { THEMES } from '../../constants/themes';
 
+// ... (FaderColumn component kept same) ...
+
+// Fader Column Component
 const FaderColumn = ({ index, type, value, onChange, color }) => {
     // value 0-1. display as 8 segments.
     const segments = 8;
@@ -48,6 +52,18 @@ const Grid = () => {
     const isZoomed = useStore((state) => state.isZoomed);
     const setIsZoomed = useStore((state) => state.setIsZoomed);
     const isRecording = useStore((state) => state.isRecording);
+
+    // Theme
+    const currentThemeId = useStore((state) => state.currentThemeId);
+    const currentTheme = THEMES.find(t => t.id === currentThemeId) || THEMES[0];
+
+    const gridStyle = {
+        '--theme-primary': currentTheme.primaryColor,
+        '--theme-secondary': currentTheme.secondaryColor,
+        '--theme-grid': currentTheme.gridColor,
+        '--theme-text': currentTheme.textColor,
+        color: currentTheme.textColor // Apply text color to grid container
+    };
     const isPlaying = useStore((state) => state.isPlaying);
     const mixerLevels = useStore((state) => state.mixerLevels);
     const setMixerLevel = useStore((state) => state.setMixerLevel);
@@ -252,7 +268,7 @@ const Grid = () => {
     };
 
     return (
-        <div className={styles.wrapper} style={zoomStyle}>
+        <div className={`${styles.wrapper} ${isZoomed ? styles.zoomed : ''}`} style={{ ...zoomStyle, ...gridStyle }}>
             {/* 1. Top Row */}
             <div className={styles.topSection}>
                 {topButtons.map((label, i) => (
@@ -262,7 +278,25 @@ const Grid = () => {
 
             {/* 2. Top Right Corner */}
             <div className={styles.corner}>
-                <div style={{ fontSize: '10px', color: '#666' }}>DAW</div>
+                {/* Temp Logo */}
+                <div style={{
+                    width: '100%', height: '100%',
+                    backgroundImage: `url('/assets/images/logo.png')`, // Mapping specific path? Or explicit URI?
+                    // User uploaded: uploaded_image_1768654310916.png
+                    // I should probably copy this to the public folder first? 
+                    // Or I can use a placeholder for now as "Temp Logo".
+                    // Wait, I cannot use the exact path from the brain to the browser directly usually unless served.
+                    // I will create a simple styled div that SAYS "LOGO" as a placeholder OR
+                    // I will Assume I should put a generic icon first.
+                    // User request: "임시 로고를 추가해" (Add a temp logo).
+                    // I'll make a nice text-based logo or use a generic emoji if I can't serve the file immediately.
+                    // Lets try to make a styled text logo "WEB DAW".
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    background: '#111', borderRadius: '4px', border: '1px solid #333'
+                }}>
+                    <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '10px' }}>WEB</span>
+                    <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}>DAW</span>
+                </div>
             </div>
 
             {/* 3. Main Grid */}

@@ -107,10 +107,6 @@ const Pad = React.memo(({ id, label }) => {
 
                 // CASE C: Instrument
                 if (data.type === 'instrument' && data.instrument) {
-                    const { instrument } = data;
-                    console.log('Dropped Instrument:', instrument.name);
-
-                    // For now, treat instruments as special synths or placeholders
                     updatePadMapping(id, {
                         type: 'synth', // Fallback to synth for now until Sampler has instrument support
                         name: instrument.name,
@@ -118,6 +114,26 @@ const Pad = React.memo(({ id, label }) => {
                         note: 'C3',
                         color: '#ff99cc'
                     });
+                    return;
+                }
+
+                // CASE D: Effect
+                if (data.type === 'effect' && data.effect) {
+                    const { effect } = data;
+                    console.log('Dropped Effect:', effect.name);
+
+                    // Update State
+                    updatePadMapping(id, {
+                        effect: effect, // { type, params, name }
+                        // Maybe change color to indicate FX?
+                        // color: '#00ffcc' 
+                    });
+
+                    // Update Audio Engine (Immediate)
+                    // We need to access InstrumentManager directly here or via a hook.
+                    // Ideally we'd prefer a hook, but `instrumentManager` is imported directly.
+                    instrumentManager.applyEffect(id, effect);
+
                     return;
                 }
 
@@ -169,9 +185,18 @@ const Pad = React.memo(({ id, label }) => {
         padStyle.boxShadow = `0 0 15px ${customColor || '#00ffcc'}, 0 0 30px ${customColor || '#00ffcc'}`;
     }
 
+    // Check if pad has content
+    // Default type is 'sample', so we must check if file exists if type is 'sample'.
+    // If type is NOT 'sample' (e.g. 'synth'), it is assigned.
+    const isAssigned = mapping && (mapping.file || (mapping.type && mapping.type !== 'sample'));
+
     return (
         <button
-            className={`${styles.pad} ${isActive ? styles.active : ''}`}
+            className={`
+                ${styles.pad} 
+                ${isActive ? styles.active : ''} 
+                ${isAssigned && !isActive ? styles.assigned : ''}
+            `}
             style={padStyle}
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
@@ -180,11 +205,6 @@ const Pad = React.memo(({ id, label }) => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            {/* Center Name: User defined name or Original Filename (truncated) */}
-            <span className={styles.padName}>
-                {mapping?.name || (mapping?.originalName ? mapping.originalName.substring(0, 8) + '...' : '')}
-            </span>
-
             {/* Corner Key Label */}
             <span className={styles.keyLabel}>{label}</span>
         </button>

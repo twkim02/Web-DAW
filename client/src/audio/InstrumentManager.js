@@ -9,31 +9,142 @@ import { DRUM_KITS, DRUM_NOTE_MAP } from './instruments/Drums';
 class InstrumentManager {
     constructor() {
         this.activeInstruments = new Map(); // padId -> Instrument Instance
+        this.activeEffects = new Map(); // padId -> { effectNode, config }
         this.destination = Tone.getDestination();
     }
 
     connectTo(node) {
         this.destination = node;
-        // Reconnect all active instruments
-        this.activeInstruments.forEach(inst => {
-            if (inst.connect) inst.connect(this.destination);
+        // Reconnect all active instruments (and their effects if present)
+        this.activeInstruments.forEach((inst, padId) => {
+            this.reconnectPadChain(padId);
         });
     }
 
     /**
-     * Loads an instrument for a specific pad
-     * @param {number} padId 
-     * @param {string} instrumentType 'piano', 'synth', 'drums'
-     * @param {string} presetId Specific preset name
+     * Registers an instrument created externally (e.g. by Sampler.js)
+     * allows InstrumentManager to control its FX chain.
      */
+    registerInstrument(padId, type, instance) {
+        console.log(`[InstrumentManager] Registering external ${type} for Pad ${padId}`);
+        this.activeInstruments.set(padId, {
+            type: type,
+            instance: instance,
+            preset: 'external'
+        });
+
+        // If there was a pending effect, apply it now
+        if (this.activeEffects.has(padId)) {
+            this.reconnectPadChain(padId);
+        }
+    }
+
+    // Helper to wire Instrument -> [Effect] -> Destination/Channel
+    reconnectPadChain(padId) {
+        const item = this.activeInstruments.get(padId);
+        if (!item) return;
+
+        const instrument = item.instance;
+        const effectItem = this.activeEffects.get(padId);
+        const trackIndex = parseInt(padId) % 8;
+
+        // Determine Final Destination (Mixer Channel or Global)
+        let outputNode = this.destination;
+        if (audioEngine && audioEngine.channels && audioEngine.channels[trackIndex]) {
+            outputNode = audioEngine.channels[trackIndex];
+        }
+
+        // 1. Disconnect everything first to be safe
+        instrument.disconnect();
+        if (effectItem) effectItem.effectNode.disconnect();
+
+        // 2. Connect Chain
+        if (effectItem) {
+            instrument.connect(effectItem.effectNode);
+            effectItem.effectNode.connect(outputNode);
+            console.log(`[AudioChain] Pad ${padId}: Instrument -> ${effectItem.config.name} -> Track ${trackIndex}`);
+        } else {
+            instrument.connect(outputNode);
+            console.log(`[AudioChain] Pad ${padId}: Instrument -> Track ${trackIndex}`);
+        }
+    }
+
+    /**
+     * Applies an insert effect to a specific pad
+     * @param {number} padId 
+     * @param {object} effectConfig { type, params, name }
+     */
+    applyEffect(padId, effectConfig) {
+        console.log(`[InstrumentManager] Applying Effect on Pad ${padId}:`, effectConfig);
+
+        // 1. Dispose old effect if exists
+        const oldEffect = this.activeEffects.get(padId);
+        if (oldEffect) {
+            oldEffect.effectNode.disconnect();
+            oldEffect.effectNode.dispose();
+            this.activeEffects.delete(padId);
+        }
+
+        // 2. Create New Effect Node
+        let effectNode;
+        try {
+            switch (effectConfig.type) {
+                case 'distortion':
+                    effectNode = new Tone.Distortion(effectConfig.params.distortion);
+                    break;
+                case 'bitcrusher':
+                    effectNode = new Tone.BitCrusher(effectConfig.params.bits);
+                    break;
+                case 'chorus':
+                    effectNode = new Tone.Chorus(effectConfig.params.frequency, effectConfig.params.delayTime, effectConfig.params.depth).start();
+                    break;
+                case 'phaser':
+                    effectNode = new Tone.Phaser(effectConfig.params);
+                    break;
+                case 'autowah':
+                    effectNode = new Tone.AutoWah(effectConfig.params.baseFrequency, effectConfig.params.octaves, effectConfig.params.sensitivity);
+                    break;
+                case 'chebyshev':
+                    effectNode = new Tone.Chebyshev(effectConfig.params.order);
+                    break;
+                case 'tremolo':
+                    effectNode = new Tone.Tremolo(effectConfig.params.frequency, effectConfig.params.depth).start();
+                    break;
+                case 'pitchshift':
+                    effectNode = new Tone.PitchShift(effectConfig.params.pitch);
+                    break;
+                default:
+                    console.warn('Unknown effect type:', effectConfig.type);
+                    return;
+            }
+        } catch (e) {
+            console.error('Error creating effect:', e);
+            return;
+        }
+
+        // 3. Store and Reconnect
+        if (effectNode) {
+            this.activeEffects.set(padId, {
+                effectNode: effectNode,
+                config: effectConfig
+            });
+            this.reconnectPadChain(padId);
+        }
+    }
+
     async loadInstrument(padId, instrumentType, presetId) {
-        this.unload(padId);
+        this.unload(padId); // Unload old instrument (and its effect? No, keep effect if just changing instrument?)
+        // Currently unload() disposes instrument. 
+        // Let's decide: Does changing instrument clear effect? Usually yes in simple samplers.
+        // Let's keep effect for now to allow "Swap instrument, keep distortion".
+        // But need to ensure `unload` doesn't kill effect if we want to keep it.
+        // Actually, `unload` splits instrument from chain.
+
         console.log(`[InstrumentManager] Loading ${instrumentType} (${presetId}) for Pad ${padId}`);
 
         try {
             let instrument;
             let finalType = instrumentType;
-            const trackIndex = parseInt(padId) % 8;
 
             if (SAMPLER_PRESETS[presetId]) {
                 instrument = await this.createSampler(SAMPLER_PRESETS[presetId]);
@@ -47,23 +158,15 @@ class InstrumentManager {
             }
 
             if (instrument) {
-                // Routing Logic
-                // If Mixer Audio Engine is ready and has channel for this track, connect to it.
-                if (audioEngine && audioEngine.channels && audioEngine.channels[trackIndex]) {
-                    // Force disconnect from default destination first (if it was connected implicitly)
-                    instrument.disconnect();
-                    instrument.connect(audioEngine.channels[trackIndex]);
-                    console.log(`[InstrumentManager] Routed Pad ${padId} to Track ${trackIndex}`);
-                } else {
-                    // Fallback to global destination
-                    instrument.connect(this.destination);
-                }
-
                 this.activeInstruments.set(padId, {
                     type: finalType,
                     instance: instrument,
                     preset: presetId
                 });
+
+                // Wire it up!
+                this.reconnectPadChain(padId);
+
                 console.log(`[InstrumentManager] Loaded ${finalType} (${presetId})`);
             }
         } catch (err) {
@@ -85,10 +188,7 @@ class InstrumentManager {
     createSynth(presetId) {
         const config = SYNTH_PRESETS[presetId] || SYNTH_PRESETS['default'];
         const synth = new Tone.PolySynth(Tone.Synth, config.params);
-
-        // Apply extra effects if defined in preset (simplified for now)
         if (config.volume) synth.volume.value = config.volume;
-
         return synth;
     }
 
@@ -106,26 +206,16 @@ class InstrumentManager {
         });
     }
 
-    /**
-     * Trigger a note on the pad's instrument
-     * @param {number} padId 
-     * @param {string} note 
-     * @param {string} duration 
-     */
-    trigger(padId, note, duration = '8n') {
+    trigger(padId, note, duration = '8n', time) {
         const item = this.activeInstruments.get(padId);
         if (!item) return;
-
         const { type, instance } = item;
 
         if (type === 'piano' || type === 'synth') {
-            // Polyphonic trigger
-            instance.triggerAttackRelease(note, duration);
+            instance.triggerAttackRelease(note, duration, time);
         } else if (type === 'drums') {
-            const sample = DRUM_NOTE_MAP[note] || note; // Map C3->kick, or use 'kick' if passed directly
-            if (instance.has(sample)) {
-                instance.player(sample).start();
-            }
+            const sample = DRUM_NOTE_MAP[note] || note;
+            if (instance.has(sample)) instance.player(sample).start(time);
         }
     }
 
@@ -133,7 +223,7 @@ class InstrumentManager {
         const item = this.activeInstruments.get(padId);
         if (!item) return;
         if (item.type === 'drums') {
-            this.trigger(padId, note); // Drums just trigger
+            this.trigger(padId, note);
             return;
         }
         if (item.instance.triggerAttack) item.instance.triggerAttack(note);
@@ -146,23 +236,49 @@ class InstrumentManager {
     }
 
     unload(padId) {
+        // Unload Instrument
         const item = this.activeInstruments.get(padId);
         if (item) {
             item.instance.dispose();
             this.activeInstruments.delete(padId);
         }
+
+        // OPTIONAL: Decide if we unload effect too?
+        // For now, let's KEEP effects when unloading instrument, 
+        // to support "Replace Sample" without losing FX.
+        // Only explicitly remove effect via UI or specific method.
     }
 
+    // Call this if user explicitly clears pad or effect
+    removeEffect(padId) {
+        const oldEffect = this.activeEffects.get(padId);
+        if (oldEffect) {
+            oldEffect.effectNode.disconnect();
+            oldEffect.effectNode.dispose();
+            this.activeEffects.delete(padId);
+            this.reconnectPadChain(padId); // Reconnect instrument directly to output
+        }
+    }
+
+    /**
+     * Re-evaluates routing for all active instruments.
+     * Call this after AudioEngine is initialized to ensure everything connects to the Mixer.
+     */
+    refreshRouting() {
+        console.log('[InstrumentManager] Refreshing Routing for all instruments...');
+        this.activeInstruments.forEach((_, padId) => {
+            this.reconnectPadChain(padId);
+        });
+    }
+
+    // ... Preview methods unchanged ...
     async loadPreview(type, preset) {
         if (this.previewInstance) {
             this.previewInstance.dispose();
             this.previewInstance = null;
         }
 
-        console.log(`[InstrumentManager] Loading Preview: ${type} (${preset})`);
-
         let instrument;
-
         if (SAMPLER_PRESETS[preset]) {
             instrument = await this.createSampler(SAMPLER_PRESETS[preset]);
             this.previewType = 'sampler';
@@ -199,34 +315,27 @@ class InstrumentManager {
     startPreviewNote(note) {
         if (!this.previewInstance) return;
         if (Tone.context.state !== 'running') Tone.start();
-
         if (this.previewType === 'sampler' || this.previewType === 'piano' || this.previewType === 'synth') {
             if (this.previewInstance.triggerAttack) this.previewInstance.triggerAttack(note);
         } else if (this.previewType === 'drums') {
             const sample = DRUM_NOTE_MAP[note] || note;
-            if (this.previewInstance.has(sample)) {
-                this.previewInstance.player(sample).start();
-            }
+            if (this.previewInstance.has(sample)) this.previewInstance.player(sample).start();
         }
     }
 
     stopPreviewNote(note) {
         if (!this.previewInstance) return;
-        if (this.previewInstance.triggerRelease) {
-            this.previewInstance.triggerRelease(note);
-        }
+        if (this.previewInstance.triggerRelease) this.previewInstance.triggerRelease(note);
     }
 
     async startRecording() {
         if (this.recorder && this.recorder.state !== 'started') {
-            console.log('[InstrumentManager] Recording Started...');
             this.recorder.start();
         }
     }
 
     async stopRecording() {
         if (this.recorder && this.recorder.state === 'started') {
-            console.log('[InstrumentManager] Recording Stopped.');
             const blob = await this.recorder.stop();
             return blob;
         }

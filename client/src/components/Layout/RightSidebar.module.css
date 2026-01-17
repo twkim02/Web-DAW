@@ -8,6 +8,8 @@
   flex-direction: column;
   overflow-y: auto;
   backdrop-filter: blur(10px);
+  z-index: 200;
+  /* Ensure on top of Main */
 }
 
 .sidebarContent {

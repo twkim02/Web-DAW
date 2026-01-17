@@ -12,7 +12,8 @@ const PadSettingsModal = () => {
         name: '',
         type: 'sample',
         mode: 'one-shot',
-        color: '#FFFFFF'
+        color: '#FFFFFF',
+        chokeGroup: ''
     });
 
     useEffect(() => {
@@ -22,7 +23,8 @@ const PadSettingsModal = () => {
                 name: current?.name || current?.originalName || '',
                 type: current?.type || 'sample',
                 mode: current?.mode || 'one-shot',
-                color: current?.color || '#FFFFFF'
+                color: current?.color || '#FFFFFF',
+                chokeGroup: current?.chokeGroup || ''
             });
         }
     }, [editingPadId, padMappings]);
@@ -97,6 +99,25 @@ const PadSettingsModal = () => {
                         </div>
                     </div>
 
+                    {/* 2.5 Choke Group (New) */}
+                    <div className={styles.fieldGroup}>
+                        <label>CHOKE GROUP (MUTE GROUP)</label>
+                        <select
+                            value={formState.chokeGroup}
+                            onChange={(e) => handleChange('chokeGroup', e.target.value)}
+                            className={styles.select}
+                        >
+                            <option value="">None</option>
+                            <option value="1">Group 1 (Vocals)</option>
+                            <option value="2">Group 2 (Drums)</option>
+                            <option value="3">Group 3</option>
+                            <option value="4">Group 4</option>
+                        </select>
+                        <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '5px' }}>
+                            Pads in the same group will cut each other off.
+                        </div>
+                    </div>
+
                     {/* 3. Color Grid */}
                     <div className={styles.fieldGroup}>
                         <label>LED COLOR</label>
@@ -111,12 +132,44 @@ const PadSettingsModal = () => {
                             ))}
                         </div>
                     </div>
+                </div>
 
-                    {/* Footer Actions */}
-                    <div className={styles.footer}>
-                        <button className={styles.cancelBtn} onClick={handleClose}>CANCEL</button>
-                        <button className={styles.saveBtn} onClick={handleSave}>SAVE CHANGES</button>
+                {/* 4. Audio Tools (Quantize) */}
+                {formState.type === 'sample' && (
+                    <div className={styles.fieldGroup}>
+                        <label>AUDIO TOOLS</label>
+                        <div className={styles.row}>
+                            <button
+                                className={styles.toolBtn}
+                                onClick={() => {
+                                    // Dynamic Import to avoid circular deps if any, though explicit import is usually fine.
+                                    // We need current BPM from store
+                                    const bpm = useStore.getState().bpm;
+                                    import('../../audio/Sampler').then(({ sampler }) => {
+                                        const result = sampler.quantizeSample(editingPadId, bpm);
+                                        if (result) {
+                                            alert(`Quantized to ${result.numBars} Bar(s).\nTrimmed Start: ${result.startOffset.toFixed(3)}s`);
+                                            // Update mode to loop automatically?
+                                            handleChange('mode', 'loop');
+                                        } else {
+                                            alert('Failed to quantize. Sample not loaded?');
+                                        }
+                                    });
+                                }}
+                            >
+                                AUTO QUANTIZE (TRIM & LOOP)
+                            </button>
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '5px' }}>
+                            Trims silence and loops to nearest bar based on global BPM.
+                        </div>
                     </div>
+                )}
+
+                {/* Footer Actions */}
+                <div className={styles.footer}>
+                    <button className={styles.cancelBtn} onClick={handleClose}>CANCEL</button>
+                    <button className={styles.saveBtn} onClick={handleSave}>SAVE CHANGES</button>
                 </div>
             </div>
         </div>

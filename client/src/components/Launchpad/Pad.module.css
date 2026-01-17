@@ -35,25 +35,16 @@
   pointer-events: none;
 }
 
-/* Pad Name (Center) */
-.padName {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 9px;
-  /* Explicit pixel size for clarity */
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
-  text-align: center;
-  pointer-events: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 0;
-  width: 98%;
-  /* Maximize width */
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-  z-index: 2;
-  letter-spacing: 0;
-  /* Remove spacing to fit more text */
-  text-transform: uppercase;
-  line-height: 1.1;
+/* Assigned State (Loaded) */
+.assigned {
+  background-color: rgba(200, 200, 200, 0.15);
+  /* Subtle White */
+  border-color: rgba(255, 255, 255, 0.5);
+  /* Stronger Border */
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05);
+}
+
+.assigned:hover {
+  background-color: rgba(200, 200, 200, 0.3);
+  border-color: rgba(255, 255, 255, 0.8);
 }

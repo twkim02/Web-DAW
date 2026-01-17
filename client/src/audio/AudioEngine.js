@@ -46,6 +46,10 @@ class AudioEngine {
             // Master Buss
             this.masterBuss = new Tone.Gain(1).toDestination();
 
+            // Initialize Analyser for Visualizer
+            this.analyser = new Tone.Analyser("fft", 256);
+            this.masterBuss.connect(this.analyser);
+
             // Connect Returns to Master
             this.reverb.connect(this.masterBuss);
             this.delay.connect(this.masterBuss);
@@ -125,7 +129,12 @@ class AudioEngine {
             });
 
 
-            console.log('[AudioEngine] 8 Mixer Channels Initialized');
+
+
+            // Force Re-routing of existing instruments to these new channels
+            import('./InstrumentManager').then(({ instrumentManager }) => {
+                instrumentManager.refreshRouting();
+            });
 
             // ... (rest of init)
 
@@ -195,6 +204,40 @@ class AudioEngine {
     getAudioData() {
         if (!this.analyser) return null;
         return this.analyser.getValue();
+    }
+
+    getFrequencyData() {
+        if (!this.analyser) return new Uint8Array(0);
+        const dbData = this.analyser.getValue(); // Float32Array in dB
+        const byteData = new Uint8Array(dbData.length);
+        for (let i = 0; i < dbData.length; i++) {
+            let val = dbData[i];
+            // Map -100dB to 0, -30dB to 255
+            if (val === -Infinity) val = -100;
+            val = (val + 100) * 3;
+            if (val < 0) val = 0;
+            if (val > 255) val = 255;
+            byteData[i] = val;
+        }
+        return byteData;
+    }
+
+    setBpm(bpm) {
+        if (Tone.Transport && isFinite(bpm)) {
+            Tone.Transport.bpm.value = bpm;
+            console.log(`[AudioEngine] BPM updated to ${bpm}`);
+        }
+    }
+
+    setMetronome(isOn) {
+        if (this.metronomePart) {
+            this.metronomePart.mute = !isOn;
+            console.log(`[AudioEngine] Metronome ${isOn ? 'ON' : 'OFF'}`);
+
+            // Ensure Transport is running if Metronome is ON? 
+            // Usually Metronome only clicks when Transport is running.
+            // We rely on Global Play/Stop for Transport.
+        }
     }
 }
 

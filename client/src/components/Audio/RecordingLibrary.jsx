@@ -100,9 +100,9 @@ const RecordingLibrary = () => {
                 {isRecording ? '⏺ STOP RECORDING' : '🔴 START RECORDING'}
             </button>
 
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', alignContent: 'start' }}>
                 {recordings.length === 0 && (
-                    <div style={{ fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>No recordings yet.</div>
+                    <div style={{ fontSize: '0.8rem', color: '#666', textAlign: 'center', gridColumn: 'span 2' }}>No recordings yet.</div>
                 )}
 
                 {recordings.map(rec => (
@@ -112,17 +112,20 @@ const RecordingLibrary = () => {
                         onDragStart={(e) => handleDragStart(e, rec)}
                         style={{
                             background: '#222',
-                            marginBottom: '4px',
-                            padding: '10px',
+                            padding: '8px',
                             borderRadius: '4px',
                             cursor: 'grab',
-                            fontSize: '0.85rem',
+                            fontSize: '0.75rem',
                             border: '1px solid #663333',
-                            color: '#ffcccc'
+                            color: '#ffcccc',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                            overflow: 'hidden'
                         }}
                     >
-                        <div>🎤 {rec.name}</div>
-                        <div style={{ fontSize: '0.7rem', color: '#888' }}>{rec.date.toLocaleTimeString()}</div>
+                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 'bold' }}>🎤 {rec.name}</div>
+                        <div style={{ fontSize: '0.65rem', color: '#888' }}>{rec.date.toLocaleTimeString()}</div>
                     </div>
                 ))}
             </div>

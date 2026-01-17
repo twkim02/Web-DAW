@@ -26,7 +26,7 @@ const SynthLibrary = () => {
                 SYNTHESIZERS
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', alignContent: 'start' }}>
                 {presets.map(preset => (
                     <div
                         key={preset.id}
@@ -34,18 +34,23 @@ const SynthLibrary = () => {
                         onDragStart={(e) => handleDragStart(e, preset)}
                         style={{
                             background: '#222',
-                            marginBottom: '4px',
-                            padding: '12px',
+                            padding: '12px 8px',
                             borderRadius: '4px',
                             cursor: 'grab',
-                            fontSize: '0.85rem',
+                            fontSize: '0.75rem',
                             border: '1px solid #336699',
                             color: '#99ccff',
                             display: 'flex',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            transition: 'all 0.1s',
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap'
                         }}
+                        title={preset.name}
                     >
-                        <span>🎹 {preset.name}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>🎹 {preset.name}</span>
                     </div>
                 ))}
             </div>

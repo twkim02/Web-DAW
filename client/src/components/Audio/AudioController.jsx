@@ -6,6 +6,7 @@ const AudioController = () => {
     // Mixer State Selectors for Audio Engine Sync
     const mixerLevels = useStore((state) => state.mixerLevels);
     const trackStates = useStore((state) => state.trackStates);
+    const bpm = useStore((state) => state.bpm); // Select BPM
 
     // --- Mixer Audio Sync Effect ---
     useEffect(() => {
@@ -21,6 +22,17 @@ const AudioController = () => {
             });
         }
     }, [mixerLevels, trackStates]);
+
+    // --- BPM Sync Effect ---
+    useEffect(() => {
+        audioEngine.setBpm(bpm);
+    }, [bpm]);
+
+    // --- Metronome Sync Effect ---
+    const isMetronomeOn = useStore((state) => state.isMetronomeOn);
+    useEffect(() => {
+        audioEngine.setMetronome(isMetronomeOn);
+    }, [isMetronomeOn]);
 
     return null; // This component handles side effects only
 };

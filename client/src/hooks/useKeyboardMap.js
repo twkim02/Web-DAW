@@ -19,16 +19,36 @@ const useKeyboardMap = () => {
 
         const handleKeyDown = (e) => {
             if (e.repeat) return;
+
+            // 1. Ignore if typing in an input
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
             // Disable global map if a modal is open (editingPadId is set, or Playing Mode, or Preview Mode)
             const state = useStore.getState();
             if (state.editingPadId !== null || state.playingPadId !== null || state.previewMode.isOpen) return;
 
             const code = e.code;
-            const key = e.key.toLowerCase(); // Keep for arrows check? Arrows have codes too.
+
+            // Global Transport Toggle (Space)
+            if (code === 'Space') {
+                e.preventDefault();
+                import('tone').then(Tone => {
+                    if (Tone.Transport.state === 'started') {
+                        Tone.Transport.pause();
+                        console.log('Transport Paused');
+                    } else {
+                        Tone.Transport.start();
+                        console.log('Transport Started');
+                    }
+                });
+                return;
+            }
 
             // Arrow Keys for Bank Navigation (Auto Zoom In)
             if (code === 'ArrowLeft') { e.preventDefault(); useStore.getState().moveBank(-1, 0); useStore.getState().setIsZoomed(true); return; }
             if (code === 'ArrowRight') { e.preventDefault(); useStore.getState().moveBank(1, 0); useStore.getState().setIsZoomed(true); return; }
+            if (code === 'ArrowUp') { e.preventDefault(); useStore.getState().moveBank(0, -1); useStore.getState().setIsZoomed(true); return; }
+            if (code === 'ArrowDown') { e.preventDefault(); useStore.getState().moveBank(0, 1); useStore.getState().setIsZoomed(true); return; }
 
             // --- Mixer Mode Shortcuts (Right Hand) ---
             const setViewMode = useStore.getState().setViewMode;
@@ -60,6 +80,15 @@ const useKeyboardMap = () => {
                 setViewMode('STOP'); // Fast Stop Access
                 return;
             }
+
+            // --- Scene Launch Keys (5, T, G, B) ---
+            const bankCoords = useStore.getState().bankCoords;
+            const bankOffset = bankCoords.y * 4; // Top Bank = 0, Bottom Bank = 4
+
+            if (code === 'Digit5') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 0)); return; }
+            if (code === 'KeyT') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 1)); return; }
+            if (code === 'KeyG') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 2)); return; }
+            if (code === 'KeyB') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 3)); return; }
 
             // Bank Logic
             if (CODE_MAP.hasOwnProperty(code)) {

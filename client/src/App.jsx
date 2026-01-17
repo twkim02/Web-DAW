@@ -11,6 +11,7 @@ import LeftSidebar from './components/Layout/LeftSidebar';
 import RightSidebar from './components/Layout/RightSidebar';
 import PadSettingsModal from './components/Settings/PadSettingsModal';
 import BackgroundVisualizer from './components/Visualizer/BackgroundVisualizer';
+import { THEMES } from './constants/themes';
 import './App.css';
 
 class ErrorBoundary extends React.Component {
@@ -59,11 +60,24 @@ function App() {
   const setUser = useStore((state) => state.setUser);
   const padMappings = useStore((state) => state.padMappings);
   const bpm = useStore((state) => state.bpm);
+  const setBpm = useStore((state) => state.setBpm);
 
   // Hoisted state selectors
   const editingPadId = useStore((state) => state.editingPadId);
   const playingPadId = useStore((state) => state.playingPadId);
   const previewMode = useStore((state) => state.previewMode);
+  const isMetronomeOn = useStore((state) => state.isMetronomeOn);
+  const launchQuantization = useStore((state) => state.launchQuantization);
+  const setIsMetronomeOn = useStore((state) => state.setIsMetronomeOn);
+  // Theme Hooks
+  const currentThemeId = useStore((state) => state.currentThemeId);
+  const currentTheme = THEMES.find(t => t.id === currentThemeId) || THEMES[0];
+
+  // Sidebar Visibility Selectors
+  const isLeftSidebarOpen = useStore((state) => state.isLeftSidebarOpen);
+  const isRightSidebarOpen = useStore((state) => state.isRightSidebarOpen);
+
+  const [showVisualizer, setShowVisualizer] = React.useState(true); // Default ON
 
   // Mixer State selectors removed from App to prevent re-renders
   // They are now in AudioController
@@ -128,21 +142,15 @@ function App() {
   };
 
   const handleStart = async () => {
-    console.log('[App] handleStart clicked');
     try {
-      // 1. Explicitly start Tone.js context from the user gesture event
-      console.log('[App] Calling Tone.start() directly');
+      // 1. Explicitly start Tone.js context
       await import('tone').then(t => t.start());
-      console.log('[App] Tone.start() resolved');
 
       // 2. Initialize Audio Engine (synths, etc.)
-      console.log('[App] Calling audioEngine.init()');
       await audioEngine.init();
-      console.log('[App] audioEngine initialized');
 
       // 3. Update State
       setAudioContextReady(true);
-      console.log('[App] setAudioContextReady(true) executed');
 
     } catch (e) {
       console.error('[App] Start Error:', e);
@@ -201,7 +209,7 @@ function App() {
           <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden', display: 'flex' }}>
             {/* ... Sidebars ... */}
 
-            {/* 1. Left Sidebar (Static width) */}
+            {/* 1. Left Sidebar (Absolute overlay) */}
             <LeftSidebar />
 
             {/* 2. Main Content (Flex Grow) */}
@@ -213,13 +221,122 @@ function App() {
               alignItems: 'center',
               zIndex: 10
             }}>
-              <React.Suspense fallback={null}>
-                <BackgroundVisualizer />
-              </React.Suspense>
+              {/* ... content */}
+              {/* Dynamic Theme Visualizer (Always rendered if toggled, adapts to theme) */}
+              {showVisualizer && (
+                <React.Suspense fallback={null}>
+                  <BackgroundVisualizer
+                    themeType={currentTheme.type}
+                    primaryColor={currentTheme.primaryColor}
+                  />
+                </React.Suspense>
+              )}
 
-              {/* Header Controls (User/Preset) */}
-              <div style={{ position: 'absolute', top: '20px', right: '40px', display: 'flex', gap: '10px', zIndex: 100 }}>
-                {/* ... existing header controls ... */}
+              {/* Static Theme Background (Rendered behind visualizer for non-dynamic themes) */}
+              {currentTheme.type !== 'dynamic' && (
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                  background: currentTheme.background,
+                  zIndex: -1
+                }} />
+              )}
+
+              {/* ... Header ... */}
+              <div style={{ position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 100 }}>
+                {/* Visualizer Toggle */}
+                <button
+                  onClick={() => setShowVisualizer(!showVisualizer)}
+                  style={{
+                    background: showVisualizer ? 'rgba(0, 255, 204, 0.2)' : 'rgba(17, 17, 17, 0.6)',
+                    backdropFilter: 'blur(10px)',
+                    border: showVisualizer ? '1px solid #00ffcc' : '1px solid rgba(255,255,255,0.1)',
+                    color: showVisualizer ? '#00ffcc' : '#888',
+                    padding: '8px 12px',
+                    borderRadius: '30px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s',
+                    display: 'flex', alignItems: 'center', gap: '5px'
+                  }}
+                  title="Toggle Visualizer"
+                >
+                  {showVisualizer ? 'VIS ON' : 'VIS OFF'}
+                </button>
+
+                {/* BPM Control */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  background: 'rgba(17, 17, 17, 0.6)',
+                  backdropFilter: 'blur(10px)',
+                  padding: '6px 12px',
+                  borderRadius: '30px',
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <label style={{ color: '#888', fontSize: '0.8rem', fontWeight: 'bold' }}>BPM</label>
+                  <input
+                    type="number"
+                    value={bpm}
+                    onChange={(e) => setBpm(parseInt(e.target.value) || 120)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#00ffcc',
+                      width: '40px',
+                      textAlign: 'center',
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Metronome Toggle */}
+                <button
+                  onClick={() => setIsMetronomeOn(!isMetronomeOn)}
+                  style={{
+                    background: isMetronomeOn ? 'rgba(255, 204, 0, 0.2)' : 'rgba(17, 17, 17, 0.6)',
+                    backdropFilter: 'blur(10px)',
+                    border: isMetronomeOn ? '1px solid #ffcc00' : '1px solid rgba(255,255,255,0.1)',
+                    color: isMetronomeOn ? '#ffcc00' : '#888',
+                    padding: '8px 12px',
+                    borderRadius: '30px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s',
+                    display: 'flex', alignItems: 'center', gap: '5px'
+                  }}
+                  title="Toggle Metronome"
+                >
+                  METRO
+                </button>
+
+                {/* Quantize Selector */}
+                <select
+                  value={launchQuantization}
+                  onChange={(e) => setLaunchQuantization(e.target.value)}
+                  style={{
+                    background: 'rgba(17, 17, 17, 0.6)',
+                    backdropFilter: 'blur(10px)',
+                    color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    padding: '6px 12px',
+                    borderRadius: '30px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  <option value="none">Q: None</option>
+                  <option value="1m">Q: 1 Bar</option>
+                  <option value="4n">Q: 1/4 Note</option>
+                  <option value="8n">Q: 1/8 Note</option>
+                  <option value="16n">Q: 1/16 Note</option>
+                </select>
+
+                {/* User / Login */}
                 {user ? (
                   <div style={{
                     display: 'flex', gap: '10px', alignItems: 'center',
@@ -305,28 +422,67 @@ function App() {
                     <option key={p.id} value={p.id} style={{ background: '#111' }}>{p.title}</option>
                   ))}
                 </select>
+
+                {/* Theme Selector (New) */}
+                <select
+                  value={currentThemeId}
+                  onChange={(e) => useStore.getState().setThemeId(e.target.value)}
+                  style={{
+                    background: 'rgba(17, 17, 17, 0.6)',
+                    backdropFilter: 'blur(10px)',
+                    color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    padding: '6px 12px',
+                    borderRadius: '30px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <option value="cosmic">🚀 Cosmic</option>
+                  <option value="neon">🌃 Neon</option>
+                  <option value="nature">🌿 Nature</option>
+                  <option value="minimal">⚫ Minimal</option>
+                  <option value="nature">🌿 Nature</option>
+                  <option value="minimal">⚫ Minimal</option>
+                </select>
               </div>
 
-              {/* Central Grid */}
+              {/* ... central grid ... */}
               <Grid />
 
-              {/* Modals & Overlays */}
-              {editingPadId !== null && (
-                <PadSettingsModal
-                  padId={editingPadId}
-                  onClose={() => useStore.getState().setEditingPadId(null)}
-                />
-              )}
+            </main>
 
-              {playingPadId !== null && (
+            {/* 3. Right Sidebar (Absolute overlay) */}
+            <RightSidebar />
+
+            {/* --- Modals (Root Level for High Z-Index) --- */}
+            {/* Pad Settings Modal */}
+            {editingPadId !== null && (
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ pointerEvents: 'auto' }}>
+                  <PadSettingsModal
+                    padId={editingPadId}
+                    onClose={() => useStore.getState().setEditingPadId(null)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Virtual Piano */}
+            {playingPadId !== null && (
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
                 <VirtualPiano
                   padId={playingPadId}
                   instrumentManager={instrumentManager}
                   onClose={() => useStore.getState().setPlayingPadId(null)}
                 />
-              )}
+              </div>
+            )}
 
-              {previewMode.isOpen && previewMode.type !== 'drums' && (
+            {/* Preview Mode Piano/Drums */}
+            {previewMode.isOpen && previewMode.type !== 'drums' && (
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
                 <VirtualPiano
                   previewMode={true}
                   type={previewMode.type}
@@ -334,9 +490,11 @@ function App() {
                   instrumentManager={instrumentManager}
                   onClose={() => useStore.getState().setPreviewMode(false)}
                 />
-              )}
+              </div>
+            )}
 
-              {previewMode.isOpen && previewMode.type === 'drums' && (
+            {previewMode.isOpen && previewMode.type === 'drums' && (
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
                 <VirtualDrums
                   previewMode={true}
                   type={previewMode.type}
@@ -344,11 +502,8 @@ function App() {
                   instrumentManager={instrumentManager}
                   onClose={() => useStore.getState().setPreviewMode(false)}
                 />
-              )}
-            </main>
-
-            {/* 3. Right Sidebar (Static width) */}
-            <RightSidebar />
+              </div>
+            )}
           </div>
         )
         }

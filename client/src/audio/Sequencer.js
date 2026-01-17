@@ -1,6 +1,8 @@
 import * as Tone from 'tone';
 import useStore from '../store/useStore';
 import { sampler } from './Sampler';
+import { instrumentManager } from './InstrumentManager';
+import { audioEngine } from './AudioEngine';
 
 class Sequencer {
     constructor() {
@@ -201,29 +203,52 @@ class Sequencer {
      */
     playScene(rowIndex) {
         console.log(`[Sequencer] Launching Scene ${rowIndex}`);
+        const state = useStore.getState();
         const startPad = rowIndex * 8;
         const endPad = startPad + 7;
 
+        // --- Scheduling Logic (Same as usePadTrigger) ---
+        const quantization = state.launchQuantization;
+        let startTime = undefined;
+
+        if (quantization && quantization !== 'none') {
+            if (Tone.Transport.state !== 'started') {
+                console.log('[Scene] Transport Stopped -> Playing Immediately & Starting Transport');
+                Tone.Transport.start();
+                startTime = undefined;
+            } else {
+                startTime = Tone.Transport.nextSubdivision(quantization);
+                console.log(`[Scene] Scheduled for: ${startTime}`);
+            }
+        }
+        // ------------------------------------------------
+
         for (let i = startPad; i <= endPad; i++) {
-            const mapping = useStore.getState().padMappings[i];
+            const mapping = state.padMappings[i];
             if (!mapping || (!mapping.file && !mapping.type)) continue;
 
             const type = mapping.type || 'sample';
             const note = mapping.note || 'C4';
 
-            // Visual Feedback
+            // Visual Feedback (Immediate or Scheduled? Visuals usually immediate for "pressed" state)
             useStore.getState().setPadActive(i, true);
+            // If scheduled, maybe keep it active until play starts? 
+            // For now, simple flash.
             setTimeout(() => useStore.getState().setPadActive(i, false), 200);
 
             // Audio Trigger
-            if (['synth', 'piano', 'drums'].includes(type) || mapping.assetId) {
-                // Use Instrument Manager
-                import('./InstrumentManager').then(({ instrumentManager }) => {
-                    instrumentManager.trigger(i, note, '8n');
-                });
+            if (['synth', 'piano', 'drums'].includes(type)) {
+                instrumentManager.trigger(i, note, '8n', startTime);
             } else {
-                // Legacy Sample
-                sampler.play(i);
+                // Check if sample handles startTime
+                // If it's a loop mode, we might want to loop it?
+                // Scene launch usually plays loops.
+                // For now, respect pad mode.
+                const mode = mapping.mode || 'one-shot';
+                const options = { startTime: startTime };
+                if (mode === 'loop' || mode === 'gate') options.loop = true;
+
+                sampler.play(i, options);
             }
         }
     }

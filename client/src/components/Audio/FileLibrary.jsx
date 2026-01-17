@@ -194,11 +194,11 @@ const FileLibrary = () => {
                 onChange={handleFileUpload}
             />
 
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-                {loading && <div style={{ padding: '10px', fontSize: '0.8rem' }}>Loading...</div>}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', alignContent: 'start' }}>
+                {loading && <div style={{ padding: '10px', fontSize: '0.8rem', gridColumn: 'span 2' }}>Loading...</div>}
 
                 {!loading && assets.length === 0 && (
-                    <div style={{ padding: '10px', fontSize: '0.8rem', fontStyle: 'italic' }}>No sounds found.</div>
+                    <div style={{ padding: '10px', fontSize: '0.8rem', fontStyle: 'italic', gridColumn: 'span 2' }}>No sounds found.</div>
                 )}
 
                 {Array.isArray(assets) && assets.map(asset => {
@@ -215,41 +215,33 @@ const FileLibrary = () => {
                             }}
                             style={{
                                 background: isSelected ? '#334444' : '#222',
-                                marginBottom: '4px',
                                 padding: '8px',
                                 borderRadius: '4px',
                                 cursor: isSelectionMode ? 'pointer' : 'grab',
-                                fontSize: '0.85rem',
+                                fontSize: '0.75rem', /* Smaller font for grid */
                                 border: isSelected ? '1px solid #00ffcc' : '1px solid #333',
                                 transition: 'all 0.1s',
                                 display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
+                                flexDirection: 'column', /* Vertical layout for grid item */
+                                gap: '4px',
+                                overflow: 'hidden'
                             }}
                         >
                             {/* Selection Checkbox */}
                             {isSelectionMode && (
                                 <div style={{
-                                    width: '16px', height: '16px',
+                                    width: '12px', height: '12px',
                                     background: isSelected ? '#00ffcc' : 'transparent',
                                     border: isSelected ? '1px solid #00ffcc' : '1px solid #666',
-                                    borderRadius: '3px',
-                                    flexShrink: 0,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#000',
-                                    fontSize: '12px',
-                                    fontWeight: 'bold'
-                                }}>
-                                    {isSelected && '✔'}
-                                </div>
+                                    borderRadius: '2px',
+                                    marginBottom: '4px',
+                                }}></div>
                             )}
 
                             {/* Content */}
-                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                            <div style={{ width: '100%', overflow: 'hidden' }}>
                                 {isRenaming ? (
-                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                    <div style={{ display: 'flex', gap: '2px' }}>
                                         <input
                                             type="text"
                                             value={renameValue}
@@ -258,51 +250,41 @@ const FileLibrary = () => {
                                                 if (e.key === 'Enter') confirmRename(asset.id);
                                                 if (e.key === 'Escape') setRenamingId(null);
                                             }}
-                                            onClick={(e) => e.stopPropagation()} // Prevent selection toggle
+                                            onClick={(e) => e.stopPropagation()}
                                             autoFocus
                                             style={{
-                                                flex: 1, background: '#111', border: '1px solid #666',
-                                                color: '#fff', fontSize: '0.85rem', padding: '2px 4px'
+                                                width: '100%', background: '#111', border: '1px solid #666',
+                                                color: '#fff', fontSize: '0.7rem', padding: '2px'
                                             }}
                                         />
-                                        <button onClick={(e) => { e.stopPropagation(); confirmRename(asset.id); }} style={{ cursor: 'pointer', background: 'none', border: 'none', color: '#0f0' }}>✔</button>
-                                        <button onClick={(e) => { e.stopPropagation(); setRenamingId(null); }} style={{ cursor: 'pointer', background: 'none', border: 'none', color: '#f00' }}>✖</button>
                                     </div>
                                 ) : (
                                     <>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ color: isSelected ? '#00ffcc' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {asset.originalName}
-                                            </div>
+                                        <div style={{
+                                            color: isSelected ? '#00ffcc' : '#fff',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            fontWeight: '500'
+                                        }} title={asset.originalName}>
+                                            {asset.originalName}
+                                        </div>
 
-                                            {/* Rename Button (Only on Hover or Always Visible if not selection mode) */}
-                                            {!isSelectionMode && (
-                                                <button
+                                        {!isSelectionMode && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                                                <span style={{ fontSize: '0.65rem', color: '#666' }}>
+                                                    {new Date(asset.createdAt).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
+                                                </span>
+                                                <span
                                                     onClick={(e) => startRename(e, asset)}
-                                                    style={{
-                                                        background: 'transparent', border: 'none', color: '#666',
-                                                        cursor: 'pointer', fontSize: '0.9rem', padding: '0 4px',
-                                                        display: 'none' // Hidden by default, show on parent hover? 
-                                                        // Actually, keep it simple: show a small edit icon always or just have it there
-                                                    }}
-                                                    className="rename-btn"
-                                                >
-                                                    ✎
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '2px' }}>
-                                            {new Date(asset.createdAt).toLocaleDateString()}
-                                        </div>
+                                                    style={{ cursor: 'pointer', fontSize: '0.7rem', color: '#444' }}
+                                                    title="Rename"
+                                                >✎</span>
+                                            </div>
+                                        )}
                                     </>
                                 )}
                             </div>
-
-                            {/* Enable Hover CSS */}
-                            <style>{`
-                                .rename-btn { display: none !important; }
-                                div:hover > div > div > .rename-btn { display: block !important; }
-                            `}</style>
                         </div>
                     );
                 })}

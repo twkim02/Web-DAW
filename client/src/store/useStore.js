@@ -6,10 +6,12 @@ const useStore = create((set) => ({
     isPlaying: false,
     isMetronomeOn: false,
     isRecording: false, // Global recording state
+    launchQuantization: '16n', // 'none', '1m', '4n', '8n', '16n'
     setBpm: (bpm) => set({ bpm }),
     setIsPlaying: (isPlaying) => set({ isPlaying }),
     setIsMetronomeOn: (isOn) => set({ isMetronomeOn: isOn }),
     setIsRecording: (isRecording) => set({ isRecording }),
+    setLaunchQuantization: (val) => set({ launchQuantization: val }),
 
     // Synth State
     synthParams: {
@@ -42,7 +44,8 @@ const useStore = create((set) => ({
         volume: 0,
         type: 'sample', // 'sample' | 'synth'
         note: 'C4', // Default note
-        color: null
+        color: null,
+        chokeGroup: null // 1, 2, 3, 4
     })),
 
     updatePadMapping: (id, newMapping) => set((state) => {
@@ -64,7 +67,8 @@ const useStore = create((set) => ({
             color: null,
             originalName: null,
             name: null,
-            assetId: null
+            assetId: null,
+            chokeGroup: null
         };
 
         // Also clear active state just in case
@@ -137,6 +141,16 @@ const useStore = create((set) => ({
     // Launchpad View Mode
     viewMode: 'SESSION', // 'SESSION', 'NOTE', 'MIXER_SELECTION', 'VOLUME', 'PAN', 'MUTE', 'SOLO', 'REC'
     setViewMode: (mode) => set({ viewMode: mode }),
+
+    // --- Theme State ---
+    currentThemeId: 'cosmic',
+    setThemeId: (id) => set({ currentThemeId: id }),
+
+    // --- Sidebar State ---
+    isLeftSidebarOpen: true,
+    isRightSidebarOpen: true,
+    toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
+    toggleRightSidebar: () => set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen })),
 
     // Mixer State (8 tracks corresponding to 8 columns)
     mixerLevels: {
