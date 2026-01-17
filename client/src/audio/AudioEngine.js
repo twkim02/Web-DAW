@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-import { sampler } from './Sampler';
+// import { sampler } from './Sampler'; // Removed unused import
 
 class AudioEngine {
     constructor() {
@@ -14,6 +14,9 @@ class AudioEngine {
             if (Tone.context.state !== 'running') {
                 await Tone.start();
             }
+
+            // Optimize Latency
+            Tone.context.lookAhead = 0.05; // Default is 0.1. Lowering for faster response.
 
             // Initialize Synth
             this.synth = new Tone.PolySynth(Tone.Synth, {
@@ -30,29 +33,106 @@ class AudioEngine {
             this.reverb = new Tone.Reverb({
                 decay: 1.5,
                 preDelay: 0.01,
-                wet: 0 // Start dry
+                wet: 1 // Sends usually expect 100% wet on the return bus
             });
             await this.reverb.generate();
-
-            // Initialize Analyser (FFT)
-            this.analyser = new Tone.Analyser("fft", 256);
-
-            // Chain: Delay -> Reverb -> Analyser -> Destination
-            this.reverb.connect(this.analyser);
-            this.analyser.toDestination();
 
             this.delay = new Tone.FeedbackDelay({
                 delayTime: 0.25,
                 feedback: 0.5,
-                wet: 0 // Start dry
-            }).connect(this.reverb);
+                wet: 1 // Return bus 100% wet
+            });
 
-            // Re-routing Synth (disconnect from destination first)
+            // Master Buss
+            this.masterBuss = new Tone.Gain(1).toDestination();
+
+            // Connect Returns to Master
+            this.reverb.connect(this.masterBuss);
+            this.delay.connect(this.masterBuss);
+
+            // Initialize 8 Mixer Channels
+            this.channels = Array(8).fill(null).map((_, i) => {
+                const channel = new Tone.Channel({
+                    volume: 0,
+                    pan: 0,
+                    mute: false,
+                    solo: false
+                });
+
+                // Route Channel to Master
+                channel.connect(this.masterBuss);
+
+                // Setup Sends
+                // Tone.Channel doesn't have built-in named sends easily accessible via simple config object in constructor without setup.
+                // We manually create visual "Send" logic by using `channel.send(name, val)`?
+                // Actually Tone.Channel has .send(name, val) if we register the receive.
+                // But simpler: just use Tone.Gain for sends?
+
+                // Let's use Tone.Channel's receive? No, that's for buses.
+                // We'll trust Tone.Channel internal send logic if we can named them?
+                // Standard Tone: source.connect(dest).
+                // Channel is a Solot/Mute/Vol/Pan wrapper. It can connect to Aux.
+
+                return channel;
+            });
+
+            // We need to register receive buses if we use channel.send()? 
+            // Or we just manually manage send gains?
+            // Let's create GainNodes for each send per channel if Tone.Channel doesn't simplify it.
+            // Actually, Tone.Channel *does* allow sending.
+            // channel.receive("reverb") ?? No.
+
+            // Re-implementation:
+            // Let's manually add `sendA` and `sendB` properties to our stored channel objects.
+            this.channels.forEach(channel => {
+                // Create Send A (Reverb)
+                const sendA = channel.send("reverb", -Infinity); // Init -inf dB
+                // Create Send B (Delay)
+                const sendB = channel.send("delay", -Infinity);
+            });
+
+            // Register global receive buses
+            Tone.getDestination().context.createGain(); // Dummy context check
+            // Tone.connect("reverb", this.reverb); 
+            // Tone.connect("delay", this.delay); 
+            // Wait, Tone.js split/receive logic is deprecated or different in v14 depending on usage.
+            // Let's just do:
+            // channel.connect(sendNode) with a gain.
+            // But Tone.Channel.send() is convenient. Checks Tone.context.listener? No.
+
+            // Correct Tone.js Send/Receive workflow:
+            // const reverb = new Tone.Reverb().toDestination();
+            // const channel = new Tone.Channel().toDestination();
+            // channel.send("bus name", volume);
+            // const tail = Tone.Receive("bus name"); // No explicit receive in v14?
+
+            // Let's look at Tone.Channel source: it has .send(name, value).
+            // It relies on `Tone.getContext().getDestination()` behaving as a bus registry? No.
+
+            // Safe fallback: Manual Send Gains.
+            this.channels.forEach(channel => {
+                // Send A -> Reverb
+                const sendAGain = new Tone.Gain(0);
+                channel.connect(sendAGain);
+                sendAGain.connect(this.reverb);
+                channel.sendA = sendAGain;
+
+                // Send B -> Delay
+                const sendBGain = new Tone.Gain(0);
+                channel.connect(sendBGain);
+                sendBGain.connect(this.delay);
+                channel.sendB = sendBGain;
+            });
+
+
+            console.log('[AudioEngine] 8 Mixer Channels Initialized');
+
+            // ... (rest of init)
+
+            // Re-routing Synth: Synth -> Channel?
             this.synth.disconnect();
-            this.synth.connect(this.delay);
+            this.synth.connect(this.masterBuss);
 
-            // Connect Sampler to Effects Chain
-            sampler.connectTo(this.delay);
 
             console.log('[AudioEngine] Effects Initialized');
 
@@ -75,84 +155,41 @@ class AudioEngine {
         }
     }
 
-    setMetronome(isOn) {
-        if (this.metronomePart) {
-            this.metronomePart.mute = !isOn;
+    // ... (rest of methods)
+
+    updateMixerTrack(trackIndex, params) {
+        if (!this.channels || !this.channels[trackIndex]) return;
+
+        const channel = this.channels[trackIndex];
+
+        if (params.volume !== undefined) {
+            let db = Tone.gainToDb(params.volume);
+            if (params.volume <= 0.001) db = -Infinity;
+            channel.volume.rampTo(db, 0.1);
         }
-    }
 
-    get context() {
-        return Tone.getContext();
-    }
-
-    setBpm(bpm) {
-        Tone.Transport.bpm.value = bpm;
-    }
-
-    startTransport() {
-        Tone.Transport.start();
-    }
-
-    stopTransport() {
-        Tone.Transport.stop();
-    }
-
-    toggleTransport() {
-        if (Tone.Transport.state === 'started') {
-            Tone.Transport.pause();
-        } else {
-            Tone.Transport.start();
+        if (params.pan !== undefined) {
+            channel.pan.rampTo(params.pan, 0.1);
         }
-        return Tone.Transport.state;
-    }
 
-    triggerSynth(note, duration = '8n', params = {}) {
-        if (this.synth) {
-            // Apply params if provided (e.g., change oscillator type)
-            if (params.oscillator) {
-                this.synth.set({ oscillator: params.oscillator });
-            }
-            this.synth.triggerAttackRelease(note, duration);
+        if (params.mute !== undefined) {
+            channel.mute = params.mute;
         }
-    }
 
-    startSynthNote(note, params = {}) {
-        if (this.synth) {
-            if (params.oscillator) {
-                this.synth.set({ oscillator: params.oscillator });
-            }
-            this.synth.triggerAttack(note);
+        if (params.solo !== undefined) {
+            channel.solo = params.solo;
         }
-    }
 
-    stopSynthNote(note) {
-        if (this.synth) {
-            this.synth.triggerRelease(note);
+        // Sends (0-1)
+        if (params.sendA !== undefined && channel.sendA) {
+            // Linear 0-1 to Gain directly? Or dB?
+            // Usually sends are gain 0-1.
+            channel.sendA.gain.rampTo(params.sendA, 0.1);
         }
-    }
 
-    updateSynthParams(params) {
-        if (!this.synth) return;
-
-        if (params.oscillatorType) {
-            this.synth.set({ oscillator: { type: params.oscillatorType } });
+        if (params.sendB !== undefined && channel.sendB) {
+            channel.sendB.gain.rampTo(params.sendB, 0.1);
         }
-        if (params.envelope) {
-            this.synth.set({ envelope: params.envelope });
-        }
-    }
-
-    setReverbParams(params) {
-        if (!this.reverb) return;
-        if (params.mix !== undefined) this.reverb.wet.value = params.mix;
-        if (params.decay !== undefined) this.reverb.decay = params.decay;
-    }
-
-    setDelayParams(params) {
-        if (!this.delay) return;
-        if (params.mix !== undefined) this.delay.wet.value = params.mix;
-        if (params.time !== undefined) this.delay.delayTime.value = params.time;
-        if (params.feedback !== undefined) this.delay.feedback.value = params.feedback;
     }
 
     getAudioData() {

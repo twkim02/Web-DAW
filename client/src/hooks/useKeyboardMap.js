@@ -27,10 +27,39 @@ const useKeyboardMap = () => {
             const key = e.key.toLowerCase(); // Keep for arrows check? Arrows have codes too.
 
             // Arrow Keys for Bank Navigation (Auto Zoom In)
-            if (code === 'ArrowUp') { e.preventDefault(); useStore.getState().moveBank(0, -1); useStore.getState().setIsZoomed(true); return; }
-            if (code === 'ArrowDown') { e.preventDefault(); useStore.getState().moveBank(0, 1); useStore.getState().setIsZoomed(true); return; }
             if (code === 'ArrowLeft') { e.preventDefault(); useStore.getState().moveBank(-1, 0); useStore.getState().setIsZoomed(true); return; }
             if (code === 'ArrowRight') { e.preventDefault(); useStore.getState().moveBank(1, 0); useStore.getState().setIsZoomed(true); return; }
+
+            // --- Mixer Mode Shortcuts (Right Hand) ---
+            const setViewMode = useStore.getState().setViewMode;
+
+            // Row 1: Parameters
+            if (code === 'KeyU') { setViewMode('VOLUME'); return; }
+            if (code === 'KeyI') { setViewMode('PAN'); return; }
+            if (code === 'KeyO') { setViewMode('SEND_A'); return; }
+            if (code === 'KeyP') { setViewMode('SEND_B'); return; }
+
+            // Row 2: States
+            if (code === 'KeyM') { setViewMode('MUTE'); return; } // M for Mute (Intuitive) - Overrides KeyJ plan
+            if (code === 'KeyK') { setViewMode('SOLO'); return; } // K is near L
+            if (code === 'KeyL') { setViewMode('ARM'); return; }  // L for Loop/Rec
+            // if (code === 'Semicolon') { setViewMode('STOP'); return; } // ; for Stop
+
+            // Alternative Standard Map (J,K,L,;)
+            if (code === 'KeyJ') { setViewMode('MUTE'); return; }
+            if (code === 'Semicolon') { setViewMode('STOP'); return; }
+
+            // Global Toggles
+            if (code === 'Tab') {
+                e.preventDefault();
+                const current = useStore.getState().viewMode;
+                setViewMode(current === 'SESSION' ? 'MIXER_SELECTION' : 'SESSION');
+                return;
+            }
+            if (code === 'Backspace') {
+                setViewMode('STOP'); // Fast Stop Access
+                return;
+            }
 
             // Bank Logic
             if (CODE_MAP.hasOwnProperty(code)) {
