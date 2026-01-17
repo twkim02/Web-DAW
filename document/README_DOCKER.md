@@ -1,10 +1,29 @@
 # Docker 실행 가이드
 
+## 중요 안내
+
+**이 가이드는 프로젝트의 기본 실행 방법인 Docker Compose 사용 가이드입니다.**
+
+프로젝트의 **기본 실행 방법은 Docker Compose**입니다:
+- Docker Desktop 설치 및 실행
+- `docker compose up -d` 명령으로 모든 서비스 실행
+- MySQL, 서버, 클라이언트를 Docker 컨테이너로 관리
+
+**Docker를 사용하는 이유**:
+- 팀 전체의 개발 환경 통일
+- MySQL 설치 없이 바로 시작 가능
+- 프로덕션 환경과 유사한 환경에서 개발
+- 의존성 관리 용이
+
+**로컬 실행**을 원하는 경우 `PROJECT_SPEC.md`의 "방법 2: 로컬 실행" 섹션을 참고하세요.
+
 ## 사전 준비
 
 ### Windows에서 Docker Desktop 설치
 
-**중요**: WSL 환경 **안에서** 실행할 필요는 없습니다. Windows PowerShell이나 CMD에서 직접 실행할 수 있습니다.
+**중요**: 
+- Docker Desktop은 **필수 요구사항**입니다. 프로젝트의 기본 실행 방법입니다.
+- WSL 환경 **안에서** 실행할 필요는 없습니다. Windows PowerShell이나 CMD에서 직접 실행할 수 있습니다.
 
 1. **Docker Desktop 설치**
    - [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) 다운로드
@@ -125,8 +144,11 @@ docker compose up -d mysql
 로컬에서 서버와 클라이언트는 `npm start`로 실행:
 
 ```powershell
+# 루트 디렉토리에서
 npm start
 ```
+
+**참고**: 이 방법이 팀원들이 일반적으로 사용하는 개발 방법입니다. MySQL만 Docker로 관리하고 나머지는 로컬에서 실행하면 Hot Reload의 이점을 유지할 수 있습니다.
 
 ## 트러블슈팅
 

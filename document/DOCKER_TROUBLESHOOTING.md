@@ -1,5 +1,18 @@
 # Docker 트러블슈팅 가이드
 
+## 중요 안내
+
+**이 가이드는 프로젝트의 기본 실행 방법인 Docker Compose 사용 시 문제 해결을 위한 가이드입니다.**
+
+프로젝트의 기본 실행 방법은 Docker Compose입니다:
+- Docker Desktop 설치 및 실행
+- `docker compose up -d` 명령으로 모든 서비스 실행
+- MySQL, 서버, 클라이언트를 Docker 컨테이너로 관리
+
+Docker 실행 시 문제가 발생한 경우 이 가이드를 참고하세요.
+
+---
+
 ## 일반적인 오류 해결
 
 ### 1. "The system cannot find the file specified" - Docker Desktop 연결 오류

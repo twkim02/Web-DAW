@@ -21,12 +21,24 @@ Web-DAW/
 │   │   │   └── upload.js           # 파일 업로드 API
 │   │   ├── audio/                   # 오디오 엔진 및 처리 모듈
 │   │   │   ├── AudioEngine.js      # Tone.js 기반 오디오 엔진
+│   │   │   ├── InstrumentManager.js # 악기 관리 및 생성
 │   │   │   ├── Sampler.js          # 샘플러 관리
-│   │   │   └── Sequencer.js        # 시퀀서 로직
+│   │   │   ├── Sequencer.js        # 시퀀서 로직
+│   │   │   └── instruments/        # 악기 프리셋 및 정의
+│   │   │       ├── Drums.js        # 드럼 킷 정의
+│   │   │       ├── Piano.js        # 피아노 악기 정의
+│   │   │       ├── Samplers.js     # 샘플러 프리셋
+│   │   │       └── Synths.js       # 신서사이저 프리셋
 │   │   ├── components/              # React 컴포넌트
 │   │   │   ├── Audio/              # 오디오 효과 및 라이브러리 컴포넌트
 │   │   │   │   ├── FXControls.jsx  # 오디오 효과 컨트롤
-│   │   │   │   └── SoundLibrary.jsx # 사운드 라이브러리 관리
+│   │   │   │   ├── FileLibrary.jsx # 파일 업로드 및 관리 라이브러리
+│   │   │   │   ├── InstrumentLibrary.jsx # 악기 선택 라이브러리
+│   │   │   │   ├── RecordingLibrary.jsx # 녹음 파일 관리 라이브러리
+│   │   │   │   └── SynthLibrary.jsx # 신서사이저 라이브러리
+│   │   │   ├── Instruments/        # 가상 악기 인터페이스
+│   │   │   │   ├── VirtualDrums.jsx # 가상 드럼 패드
+│   │   │   │   └── VirtualPiano.jsx # 가상 피아노 키보드
 │   │   │   ├── Launchpad/          # 런치패드 관련 컴포넌트
 │   │   │   │   ├── Grid.jsx        # 패드 그리드 레이아웃
 │   │   │   │   ├── Grid.module.css
@@ -40,6 +52,11 @@ Web-DAW/
 │   │   │   ├── Sequencer/          # 시퀀서 컨트롤 컴포넌트
 │   │   │   │   ├── SequencerControls.jsx
 │   │   │   │   └── SequencerControls.module.css
+│   │   │   ├── Layout/             # 레이아웃 컴포넌트
+│   │   │   │   ├── LeftSidebar.jsx # 왼쪽 사이드바 (믹서 등)
+│   │   │   │   ├── LeftSidebar.module.css
+│   │   │   │   ├── RightSidebar.jsx # 오른쪽 사이드바 (컨트롤 등)
+│   │   │   │   └── RightSidebar.module.css
 │   │   │   ├── Settings/           # 설정 관련 컴포넌트
 │   │   │   │   ├── PadSettingsModal.jsx  # 패드 설정 모달
 │   │   │   │   └── PadSettingsModal.module.css
@@ -50,7 +67,8 @@ Web-DAW/
 │   │   │   │   ├── TransportControls.jsx
 │   │   │   │   └── TransportControls.module.css
 │   │   │   └── Visualizer/         # 비주얼라이저 컴포넌트
-│   │   │       └── BackgroundVisualizer.jsx  # 배경 사운드 비주얼라이저
+│   │   │       ├── BackgroundVisualizer.jsx  # 배경 비주얼라이저 래퍼
+│   │   │       └── ThreeVisualizer.jsx       # Three.js 기반 3D 비주얼라이저
 │   │   ├── hooks/                   # 커스텀 React Hooks
 │   │   │   ├── useKeyboardMap.js   # 키보드 매핑 훅
 │   │   │   └── usePadTrigger.js    # 패드 트리거 훅
@@ -81,7 +99,8 @@ Web-DAW/
 │   │   ├── upload.js                # 파일 업로드 라우트
 │   │   └── presets.js               # 프리셋 CRUD 라우트
 │   ├── uploads/                      # 업로드된 파일 저장소
-│   ├── init.sql                      # MySQL 초기화 SQL (선택사항)
+│   ├── database.sqlite               # SQLite 데이터베이스 파일 (로컬 개발용, 선택사항)
+│   ├── init.sql                      # MySQL 초기화 SQL (Docker 사용 시)
 │   ├── Dockerfile                    # 서버 Docker 이미지 빌드 파일
 │   ├── server.js                     # 서버 진입점 (Entry Point)
 │   └── package.json                  # 서버 의존성
@@ -89,10 +108,15 @@ Web-DAW/
 ├── client/                           # 프론트엔드 (위에 상세 구조 참조)
 │   └── Dockerfile                    # 클라이언트 Docker 이미지 빌드 파일
 │
-├── docker-compose.yml                # Docker Compose 설정 (MySQL, 서버, 클라이언트)
+├── docker-compose.yml                # Docker Compose 설정 (MySQL, 서버, 클라이언트) [기본 실행 방법]
 ├── .dockerignore                     # Docker 빌드 시 무시할 파일 목록
+├── document/                         # 프로젝트 문서 디렉토리
+│   ├── PROJECT_SPEC.md              # 프로젝트 명세서 (이 문서)
+│   ├── DB_SCHEMA.md                 # 데이터베이스 스키마 (DBML 형식)
+│   ├── README_DOCKER.md             # Docker 실행 가이드
+│   └── DOCKER_TROUBLESHOOTING.md    # Docker 트러블슈팅 가이드
 ├── package.json                      # 루트 package.json (Monorepo 설정)
-├── start_app.bat                     # Windows 실행 스크립트
+├── start_app.bat                     # Windows 실행 스크립트 (로컬 실행용)
 └── .gitignore                        # Git 무시 파일 목록
 ```
 
@@ -117,22 +141,38 @@ Web-DAW/
   - `upload.js`: 파일 업로드 API 호출
 
 - **`src/audio/`**: 웹 오디오 API 및 Tone.js 기반 오디오 엔진
-  - `AudioEngine.js`: Tone.js 컨텍스트 초기화 및 신서사이저 관리
+  - `AudioEngine.js`: Tone.js 컨텍스트 초기화 및 오디오 엔진 관리
+  - `InstrumentManager.js`: 악기 인스턴스 생성 및 관리 (샘플러, 신스, 드럼 등)
   - `Sampler.js`: 샘플 파일 로딩 및 재생 관리
   - `Sequencer.js`: 시퀀서 로직 및 BPM 관리
+  - `instruments/`: 악기 프리셋 및 정의
+    - `Drums.js`: 드럼 킷 정의 및 노트 매핑
+    - `Piano.js`: 피아노 악기 정의
+    - `Samplers.js`: 샘플러 프리셋 설정
+    - `Synths.js`: 신서사이저 프리셋 설정
 
 - **`src/components/`**: React UI 컴포넌트
   - `Audio/`: 오디오 효과 및 라이브러리 관리 컴포넌트
     - `FXControls.jsx`: 오디오 효과(리버브, 딜레이 등) 컨트롤
-    - `SoundLibrary.jsx`: 사운드 라이브러리 브라우징 및 관리
+    - `FileLibrary.jsx`: 업로드된 파일 관리 및 브라우징 (이름 변경, 삭제, 선택)
+    - `InstrumentLibrary.jsx`: 악기 선택 및 라이브러리 관리
+    - `RecordingLibrary.jsx`: 녹음된 파일 관리 및 재생
+    - `SynthLibrary.jsx`: 신서사이저 프리셋 관리 및 선택
+  - `Instruments/`: 가상 악기 인터페이스
+    - `VirtualDrums.jsx`: 가상 드럼 패드 (드럼 킷 선택 및 연주)
+    - `VirtualPiano.jsx`: 가상 피아노 키보드 (연주, 녹음, 업로드)
   - `Launchpad/`: 16개 패드 그리드와 개별 패드 컴포넌트
+  - `Layout/`: 레이아웃 구조 컴포넌트
+    - `LeftSidebar.jsx`: 왼쪽 사이드바 (믹서 트랙 리스트)
+    - `RightSidebar.jsx`: 오른쪽 사이드바 (Transport, Sequencer, Synth 컨트롤)
   - `Mixer/`: 트랙 리스트 및 볼륨/패닝 컨트롤
   - `Sequencer/`: 시퀀서 재생/정지/녹음 컨트롤
   - `Transport/`: BPM, 재생/정지 등 트랜스포트 컨트롤
   - `Synth/`: 신서사이저 파라미터 조절 컨트롤
   - `Settings/`: 패드별 샘플 설정 모달
   - `Visualizer/`: 오디오 비주얼라이저 컴포넌트
-    - `BackgroundVisualizer.jsx`: 배경에서 재생되는 사운드의 시각화
+    - `BackgroundVisualizer.jsx`: 배경 비주얼라이저 래퍼 컴포넌트
+    - `ThreeVisualizer.jsx`: Three.js 및 React Three Fiber 기반 3D 비주얼라이저
 
 - **`src/hooks/`**: 재사용 가능한 React 커스텀 훅
   - `useKeyboardMap.js`: 키보드 입력을 패드 트리거로 매핑
@@ -225,20 +265,27 @@ Web-DAW/
     - `DB_PORT`: 데이터베이스 포트 (기본값: 3306)
     - `DB_LOGGING`: SQL 로깅 활성화 여부 (개발 환경에서 디버깅용)
 
-#### `server/.env` (필수 생성 파일)
+#### `server/.env` (로컬 실행 시 필요)
+
 - **역할**: 서버 환경 변수 관리
-- **필수 변수**:
+- **위치**: `server/` 디렉토리에 생성
+- **로컬 MySQL 사용 시**:
   ```
   PORT=3001
-  SESSION_SECRET=<세션 암호화 키>
-  GOOGLE_CLIENT_ID=<Google OAuth Client ID>
-  GOOGLE_CLIENT_SECRET=<Google OAuth Client Secret>
+  SESSION_SECRET=your-secret-key-here
+  GOOGLE_CLIENT_ID=your-google-client-id  # 선택사항
+  GOOGLE_CLIENT_SECRET=your-google-client-secret  # 선택사항
   CALLBACK_URL=http://localhost:3001/auth/google/callback
-  DB_USERNAME=<MySQL 사용자명>
-  DB_PASSWORD=<MySQL 비밀번호>
+  DB_USERNAME=root
+  DB_PASSWORD=your-mysql-password
   DB_NAME=web_daw
   DB_HOST=127.0.0.1
+  DB_PORT=3306
   ```
+
+**참고**: 
+- Google OAuth 관련 변수는 선택사항입니다. 설정하지 않아도 기본 기능은 사용할 수 있습니다.
+- 로컬 개발 환경에서는 `.env` 파일이 필수입니다.
 
 #### `package.json` (루트)
 - **역할**: Monorepo 워크스페이스 설정 및 통합 스크립트
@@ -254,28 +301,29 @@ Web-DAW/
 
 ### 4.1 사전 요구사항
 
-**기본 요구사항**:
-- **Node.js** (v16 이상 권장)
-- **npm** 또는 **yarn**
-- **Google OAuth 2.0** 클라이언트 ID 및 Secret (Google Cloud Console에서 발급)
-
-**Docker Compose 사용 시** (권장):
-- **Docker Desktop** (Windows에서 사용 가능)
+**기본 요구사항** (Docker 실행 - 기본 방법):
+- **Docker Desktop** (Windows에서 사용 가능, 필수)
   - [Docker Desktop 다운로드](https://www.docker.com/products/docker-desktop/)
   - 설치 후 Docker Desktop 실행
   - **참고**: WSL 환경 안에서 실행할 필요 없음. Windows PowerShell/CMD에서 직접 실행 가능
   - Docker Desktop이 내부적으로 WSL 2 백엔드를 사용할 수 있음 (자동 설정)
   - Docker Compose V2가 기본적으로 포함됨 (명령어: `docker compose`)
+- **Node.js** (v20 이상 권장 - Vite 요구사항, 로컬 개발 시 필요)
+- **npm** 또는 **yarn** (로컬 개발 시 필요)
+- **Google OAuth 2.0** 클라이언트 ID 및 Secret (Google Cloud Console에서 발급, 선택사항)
 
-**로컬 MySQL 사용 시**:
+**참고**: 이 프로젝트는 **Docker Compose를 기본 실행 방법**으로 사용합니다. Docker를 통해 MySQL, 서버, 클라이언트를 모두 관리하여 개발 환경을 통일합니다.
+
+**로컬 실행** (선택사항):
 - **MySQL** 데이터베이스 서버 (v8.0 이상 권장)
   - [MySQL 다운로드](https://dev.mysql.com/downloads/mysql/)
+  - 로컬에서 MySQL을 직접 관리하고 싶은 경우 사용
 
 ### 4.2 초기 설정
 
-#### 1. Docker Desktop 설치 및 확인 (Docker Compose 사용 시)
+#### 1. Docker Desktop 설치 및 확인 (기본 방법)
 
-**Windows에서 Docker Desktop 설치**:
+**Docker Desktop 설치**:
 1. [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) 다운로드 및 설치
 2. 설치 시 WSL 2 백엔드 선택 (권장, 자동으로 설정될 수 있음)
 3. Docker Desktop 실행 후 정상 동작 확인
@@ -286,18 +334,54 @@ Web-DAW/
 ```powershell
 # Docker 버전 확인
 docker --version
+# 예상 출력: Docker version 24.x.x
 
 # Docker Compose 버전 확인
 docker compose version
+# 예상 출력: Docker Compose version v2.x.x
 
 # Docker Desktop이 실행 중인지 확인
 docker ps
 ```
 
-#### 2. 의존성 설치 (로컬 실행 시)
+#### 2. 환경 변수 설정 (Docker 환경 - 기본 방법)
 
+**루트 디렉토리에 `.env` 파일 생성** (선택사항, 기본값 사용 가능):
+
+```env
+# .env 파일 (루트 디렉토리)
+PORT=3001
+SESSION_SECRET=your-secret-key-here
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+CALLBACK_URL=http://localhost:3001/auth/google/callback
+
+# MySQL 설정 (Docker 환경)
+DB_USERNAME=webdaw_user
+DB_PASSWORD=webdaw_password
+DB_NAME=web_daw
+DB_HOST=mysql
+DB_PORT=3306
+DB_ROOT_PASSWORD=rootpassword
+```
+
+**참고**: 
+- `.env` 파일이 없어도 `docker-compose.yml`의 기본값을 사용할 수 있습니다.
+- Google OAuth는 선택사항입니다. 설정하지 않아도 기본 기능은 사용할 수 있습니다.
+
+**Google OAuth 설정** (선택사항):
+1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트 생성
+2. OAuth 2.0 클라이언트 ID 생성
+3. 승인된 리디렉션 URI에 `http://localhost:3001/auth/google/callback` 추가
+4. Client ID와 Client Secret을 `.env`에 입력
+
+#### 3. 로컬 실행 환경 설정 (선택사항)
+
+로컬에서 실행하려는 경우에만 다음 설정이 필요합니다:
+
+**의존성 설치**:
 ```bash
-# 루트 디렉토리에서 모든 의존성 설치
+# 프로젝트 루트 디렉토리에서
 npm run install:all
 
 # 또는 개별 설치
@@ -306,30 +390,24 @@ npm install --prefix client
 npm install --prefix server
 ```
 
-#### 3. 데이터베이스 설정
-
-**방법 1: Docker Compose 사용 (권장)**
-
-Docker Compose를 사용하면 MySQL이 자동으로 설정되고 관리됩니다:
-
-```bash
-# Docker Compose로 모든 서비스 실행 (MySQL, 서버, 클라이언트)
-# 최신 Docker Desktop (V2): docker compose 사용
-docker compose up -d
-
-# 구버전 Docker Compose (V1): docker-compose 사용
-# docker-compose up -d
-```
-
-**방법 2: 로컬 MySQL 사용**
-
-로컬에 MySQL을 설치하고 데이터베이스를 생성:
-
+**MySQL 데이터베이스 설정**:
 ```sql
 CREATE DATABASE web_daw CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-#### 4. 서버 환경 변수 설정
+**서버 환경 변수 설정** (`server/.env` 파일):
+```env
+PORT=3001
+SESSION_SECRET=your-secret-key-here
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+CALLBACK_URL=http://localhost:3001/auth/google/callback
+DB_USERNAME=root
+DB_PASSWORD=your-mysql-password
+DB_NAME=web_daw
+DB_HOST=127.0.0.1
+DB_PORT=3306
+```
 
 `server/` 디렉토리에 `.env` 파일 생성:
 
@@ -373,7 +451,9 @@ DB_PORT=3306
 
 ### 4.3 실행
 
-#### 방법 1: Docker Compose 실행 (권장)
+#### 방법 1: Docker Compose 실행 (기본 방법 - 권장)
+
+**전제 조건**: Docker Desktop이 설치되어 있고 실행 중이어야 합니다.
 
 **모든 서비스를 Docker로 실행**:
 ```bash
@@ -397,19 +477,39 @@ docker compose down -v
 # docker-compose down -v
 ```
 
-이 방법은 MySQL, 서버, 클라이언트를 모두 Docker 컨테이너로 실행합니다.
+이 방법은 MySQL, 서버, 클라이언트를 모두 Docker 컨테이너로 실행합니다. **개발 환경의 표준 실행 방법**입니다.
 
-**개별 서비스만 실행**:
+**개별 서비스 로그 확인**:
 ```bash
-# MySQL만 실행
-docker compose up -d mysql
-# 또는 구버전: docker-compose up -d mysql
+# 특정 서비스 로그만 확인
+docker compose logs -f server
+docker compose logs -f client
+docker compose logs -f mysql
+```
 
-# 서버와 클라이언트는 로컬에서 실행
+**컨테이너 재빌드** (코드 변경 후):
+```bash
+# 이미지 재빌드 및 컨테이너 재시작
+docker compose up -d --build
+
+# 특정 서비스만 재빌드
+docker compose up -d --build server
+```
+
+**하이브리드 실행** (개발 중 Hot Reload를 원하는 경우):
+```bash
+# MySQL만 Docker로 실행
+docker compose up -d mysql
+
+# 서버와 클라이언트는 로컬에서 실행 (Hot Reload 지원)
 npm start
 ```
 
-#### 방법 2: 로컬 실행 (개발 모드)
+이 방법은 MySQL만 Docker로 관리하고, 개발은 로컬에서 진행할 수 있어 Hot Reload의 이점을 유지할 수 있습니다.
+
+#### 방법 2: 로컬 실행 (선택사항)
+
+로컬 환경에서 직접 실행하려는 경우:
 
 **npm 스크립트 사용**:
 ```bash
@@ -418,6 +518,7 @@ npm start
 ```
 
 이 명령은 `concurrently`를 사용하여 클라이언트(포트 5173)와 서버(포트 3001)를 동시에 실행합니다.
+**MySQL은 별도로 실행 중이어야 합니다** (로컬 MySQL 서버 또는 Docker로 MySQL만 실행).
 
 **Windows 배치 파일 사용** (Windows 환경):
 ```batch
@@ -427,8 +528,7 @@ start_app.bat
 
 `start_app.bat` 파일을 더블클릭하거나 명령 프롬프트에서 실행하면 자동으로 의존성을 설치하고 애플리케이션을 시작합니다.
 
-#### 방법 3: 개별 실행
-
+**개별 실행** (디버깅 시 유용):
 **터미널 1 - 서버 실행**:
 ```bash
 cd server
@@ -441,16 +541,32 @@ cd client
 npm run dev
 ```
 
+이 방법은 각 서비스를 별도 터미널에서 실행하므로 로그를 분리하여 확인할 수 있어 디버깅에 유용합니다.
+
+#### 실행 방법 선택 가이드
+
+| 실행 방법 | 사용 시기 | 장점 | 단점 |
+|---------|---------|------|------|
+| **Docker Compose** (방법 1) | 기본 개발 환경 | - 환경 일관성<br>- 의존성 관리 용이<br>- MySQL 자동 설정<br>- 팀 전체 환경 통일 | - Docker 설치 필요<br>- 초기 설정 시간 |
+| **로컬 실행** (방법 2) | 빠른 개발/디버깅 | - Hot Reload 지원<br>- 디버깅 용이<br>- 빠른 개발 속도 | - MySQL 설치 필요<br>- 환경 차이 발생 가능 |
+| **하이브리드** | 로컬 개발 + Docker MySQL | - Hot Reload 유지<br>- MySQL 관리 간편<br>- 환경 일부 통일 | - Docker 설치 필요 |
+
 ### 4.4 접속
 
 - **클라이언트**: http://localhost:5173
 - **서버 API**: http://localhost:3001
+- **MySQL**: localhost:3306 (로컬 실행 시) 또는 `mysql` (Docker 환경)
 
 ### 4.5 개발 모드 vs 프로덕션 모드
 
-**개발 모드**:
-- 클라이언트: `npm run dev` (Vite HMR 활성화)
+**개발 모드** (일반적인 개발 환경):
+- 클라이언트: `npm run dev` (Vite HMR 활성화, 코드 변경 시 자동 리로드)
 - 서버: `npm run dev` (nodemon으로 자동 재시작)
+
+**로컬 개발 환경 체크리스트**:
+- [ ] MySQL 서버가 실행 중인가?
+- [ ] `server/.env` 파일이 올바르게 설정되어 있는가?
+- [ ] 포트 3001, 5173이 사용 가능한가?
 
 **프로덕션 빌드**:
 ```bash
@@ -462,6 +578,8 @@ npm run build
 cd server
 npm start
 ```
+
+빌드된 클라이언트는 `client/dist/` 디렉토리에 생성됩니다.
 
 ---
 
@@ -772,7 +890,10 @@ USE web_daw;
 -- 실제로는 Sequelize의 sync() 또는 마이그레이션 파일을 통해 생성됩니다.
 ```
 
-**참고**: 프로젝트는 Sequelize ORM을 사용하므로, `server/models/` 디렉토리의 모델 파일을 수정하고 `db.sequelize.sync()`를 실행하면 자동으로 테이블이 생성됩니다.
+**참고**: 
+- 프로젝트는 Sequelize ORM을 사용하므로, `server/models/` 디렉토리의 모델 파일을 수정하고 서버 실행 시 `db.sequelize.sync()`를 통해 자동으로 테이블이 생성됩니다.
+- 로컬 환경에서는 MySQL 서버가 실행 중이어야 합니다.
+- Docker 환경에서는 MySQL 컨테이너가 자동으로 설정됩니다.
 
 ---
 
@@ -784,6 +905,9 @@ USE web_daw;
 - **Tone.js**: 웹 오디오 프레임워크
 - **Zustand**: 경량 상태 관리 라이브러리
 - **Axios**: HTTP 클라이언트
+- **Three.js**: 3D 그래픽 라이브러리 (비주얼라이저)
+- **@react-three/fiber**: Three.js를 React 컴포넌트로 사용
+- **@react-three/drei**: Three.js 유틸리티 및 헬퍼
 
 ### 백엔드
 - **Express.js**: Node.js 웹 프레임워크
@@ -807,15 +931,19 @@ USE web_daw;
 ## 7. 주요 기능
 
 1. **런치패드 인터페이스**: 16개 패드 그리드로 샘플 트리거
-2. **샘플 업로드**: 오디오 파일(MP3) 업로드 및 패드에 할당
+2. **샘플 업로드**: 오디오 파일(MP3, WEBM) 업로드 및 패드에 할당
 3. **프리셋 저장/로드**: 패드 구성 및 설정을 서버에 저장 및 불러오기
-4. **믹서 컨트롤**: 트랙별 볼륨 및 패닝 조절
-5. **시퀀서**: 루핑 및 패턴 재생
-6. **신서사이저**: 내장 신스 컨트롤
+4. **믹서 컨트롤**: 트랙별 볼륨 및 패닝 조절, 뮤트/솔로 기능
+5. **시퀀서**: 루핑 및 패턴 재생, 녹음 기능
+6. **신서사이저**: 내장 신스 컨트롤 및 프리셋 관리
 7. **오디오 효과**: 리버브, 딜레이 등 FX 컨트롤
-8. **사운드 라이브러리**: 업로드된 사운드 관리 및 브라우징
-9. **비주얼라이저**: 사운드 시각화 (배경 비주얼라이저)
-10. **Google OAuth**: 소셜 로그인을 통한 사용자 인증
+8. **파일 라이브러리**: 업로드된 파일 관리 (이름 변경, 삭제, 선택)
+9. **악기 라이브러리**: 샘플러, 신스, 드럼 등 악기 선택 및 관리
+10. **녹음 라이브러리**: 녹음된 파일 관리 및 재생
+11. **가상 악기**: 가상 드럼 패드 및 피아노 키보드 인터페이스
+12. **3D 비주얼라이저**: Three.js 기반 배경 사운드 시각화
+13. **레이아웃**: 사이드바 기반 구조화된 UI (좌측: 믹서, 우측: 컨트롤)
+14. **Google OAuth**: 소셜 로그인을 통한 사용자 인증
 
 ---
 
@@ -824,8 +952,15 @@ USE web_daw;
 - `node_modules`, `.git`, `dist`, `uploads`(업로드된 파일) 등은 버전 관리에서 제외됩니다.
 - 개발 환경에서는 `.env` 파일을 `.gitignore`에 포함하여 보안을 유지하세요.
 - MySQL 데이터베이스는 서버 실행 시 Sequelize의 `sync()` 메서드를 통해 자동으로 테이블이 생성됩니다.
+- **기본 실행 방법은 Docker Compose**입니다. 팀 전체의 개발 환경을 통일하기 위해 Docker를 사용합니다.
+- 로컬 실행은 **선택사항**이며, 빠른 개발/디버깅이 필요한 경우에 사용할 수 있습니다.
 - Docker Compose를 사용하면 MySQL 컨테이너가 자동으로 생성되고 관리됩니다.
 - Docker 환경에서 MySQL 호스트는 `mysql` (서비스 이름)이며, 로컬에서는 `127.0.0.1`을 사용합니다.
 - Tone.js의 오디오 컨텍스트는 브라우저의 사용자 제스처(클릭 등) 이후에만 시작할 수 있습니다.
 - Windows 환경에서는 `start_app.bat` 파일을 사용하여 쉽게 애플리케이션을 시작할 수 있습니다.
 - Docker를 사용하는 경우, `.dockerignore` 파일이 빌드 컨텍스트에서 불필요한 파일을 제외합니다.
+- **문서 위치**: 모든 프로젝트 문서는 `document/` 폴더에 있습니다.
+  - `document/PROJECT_SPEC.md`: 프로젝트 명세서 (이 문서)
+  - `document/DB_SCHEMA.md`: 데이터베이스 스키마를 DBML 형식으로 정의한 문서 (dbdiagram.io에서 시각화 가능)
+  - `document/DOCKER_TROUBLESHOOTING.md`: Docker 실행 시 발생할 수 있는 일반적인 문제 해결 가이드
+  - `document/README_DOCKER.md`: Docker Compose를 사용한 실행 방법 상세 가이드
