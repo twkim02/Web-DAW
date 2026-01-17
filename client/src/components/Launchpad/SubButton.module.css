@@ -1,29 +1,34 @@
-.subButton {
-    width: 80px;
-    height: 80px;
+.button {
+    width: 60px;
+    height: 60px;
+    background: rgba(34, 34, 34, 0.6);
+    /* Same as Pad */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    /* Same as Pad */
     border-radius: 4px;
-    background: #1a1a1a;
-    border: 2px solid #333;
-    color: #888;
-    font-size: 1.2rem;
     cursor: pointer;
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: all 0.1s;
-    font-weight: bold;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: all 0.1s ease;
+    backdrop-filter: blur(5px);
 }
 
-.subButton:active {
-    transform: scale(0.96);
-    background: #222;
-    border-color: #666;
+.button:active {
+    transform: scale(0.95);
+    background: rgba(0, 255, 204, 0.2);
+    border-color: rgba(0, 255, 204, 0.5);
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
     color: #fff;
 }
 
-.subButton:hover {
-    color: white;
-    border-color: #555;
-    background: #222;
+.button:hover {
+    background: rgba(51, 51, 51, 0.8);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
 }

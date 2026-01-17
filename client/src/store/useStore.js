@@ -33,12 +33,12 @@ const useStore = create((set) => ({
     setAudioContextReady: (isReady) => set({ isAudioContextReady: isReady }),
 
     // Pad State (Phase 1 mock data, will be dynamic later)
-    // Mapping 16 pads (0-15) to sound files and settings
-    padMappings: Array(16).fill(null).map((_, index) => ({
+    // Mapping 64 pads (0-63) to sound files and settings
+    padMappings: Array(64).fill(null).map((_, index) => ({
         id: index,
-        key: null, // assigned key char
+        key: null, // assigned key char (User mode mapping later)
         file: null, // path to audio file
-        mode: index === 1 ? 'gate' : index === 2 ? 'toggle' : 'one-shot', // Demo: Pad 0=One-shot, Pad 1=Gate, Pad 2=Toggle
+        mode: 'one-shot', // Default mode
         volume: 0,
         type: 'sample', // 'sample' | 'synth'
         note: 'C4', // Default note
@@ -49,6 +49,32 @@ const useStore = create((set) => ({
         const newMappings = [...state.padMappings];
         newMappings[id] = { ...newMappings[id], ...newMapping };
         return { padMappings: newMappings };
+    }),
+
+    resetPad: (id) => set((state) => {
+        const newMappings = [...state.padMappings];
+        newMappings[id] = {
+            id: id,
+            key: null,
+            file: null,
+            mode: 'one-shot',
+            volume: 0,
+            type: 'sample',
+            note: 'C4',
+            color: null,
+            originalName: null,
+            name: null,
+            assetId: null
+        };
+
+        // Also clear active state just in case
+        const newActivePads = { ...state.activePads };
+        delete newActivePads[id];
+
+        return {
+            padMappings: newMappings,
+            activePads: newActivePads
+        };
     }),
 
     // Visual State for Pads (active or not)
@@ -81,6 +107,18 @@ const useStore = create((set) => ({
             [type]: { ...state.effects[type], ...params }
         }
     })),
+
+    // Bank Navigation State
+    bankCoords: { x: 0, y: 0 }, // x: 0-1, y: 0-1
+    moveBank: (dx, dy) => set((state) => {
+        const newX = Math.max(0, Math.min(1, state.bankCoords.x + dx));
+        const newY = Math.max(0, Math.min(1, state.bankCoords.y + dy));
+        return { bankCoords: { x: newX, y: newY } };
+    }),
+
+    // Zoom UI State
+    isZoomed: true, // Default to zoomed in view? Or false? Let's try true to match current feeling but better.
+    setIsZoomed: (isZoomed) => set({ isZoomed }),
 }));
 
 export default useStore;

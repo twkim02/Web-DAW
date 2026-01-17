@@ -4,165 +4,157 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.85);
+    /* Darker for focus */
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    backdrop-filter: blur(5px);
 }
 
 .modal {
     background: #1e1e1e;
-    width: 400px;
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    width: 450px;
+    border-radius: 16px;
+    padding: 30px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
     border: 1px solid #333;
     color: white;
+    font-family: 'Inter', sans-serif;
 }
 
-.modal header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
+.header {
+    margin-bottom: 20px;
+    text-align: center;
     border-bottom: 1px solid #333;
-    padding-bottom: 12px;
+    padding-bottom: 15px;
 }
 
-.modal h2 {
+.header h2 {
     margin: 0;
     font-size: 1.5rem;
     color: #00ffcc;
+    font-weight: 600;
 }
 
-.closeBtn {
-    background: transparent;
-    border: none;
+.subHeader {
     color: #888;
-    font-size: 1.2rem;
-    cursor: pointer;
-}
-
-.closeBtn:hover {
-    color: white;
-}
-
-.section {
-    margin-bottom: 20px;
-    background: #2a2a2a;
-    padding: 15px;
-    border-radius: 8px;
-}
-
-.section label {
-    display: block;
     font-size: 0.9rem;
-    color: #888;
-    margin-bottom: 8px;
-    text-transform: uppercase;
+    margin-top: 5px;
 }
 
-.fileInfo {
-    font-size: 0.9rem;
-    color: #fff;
-    margin-bottom: 10px;
-    font-style: italic;
-    word-break: break-all;
-}
-
-.section button {
-    background: #444;
-    color: white;
-    border: 1px solid #666;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    width: 100%;
-}
-
-/* Wizard Styles */
 .stepContainer {
+    min-height: 200px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    min-height: 250px;
-    /* Ensure consistent height */
-    justify-content: center;
+    gap: 15px;
 }
 
 .stepTitle {
-    font-size: 1.2rem;
-    color: #00ffcc;
-    margin-bottom: 10px;
-    text-align: center;
-    border-bottom: 1px solid #333;
-    padding-bottom: 10px;
-}
-
-.navigation {
+    font-size: 1.1rem;
+    color: #fff;
+    margin-bottom: 15px;
+    font-weight: 500;
     display: flex;
     justify-content: space-between;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #333;
+    align-items: center;
 }
 
-.navBtn {
-    background: #444;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: 0.2s;
+.stepIndicator {
+    font-size: 0.8rem;
+    color: #555;
+    background: #111;
+    padding: 2px 8px;
+    border-radius: 12px;
 }
 
-.navBtn:hover {
-    background: #666;
+.optionList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.navBtn.primary {
-    background: #00ffcc;
-    color: black;
-}
-
-.navBtn.primary:hover {
-    background: #00ccaa;
-}
-
-.colorGrid {
+.gridList {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    justify-items: center;
+    gap: 12px;
 }
 
-.colorBtn {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-.colorBtn:hover {
-    transform: scale(1.1);
-}
-
-.section button:hover {
-    background: #555;
-    border-color: #888;
-}
-
-.section select,
-.section input[type="range"] {
-    width: 100%;
-    background: #111;
-    color: white;
+.optionItem {
+    background: #2a2a2a;
     border: 1px solid #444;
-    padding: 8px;
+    padding: 12px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.optionItem:hover,
+.optionItem.active {
+    background: #333;
+    border-color: #00ffcc;
+    transform: translateX(5px);
+}
+
+/* Specific styling for grid items to not shift right */
+.gridList .optionItem:hover {
+    transform: scale(1.05);
+}
+
+.keyBadge {
+    background: #00ffcc;
+    color: #000;
+    font-weight: bold;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 4px;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.optionLabel {
+    color: #eee;
+    font-size: 1rem;
+}
+
+/* Color step specifics */
+.colorPreview {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-left: auto;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.footer {
+    border-top: 1px solid #333;
+    margin-top: 25px;
+    padding-top: 15px;
+    display: flex;
+    justify-content: space-between;
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.keyHint {
+    background: #222;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    color: #aaa;
+    margin-right: 5px;
+    font-family: monospace;
+}
+
+.hiddenInput {
+    display: none;
 }

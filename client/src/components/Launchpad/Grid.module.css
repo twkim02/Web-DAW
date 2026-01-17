@@ -1,55 +1,97 @@
+/* Main Container (Circular Glass) */
 .wrapper {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-    background: #111;
-    padding: 25px;
-    border-radius: 12px;
-    border: 1px solid #333;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+    display: grid;
+    /* 9x9 Layout: 8 cols (522px) + Gap + 1 col (60px) */
+    grid-template-columns: 522px 60px;
+    grid-template-rows: 60px 522px;
+    gap: 12px;
+    /* Gap between alignment blocks */
+
+    background: rgba(17, 17, 17, 0.6);
+    backdrop-filter: blur(20px);
+    padding: 85px;
+    /* Padding creates the circle around the 588px square content */
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 100px rgba(0, 255, 204, 0.1);
+
     user-select: none;
+    aspect-ratio: 1/1;
+    justify-content: center;
+    align-items: center;
+    transform: scale(0.9);
 }
 
-.topRow {
-    display: grid;
-    grid-template-columns: repeat(8, 80px);
-    /* 8 columns total width */
-    gap: 10px;
-    margin-bottom: 0;
-}
-
-/* Actually, the reference image has 8 top buttons and 8 side buttons.
-   But our grid is 4x4. The user asked for "4x4인것 잊지 말고".
-   So I will stick to 4 top buttons and 4 side buttons to align with the 4x4 grid.
-   
-   Top Row: 4 buttons aligned with the 4 columns.
-   Side Col: 4 buttons aligned with the 4 rows.
-*/
-
-.topRow {
-    display: grid;
-    grid-template-columns: repeat(4, 80px);
-    gap: 10px;
-    /* Main pads are 80px. Gap is 10px. */
-    width: 350px;
-    /* 4*80 + 3*10 = 350 */
-}
-
-.middleRow {
+/* 1. Top Buttons (Row of 8) */
+.topSection {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
+    flex-direction: row;
+    justify-content: space-between;
+    /* Fill space */
+    gap: 6px;
+    width: 100%;
+    align-self: end;
 }
 
-.gridContainer {
-    display: grid;
-    grid-template-columns: repeat(4, 80px);
-    gap: 10px;
+/* 2. Top Right Corner */
+.corner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 60px;
+    height: 60px;
 }
 
-.sideColumn {
+/* 3. Main Grid (8x8) */
+.gridSection {
     display: grid;
-    grid-template-rows: repeat(4, 80px);
-    gap: 10px;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    gap: 6px;
+    position: relative;
+}
+
+/* 4. Side Buttons (Col of 8) */
+.sideSection {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+    height: 100%;
+}
+
+/* Neon Bank Border */
+.bankBorder {
+    position: absolute;
+    width: 260px;
+    /* 4*60 + 3*6 + 2px border adj */
+    height: 260px;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    pointer-events: none;
+    box-shadow: 0 0 10px #fff, 0 0 20px #0ff, 0 0 40px #0ff;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 10;
+}
+
+.bankBorder.visible {
+    opacity: 1;
+    animation: neonFlash 0.6s ease-out forwards;
+}
+
+@keyframes neonFlash {
+    0% {
+        box-shadow: 0 0 20px #fff, 0 0 40px #fff, 0 0 80px #0ff;
+        border-color: #fff;
+        opacity: 0;
+        transform: scale(1.1);
+    }
+
+    100% {
+        box-shadow: 0 0 5px #fff, 0 0 15px #0ff;
+        border-color: #0ff;
+        opacity: 1;
+        transform: scale(1);
+    }
 }

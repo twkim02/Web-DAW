@@ -4,13 +4,46 @@ import useStore from './store/useStore';
 import { audioEngine } from './audio/AudioEngine';
 import { getCurrentUser, loginURL, devLoginURL, logout } from './api/auth';
 import { getPresets, savePreset } from './api/presets';
-import TransportControls from './components/Transport/TransportControls';
-import SynthControls from './components/Synth/SynthControls';
-import FXControls from './components/Audio/FXControls';
+import LeftSidebar from './components/Layout/LeftSidebar';
+import RightSidebar from './components/Layout/RightSidebar';
 import PadSettingsModal from './components/Settings/PadSettingsModal';
-import TrackList from './components/Mixer/TrackList';
 import BackgroundVisualizer from './components/Visualizer/BackgroundVisualizer';
 import './App.css';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, color: 'white', textAlign: 'center' }}>
+          <h2>Something went wrong.</h2>
+          <details style={{ whiteSpace: 'pre-wrap' }} open>
+            {this.state.error && this.state.error.toString()}
+            <br />
+            {this.state.errorInfo && this.state.errorInfo.componentStack}
+          </details>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 20, padding: 10 }}>
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function App() {
   const isAudioContextReady = useStore((state) => state.isAudioContextReady);
@@ -133,57 +166,61 @@ function App() {
 
   return (
     <div className="App">
-      <BackgroundVisualizer />
-      {!isAudioContextReady ? (
-        <div className="overlay">
-          <div className="welcome-modal">
-            <h1>Web DAW & Launchpad</h1>
-            <p>Click anywhere to start the Audio Engine</p>
-            <button onClick={handleStart} className="start-btn">Start</button>
-          </div>
-        </div>
-      ) : (
-        <main className="main-interface">
-          <header>
-            <h1>YEEZY LOOP STATION</h1>
-            <div className="controls">
-              {user ? (
-                <div className="user-info">
-                  <span>{user.nickname}</span>
-                  <select onChange={handleLoad} defaultValue="">
-                    <option value="" disabled>Load Preset...</option>
-                    {tempPresets.map(p => (
-                      <option key={p.id} value={p.id}>{p.title}</option>
-                    ))}
-                  </select>
-                  <button onClick={handleSave}>Save</button>
-                  <button onClick={handleLogout}>Logout</button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={handleLogin} className="login-btn">Login with Google</button>
-                  <button onClick={() => window.location.href = devLoginURL} className="login-btn" style={{ background: '#555' }}>Dev Login</button>
-                </div>
-              )}
-            </div>
+      <ErrorBoundary>
+        <React.Suspense fallback={null}>
+          <BackgroundVisualizer />
+        </React.Suspense>
 
-            <div className="transport-section">
-              <TransportControls />
-              <div style={{ marginTop: '10px' }}>
-                <SynthControls />
-                <FXControls />
+        {!isAudioContextReady ? (
+          <div className="overlay">
+            <div className="welcome-modal">
+              <h1>Web Loop Station</h1>
+              <p>Ready to jam?</p>
+              <button className="start-btn" onClick={handleStart}>START</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
+            <LeftSidebar />
+
+            <main style={{
+              flex: 1,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              position: 'relative'
+            }}>
+              {/* Header Controls (User/Preset) */}
+              <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', gap: '10px', zIndex: 100 }}>
+                {user ? (
+                  <div style={{ display: 'flex', gap: '10px', background: '#222', padding: '5px', borderRadius: '4px', alignItems: 'center' }}>
+                    <span style={{ color: '#aaa', fontSize: '0.8rem' }}>{user.nickname || user.username}</span>
+                    <button onClick={handleSave}>Save</button>
+                    <button onClick={handleLogout}>Logout</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="login-btn" onClick={handleLogin}>Login</button>
+                    <button className="login-btn" style={{ background: '#555' }} onClick={() => window.location.href = devLoginURL}>Dev</button>
+                  </div>
+                )}
+
+                <select onChange={handleLoad} defaultValue="" style={{ background: '#222', color: '#fff', border: '1px solid #444', padding: '5px', borderRadius: '4px' }}>
+                  <option value="" disabled>Load Preset</option>
+                  {tempPresets.map(p => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))}
+                </select>
               </div>
-            </div>
-          </header>
 
-          <div className="workspace-container" style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', justifyContent: 'center', width: '100%' }}>
-            <TrackList />
-            <Grid />
+              <PadSettingsModal />
+              <Grid />
+            </main>
+
+            <RightSidebar />
           </div>
-
-          <PadSettingsModal />
-        </main>
-      )}
+        )}
+      </ErrorBoundary>
     </div>
   );
 }

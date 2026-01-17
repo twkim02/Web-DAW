@@ -12,7 +12,7 @@ const Pad = ({ id, label }) => {
     const { triggerPad } = usePadTrigger();
 
     const handleMouseDown = (e) => {
-        if (e.ctrlKey) {
+        if (e.shiftKey) {
             e.preventDefault();
             console.log('Opening settings for Pad', id);
             setEditingPadId(id);
@@ -29,28 +29,63 @@ const Pad = ({ id, label }) => {
 
     const handleDrop = async (e) => {
         e.preventDefault();
+
+        // 1. Handle Internal Drag (Sidebar Library)
+        const jsonData = e.dataTransfer.getData('application/json');
+        if (jsonData) {
+            try {
+                const data = JSON.parse(jsonData);
+                if (data.type === 'asset' && data.asset) {
+                    const { asset } = data;
+                    console.log('Dropped Asset:', asset.originalName);
+
+                    const fileUrl = `http://localhost:3001/uploads/${encodeURIComponent(asset.filename)}`;
+
+                    // OPTIMISTIC UPDATE: Update UI first
+                    updatePadMapping(id, {
+                        file: fileUrl,
+                        assetId: asset.id,
+                        originalName: asset.originalName,
+                        type: 'sample',
+                        name: null
+                    });
+
+                    // Load Audio (Async)
+                    sampler.loadSample(id, fileUrl).catch(err => {
+                        console.error('Failed to load sample audio:', err);
+                    });
+
+                    return;
+                }
+            } catch (err) {
+                console.error('JSON Parse Error', err);
+            }
+        }
+
+        // 2. Handle External File Drop (OS)
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('audio/')) {
             try {
                 console.log('Uploading...', file.name);
                 const response = await uploadFile(file);
                 // response: { message, file: { id, filePath, ... } }
-                // filePath is server path e.g. "c:/.../uploads/..."
-                // We need a public URL. The server serves /uploads static.
-                // But filePath in DB is absolute path. We need to construct URL.
-                // Actually, we can just use the filename to construct the URL if we know the base.
-                // Or better, server should return a usable URL or relative path.
-                // For now, let's assume we construct it:
-                const fileUrl = `http://localhost:3001/uploads/${response.file.filename}`;
 
-                await sampler.loadSample(id, fileUrl);
+                const fileUrl = `http://localhost:3001/uploads/${encodeURIComponent(response.file.filename)}`;
 
+                // OPTIMISTIC UPDATE
                 updatePadMapping(id, {
                     file: fileUrl,
                     assetId: response.file.id,
-                    originalName: response.file.originalName
+                    originalName: response.file.originalName,
+                    name: null
                 });
-                console.log('Sample Loaded:', fileUrl);
+
+                // Load Audio (Async)
+                sampler.loadSample(id, fileUrl).catch(err => {
+                    console.error('Failed to load uploaded sample:', err);
+                });
+
+                console.log('Sample Uploaded & Loaded:', fileUrl);
             } catch (err) {
                 console.error('Upload failed', err);
                 alert('Upload failed');
@@ -64,6 +99,9 @@ const Pad = ({ id, label }) => {
     const padStyle = {};
     const mapping = useStore(state => state.padMappings[id]);
     const customColor = mapping?.color;
+
+    // DEBUG: Check mapping on render
+    console.log(`[Pad ${id}] Render. Mapping:`, mapping);
 
     if (isActive) {
         padStyle.backgroundColor = customColor || '#00ffcc'; // Default cyan if no color
@@ -80,7 +118,13 @@ const Pad = ({ id, label }) => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            <span className={styles.label}>{label}</span>
+            {/* Center Name: User defined name or Original Filename (truncated) */}
+            <span className={styles.padName}>
+                {mapping?.name || (mapping?.originalName ? mapping.originalName.substring(0, 8) + '...' : '')}
+            </span>
+
+            {/* Corner Key Label */}
+            <span className={styles.keyLabel}>{label}</span>
         </button>
     );
 };

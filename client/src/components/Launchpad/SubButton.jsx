@@ -4,7 +4,7 @@ import styles from './SubButton.module.css';
 const SubButton = ({ label, onClick, style }) => {
     return (
         <button
-            className={styles.subButton}
+            className={styles.button}
             onClick={onClick}
             style={style}
         >

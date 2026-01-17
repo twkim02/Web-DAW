@@ -2,14 +2,17 @@ import * as Tone from 'tone';
 
 class Sampler {
     constructor() {
-        this.players = new Tone.Players();
-        // Default to destination until connected elsewhere
-        this.players.toDestination();
+        this.players = new Map(); // Direct Map of Tone.Player instances
+        this.destination = Tone.getDestination(); // Default output
     }
 
     connectTo(node) {
-        this.players.disconnect();
-        this.players.connect(node);
+        this.destination = node;
+        // Reconnect all existing players
+        this.players.forEach(player => {
+            player.disconnect();
+            player.connect(this.destination);
+        });
         console.log('[Sampler] Connected to custom node (FX Chain)');
     }
 
@@ -20,23 +23,42 @@ class Sampler {
      */
     async loadSample(key, url) {
         return new Promise((resolve, reject) => {
-            this.players.add(key, url, () => {
-                resolve();
-            });
+            if (this.players.has(key)) {
+                // Dipose old player first to ensure clean state
+                this.unload(key);
+            }
+
+            const player = new Tone.Player({
+                url: url,
+                loop: false,
+                autostart: false,
+                onload: () => {
+                    console.log(`[Sampler] Loaded new sample for key: ${key}`);
+                    resolve();
+                },
+                onerror: (err) => {
+                    console.error(`[Sampler] Failed to load sample for key: ${key}`, err);
+                    reject(err);
+                }
+            }).connect(this.destination);
+
+            this.players.set(key, player);
         });
     }
 
     /**
-   * Play a sample
-   * @param {string} key - Identifier of the sample to play
-   * @param {object} options - Options like startTime, offset, duration, loop
-   */
+     * Play a sample
+     * @param {string} key - Identifier of the sample to play
+     * @param {object} options - Options like startTime, offset, duration, loop
+     */
     play(key, options = {}) {
         if (this.players.has(key)) {
-            const player = this.players.player(key);
+            const player = this.players.get(key);
+
+            // Handle Looping
             player.loop = !!options.loop;
-            // If re-triggering, typically we want to restart.
-            // Launchpad style: One-shot usually restarts.
+
+            // Stop if already playing to allow retrigger
             if (player.state === 'started') {
                 player.stop();
             }
@@ -48,7 +70,7 @@ class Sampler {
 
     isPlaying(key) {
         if (this.players.has(key)) {
-            return this.players.player(key).state === 'started';
+            return this.players.get(key).state === 'started';
         }
         return false;
     }
@@ -59,9 +81,23 @@ class Sampler {
      */
     stop(key) {
         if (this.players.has(key)) {
-            const player = this.players.player(key);
+            const player = this.players.get(key);
             player.stop();
-            player.loop = false; // Reset loop
+            player.loop = false;
+        }
+    }
+
+    /**
+     * Unload/Dispose a sample
+     * @param {string} key 
+     */
+    unload(key) {
+        if (this.players.has(key)) {
+            const player = this.players.get(key);
+            player.disconnect();
+            player.dispose();
+            this.players.delete(key);
+            console.log(`[Sampler] Unloaded sample for key: ${key}`);
         }
     }
 }
