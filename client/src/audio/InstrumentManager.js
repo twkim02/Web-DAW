@@ -171,14 +171,8 @@ class InstrumentManager {
             this.previewInstance.triggerAttackRelease(note, duration);
         } else if (this.previewType === 'drums') {
             const sample = DRUM_NOTE_MAP[note] || note;
-            console.log(`[InstrumentManager] Triggering Drum: ${note} -> ${sample}`);
-
             if (this.previewInstance.has(sample)) {
-                console.log(`[InstrumentManager] Sample found. Playing...`);
                 this.previewInstance.player(sample).start();
-            } else {
-                console.warn(`[InstrumentManager] Sample NOT found: ${sample}`);
-                console.log('Available samples:', this.previewInstance._players.keys()); // accessing internal map for debug
             }
         }
     }
