@@ -33,27 +33,33 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Passport Config (Simple setup for now)
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.CALLBACK_URL || "/auth/google/callback"
-},
-    async function (accessToken, refreshToken, profile, cb) {
-        try {
-            const [user] = await db.User.findOrCreate({
-                where: { googleId: profile.id },
-                defaults: {
-                    email: profile.emails[0].value,
-                    nickname: profile.displayName
-                }
-            });
-            return cb(null, user);
-        } catch (err) {
-            return cb(err, null);
+// Google OAuth는 환경 변수가 설정된 경우에만 활성화
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const GoogleStrategy = require('passport-google-oauth20').Strategy;
+    passport.use(new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: process.env.CALLBACK_URL || "/auth/google/callback"
+    },
+        async function (accessToken, refreshToken, profile, cb) {
+            try {
+                const [user] = await db.User.findOrCreate({
+                    where: { googleId: profile.id },
+                    defaults: {
+                        email: profile.emails[0].value,
+                        nickname: profile.displayName
+                    }
+                });
+                return cb(null, user);
+            } catch (err) {
+                return cb(err, null);
+            }
         }
-    }
-));
+    ));
+    console.log('Google OAuth strategy configured');
+} else {
+    console.warn('Google OAuth credentials not found. OAuth login will be disabled.');
+}
 
 passport.serializeUser((user, done) => {
     done(null, user.id);
