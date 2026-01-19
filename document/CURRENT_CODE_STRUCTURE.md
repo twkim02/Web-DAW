@@ -3,10 +3,11 @@
 Phase 1: 코드베이스 구조 완전 파악 결과 보고서
 
 **생성일**: 2024-01-XX  
-**업데이트**: Phase 4 완료 후 최신 상태 반영
+**업데이트**: Phase 4 완료 및 UserPreferences/Posts 구현 완료 후 최신 상태 반영
 
 **참고**: 이 문서는 스키마 리팩토링 전 단계(Phase 1)의 분석 결과입니다.  
-Phase 4에서 추가된 필드 정보는 아래 "Phase 4 업데이트" 섹션 또는 `document/PHASE4_COMPLETION_SUMMARY.md`를 참조하세요.
+Phase 4에서 추가된 필드 정보는 아래 "Phase 4 업데이트" 섹션 또는 `document/legacy/PHASE4_COMPLETION_SUMMARY.md`를 참조하세요.  
+UserPreferences와 Posts 모델은 최근 구현 완료되었습니다.
 
 ---
 
@@ -42,6 +43,7 @@ Phase 4에서 추가된 필드 정보는 아래 "Phase 4 업데이트" 섹션 �
 **관계**:
 - `belongsTo` User (foreignKey: `userId`)
 - `hasMany` KeyMapping (foreignKey: `presetId`)
+- `hasOne` Post (foreignKey: `presetId`, onDelete: 'RESTRICT')
 
 **코드 예시**:
 ```javascript
@@ -125,6 +127,8 @@ const KeyMapping = sequelize.define('KeyMapping', {
 **관계**:
 - `hasMany` Preset (foreignKey: `userId`)
 - `hasMany` Asset (foreignKey: `userId`)
+- `hasOne` UserPreference (foreignKey: `userId`, onDelete: 'CASCADE')
+- `hasMany` Post (foreignKey: `userId`, onDelete: 'CASCADE')
 
 **코드 예시**:
 ```javascript
@@ -195,6 +199,105 @@ const Asset = sequelize.define('Asset', {
     }
 }, {
     tableName: 'Assets',
+    underscored: true
+});
+```
+
+---
+
+### 1.5 UserPreference 모델 (`server/models/userPreference.js`)
+
+**테이블명**: `UserPreferences`
+
+**필드**:
+| 필드명 | 타입 | 제약조건 | 기본값 | 설명 |
+|--------|------|----------|--------|------|
+| `id` | INTEGER | PK, AUTO_INCREMENT | - | 기본키 (Sequelize 자동) |
+| `userId` | INTEGER | FK (Users.id), UNIQUE, NOT NULL | - | 사용자 ID (외래키, 1:1 관계) |
+| `latencyMs` | INTEGER | NOT NULL | `100` | 오디오 출력 레이턴시 (밀리초) |
+| `visualizerMode` | STRING(50) | NULL 허용 | - | 비주얼라이저 모드 ('waveform', 'spectrum', 'bars' 등) |
+| `defaultMasterVolume` | FLOAT | NOT NULL | `0.7` | 기본 마스터 볼륨 (0.0 ~ 1.0) |
+| `createdAt` | DATETIME | - | 현재 시간 | 생성일시 (Sequelize 자동) |
+| `updatedAt` | DATETIME | - | 현재 시간 | 수정일시 (Sequelize 자동) |
+
+**관계**:
+- `belongsTo` User (foreignKey: `userId`, onDelete: 'CASCADE')
+
+**코드 예시**:
+```javascript
+const UserPreference = sequelize.define('UserPreference', {
+    latencyMs: {
+        type: DataTypes.INTEGER,
+        defaultValue: 100,
+        allowNull: false
+    },
+    visualizerMode: {
+        type: DataTypes.STRING(50),
+        allowNull: true
+    },
+    defaultMasterVolume: {
+        type: DataTypes.FLOAT,
+        defaultValue: 0.7,
+        allowNull: false
+    }
+}, {
+    tableName: 'UserPreferences',
+    underscored: true
+});
+```
+
+---
+
+### 1.6 Post 모델 (`server/models/post.js`)
+
+**테이블명**: `Posts`
+
+**필드**:
+| 필드명 | 타입 | 제약조건 | 기본값 | 설명 |
+|--------|------|----------|--------|------|
+| `id` | INTEGER | PK, AUTO_INCREMENT | - | 기본키 (Sequelize 자동) |
+| `userId` | INTEGER | FK (Users.id), NOT NULL | - | 작성자 ID (외래키) |
+| `presetId` | INTEGER | FK (Presets.id), UNIQUE, NOT NULL | - | 공유 대상 프리셋 ID (외래키, 1:1 관계) |
+| `title` | STRING | NOT NULL | - | 게시글 제목 |
+| `description` | TEXT | NULL 허용 | - | 게시글 설명 |
+| `likeCount` | INTEGER | NOT NULL | `0` | 좋아요 수 |
+| `downloadCount` | INTEGER | NOT NULL | `0` | 다운로드 수 |
+| `isPublished` | BOOLEAN | NOT NULL | `true` | 공개 여부 |
+| `createdAt` | DATETIME | - | 현재 시간 | 생성일시 (Sequelize 자동) |
+| `updatedAt` | DATETIME | - | 현재 시간 | 수정일시 (Sequelize 자동) |
+
+**관계**:
+- `belongsTo` User (foreignKey: `userId`, onDelete: 'CASCADE')
+- `belongsTo` Preset (foreignKey: `presetId`, onDelete: 'RESTRICT')
+
+**코드 예시**:
+```javascript
+const Post = sequelize.define('Post', {
+    title: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    description: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    likeCount: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        allowNull: false
+    },
+    downloadCount: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        allowNull: false
+    },
+    isPublished: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        allowNull: false
+    }
+}, {
+    tableName: 'Posts',
     underscored: true
 });
 ```
@@ -738,7 +841,9 @@ Asset.associate = function (models) {
 - 필드명: `nickname`, `keyChar` 유지 (코드 기준)
 - `type`, `note` 필드는 코드에 존재하며 정상적으로 사용됨
 
-**참고**: 자세한 내용은 `document/PHASE4_COMPLETION_SUMMARY.md`를 참조하세요.
+**참고**: 
+- Phase 4 자세한 내용은 `document/legacy/PHASE4_COMPLETION_SUMMARY.md`를 참조하세요.
+- UserPreferences와 Posts 모델은 최근 구현 완료되었습니다. API 문서는 `document/API_DOCUMENTATION.md`를 참조하세요.
 
 ---
 

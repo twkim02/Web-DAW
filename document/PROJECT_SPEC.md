@@ -93,11 +93,22 @@ Web-DAW/
 │   │   ├── user.js                  # 사용자 모델
 │   │   ├── preset.js                # 프리셋 모델
 │   │   ├── keyMapping.js            # 키 매핑 모델
-│   │   └── asset.js                 # 업로드된 파일(에셋) 모델
+│   │   ├── asset.js                 # 업로드된 파일(에셋) 모델
+│   │   ├── userPreference.js        # 사용자 설정 모델
+│   │   └── post.js                  # 게시글 모델
 │   ├── routes/                       # API 라우트 핸들러
 │   │   ├── auth.js                  # 인증 라우트 (Google OAuth)
 │   │   ├── upload.js                # 파일 업로드 라우트
-│   │   └── presets.js               # 프리셋 CRUD 라우트
+│   │   ├── presets.js               # 프리셋 CRUD 라우트
+│   │   ├── userPreferences.js      # 사용자 설정 API 라우트
+│   │   └── posts.js                 # 게시글 API 라우트
+│   ├── test/                         # 테스트 파일
+│   │   ├── userPreference.test.js   # UserPreference 모델 테스트
+│   │   ├── post.test.js              # Post 모델 테스트
+│   │   ├── api-test-guide.md        # UserPreferences API 테스트 가이드
+│   │   ├── posts-api-test-guide.md  # Posts API 테스트 가이드
+│   │   ├── dummy_data.sql           # 테스트용 더미 데이터 SQL
+│   │   └── README.md                # 테스트 디렉토리 설명
 │   ├── uploads/                      # 업로드된 파일 저장소
 │   ├── database.sqlite               # SQLite 데이터베이스 파일 (로컬 개발용, 선택사항)
 │   ├── init.sql                      # MySQL 초기화 SQL (Docker 사용 시)
@@ -113,15 +124,18 @@ Web-DAW/
 ├── document/                         # 프로젝트 문서 디렉토리
 │   ├── PROJECT_SPEC.md              # 프로젝트 명세서 (이 문서)
 │   ├── DB_SCHEMA.md                 # 데이터베이스 스키마 (DBML 형식)
-│   ├── CURRENT_CODE_STRUCTURE.md    # 현재 코드베이스 구조 분석 (Phase 1)
-│   ├── SCHEMA_REFACTORING_PLAN.md   # 스키마 리팩토링 계획
-│   ├── PHASE3_FIELD_ADDITION_DECISION.md  # Phase 3 필드 추가 결정
-│   ├── PHASE4_EXECUTION_PLAN.md     # Phase 4 실행 계획
-│   ├── PHASE4_COMPLETION_SUMMARY.md # Phase 4 완료 요약
+│   ├── API_DOCUMENTATION.md         # API 문서 (프론트엔드 팀용)
+│   ├── CURRENT_CODE_STRUCTURE.md    # 현재 코드베이스 구조 분석
 │   ├── HIGH_FI_ROADMAP.md           # High-Fi 로드맵
 │   ├── README_DOCKER.md             # Docker 실행 가이드
 │   ├── DOCKER_TROUBLESHOOTING.md    # Docker 트러블슈팅 가이드
-│   └── DOCUMENT_UPDATE_SUMMARY.md   # 문서 업데이트 완료 요약
+│   └── legacy/                      # 완료된 작업 문서 (참고용)
+│       ├── SCHEMA_REFACTORING_PLAN.md
+│       ├── PHASE3_FIELD_ADDITION_DECISION.md
+│       ├── PHASE4_EXECUTION_PLAN.md
+│       ├── PHASE4_COMPLETION_SUMMARY.md
+│       ├── NEW_TABLES_IMPLEMENTATION_PLAN.md
+│       └── DOCUMENT_UPDATE_SUMMARY.md
 ├── package.json                      # 루트 package.json (Monorepo 설정)
 ├── start_app.bat                     # Windows 실행 스크립트 (로컬 실행용)
 └── .gitignore                        # Git 무시 파일 목록
@@ -206,14 +220,38 @@ Web-DAW/
   - `preset.js`: 프리셋 모델 (사용자가 저장한 패드 구성, `masterVolume`, `isQuantized` 필드 포함)
   - `keyMapping.js`: 키 매핑 모델 (각 패드에 할당된 샘플/모드/볼륨, `synthSettings` JSON 필드 포함)
   - `asset.js`: 업로드된 파일(에셋) 메타데이터 모델 (`isRecorded` 필드 포함)
+  - `userPreference.js`: 사용자 설정 모델 (latencyMs, visualizerMode, defaultMasterVolume)
+  - `post.js`: 게시글 모델 (프리셋 공유 기능, likeCount, downloadCount 포함)
 
 - **`routes/`**: Express 라우터 모듈
-  - `auth.js`: Google OAuth 인증 엔드포인트 (`/auth/google`, `/auth/google/callback`, `/auth/logout`, `/auth/me`)
+  - `auth.js`: Google OAuth 인증 엔드포인트 (`/auth/google`, `/auth/google/callback`, `/auth/logout`, `/auth/user`, `/auth/dev_login`)
   - `upload.js`: 파일 업로드 엔드포인트 (`/upload`)
   - `presets.js`: 프리셋 CRUD 엔드포인트 (`/presets`)
     - GET `/presets`: 사용자의 모든 프리셋 목록 조회
     - GET `/presets/:id`: 특정 프리셋 상세 정보 및 키 매핑 조회
     - POST `/presets`: 새 프리셋 생성 (title, bpm, masterVolume, isQuantized, mappings 포함)
+  - `userPreferences.js`: 사용자 설정 API 엔드포인트 (`/api/user/preferences`)
+    - GET `/api/user/preferences`: 현재 사용자 설정 조회
+    - PUT `/api/user/preferences`: 사용자 설정 업데이트/생성
+    - POST `/api/user/preferences`: 사용자 설정 생성 (신규만)
+  - `posts.js`: 게시글 API 엔드포인트 (`/api/posts`)
+    - GET `/api/posts`: 공개 게시글 목록 조회 (페이지네이션, 정렬)
+    - GET `/api/posts/:id`: 게시글 상세 조회
+    - GET `/api/posts/user/my-posts`: 내 게시글 목록
+    - POST `/api/posts`: 게시글 생성
+    - PUT `/api/posts/:id`: 게시글 수정
+    - DELETE `/api/posts/:id`: 게시글 삭제
+    - POST `/api/posts/:id/like`: 좋아요
+    - POST `/api/posts/:id/download`: 다운로드
+    - POST `/api/posts/:id/publish`: 공개/비공개 전환
+
+- **`test/`**: 테스트 파일 및 가이드
+  - `userPreference.test.js`: UserPreference 모델 자동화 테스트
+  - `post.test.js`: Post 모델 자동화 테스트
+  - `api-test-guide.md`: UserPreferences API 수동 테스트 가이드
+  - `posts-api-test-guide.md`: Posts API 수동 테스트 가이드
+  - `dummy_data.sql`: 테스트용 더미 데이터 SQL 스크립트
+  - `README.md`: 테스트 디렉토리 개요 및 사용법
 
 - **`uploads/`**: 업로드된 오디오 파일 저장 디렉토리 (정적 파일 서빙)
 
@@ -242,8 +280,8 @@ Web-DAW/
 - **주요 기능**:
   - Express 애플리케이션 초기화
   - 미들웨어 설정 (CORS, JSON 파싱, 세션, Passport)
-  - Google OAuth 2.0 전략 구성
-  - API 라우트 등록 (`/auth`, `/upload`, `/presets`)
+  - Google OAuth 2.0 전략 구성 (환경 변수 설정 시에만 활성화)
+  - API 라우트 등록 (`/auth`, `/upload`, `/presets`, `/api/user/preferences`, `/api/posts`)
   - Sequelize 데이터베이스 동기화 및 서버 시작 (기본 포트: 3001)
 
 #### `client/src/App.jsx`

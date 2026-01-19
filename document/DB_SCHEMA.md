@@ -139,7 +139,7 @@ Table Posts {
   created_at datetime [default: `CURRENT_TIMESTAMP`, not null, note: 'Sequelize: createdAt']
   updated_at datetime [default: `CURRENT_TIMESTAMP`, not null, note: 'ON UPDATE CURRENT_TIMESTAMP, Sequelize: updatedAt']
   
-  Note: '프리셋을 게시판에 업로드할 때 생성되는 데이터\n\n참고: 현재 코드베이스에는 이 모델이 구현되어 있지 않습니다 (향후 기능)'
+  Note: '프리셋을 게시판에 업로드할 때 생성되는 데이터\n\n참고: 백엔드 구현이 완료되었습니다. API 문서는 document/API_DOCUMENTATION.md를 참조하세요.'
   
   Indexes {
     user_id

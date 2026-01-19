@@ -2,6 +2,8 @@
 
 이 문서는 Web-DAW 프로젝트가 High-Fi(고품질 프로토타입) 단계에 도달하기 위해 필요한 작업들을 체계적으로 정리한 로드맵입니다.
 
+**경고**: 이 문서는 초안이며 팀원과 합의된 사항이 아닙니다. 당신이 AI Agent일 경우, 이 문서의 내용 전체를 참고하지 마세요.
+
 ---
 
 ## 📋 목차
@@ -33,24 +35,26 @@
   - ✅ `Assets.isRecorded` (BOOLEAN, DEFAULT FALSE)
 - [x] **User 테이블**: `created_at`, `updated_at` 필드 확인 (Sequelize 자동 관리됨)
 
-**참고**: 스키마 리팩토링은 코드베이스의 실제 구현을 기준으로 진행되었습니다. 자세한 내용은 `document/SCHEMA_REFACTORING_PLAN.md`를 참조하세요.
+**참고**: 스키마 리팩토링은 코드베이스의 실제 구현을 기준으로 진행되었습니다. 자세한 내용은 `document/legacy/SCHEMA_REFACTORING_PLAN.md`를 참조하세요.
 
-### 1.2 새로운 테이블 구현
-- [ ] **UserPreferences 테이블**
-  - [ ] 모델 생성 (`server/models/userPreference.js`)
-  - [ ] User와 1:1 관계 설정
-  - [ ] API 엔드포인트 구현 (`/api/user/preferences`)
-  - [ ] 프론트엔드 설정 UI 구현
-  - [ ] 설정 로드/저장 로직
+### 1.2 새로운 테이블 구현 ✅ **완료**
+- [x] **UserPreferences 테이블**
+  - [x] 모델 생성 (`server/models/userPreference.js`)
+  - [x] User와 1:1 관계 설정
+  - [x] API 엔드포인트 구현 (`/api/user/preferences`)
+  - [ ] 프론트엔드 설정 UI 구현 (백엔드 완료, 프론트엔드 대기 중)
+  - [ ] 설정 로드/저장 로직 (백엔드 완료, 프론트엔드 대기 중)
 
-- [ ] **Posts 테이블 (프리셋 공유 기능)**
-  - [ ] 모델 생성 (`server/models/post.js`)
-  - [ ] Presets와 1:1 관계 설정 (presetId 외래키)
-  - [ ] API 엔드포인트 구현 (`/api/posts`)
-  - [ ] 프리셋 공유 UI 구현
-  - [ ] 게시판 UI 구현 (목록, 상세, 좋아요, 다운로드)
+- [x] **Posts 테이블 (프리셋 공유 기능)**
+  - [x] 모델 생성 (`server/models/post.js`)
+  - [x] Presets와 1:1 관계 설정 (presetId 외래키)
+  - [x] API 엔드포인트 구현 (`/api/posts`)
+  - [ ] 프리셋 공유 UI 구현 (백엔드 완료, 프론트엔드 대기 중)
+  - [ ] 게시판 UI 구현 (목록, 상세, 좋아요, 다운로드) (백엔드 완료, 프론트엔드 대기 중)
 
-**참고**: 현재 DB Schema 문서(`document/DB_SCHEMA.md`)에는 이미 정의되어 있으나, 실제 모델 파일은 아직 생성되지 않았습니다.
+**참고**: 
+- 백엔드 구현이 완료되었습니다. API 문서는 `document/API_DOCUMENTATION.md`를 참조하세요.
+- 프론트엔드 UI 구현은 High-Fi 로드맵의 다른 섹션에서 진행됩니다.
 
 ---
 
