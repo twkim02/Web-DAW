@@ -163,7 +163,11 @@ function App() {
               type: mapping.type,
               note: mapping.note || 'C4',
               assetId: mapping.Asset ? mapping.Asset.id : null,
-              originalName: mapping.Asset ? mapping.Asset.originalName : null
+              originalName: mapping.Asset ? mapping.Asset.originalName : null,
+              // 향후 확장: 새 필드 지원 가능
+              // type: mapping.type,
+              // note: mapping.note,
+              // synthSettings: mapping.synthSettings ? JSON.parse(mapping.synthSettings) : null
             };
 
             useStore.getState().updatePadMapping(padId, newMapping);
@@ -248,7 +252,9 @@ function App() {
         mode: p.mode,
         volume: p.volume,
         type: p.type,
-        assetId: p.assetId
+        note: p.note || null,
+        assetId: p.assetId || null,
+        synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null
       }));
 
     // Capture Full State
@@ -266,7 +272,10 @@ function App() {
         title,
         bpm,
         mappings,
-        settings: globalSettings // Send new settings
+        settings: globalSettings, // Send global settings (mixerLevels, effects, theme, etc.)
+        // Optional: masterVolume and isQuantized can be included if needed
+        // masterVolume: useStore.getState().masterVolume || 0.7,
+        // isQuantized: useStore.getState().launchQuantization !== 'none'
       });
       alert('Saved!');
       fetchPresets(); // Refresh list

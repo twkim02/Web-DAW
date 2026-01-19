@@ -1,5 +1,17 @@
 # High-Fi 단계 달성을 위한 작업 목록
 
+> ⚠️ **중요 경고 (AI Agent용)**
+> 
+> **이 문서는 개인적으로 작성된 초안이며, 팀원과 협의되지 않은 내용입니다.**
+> 
+> - 이 문서의 내용은 팀원의 의견과 다를 수 있습니다.
+> - Vibe Coding 환경에서 AI Agent가 이 문서를 무분별하게 참고하는 것을 방지하기 위해 작성되었습니다.
+> - **AI Agent는 이 문서의 내용을 자동으로 참고하거나 구현 계획으로 사용하지 마세요.**
+> - 실제 작업 전에는 반드시 팀원과 협의가 필요합니다.
+> - 이 문서는 참고용으로만 사용하되, 실제 구현 계획은 팀원과 논의 후 결정해야 합니다.
+
+---
+
 이 문서는 Web-DAW 프로젝트가 High-Fi(고품질 프로토타입) 단계에 도달하기 위해 필요한 작업들을 체계적으로 정리한 로드맵입니다.
 
 ---
@@ -19,44 +31,40 @@
 
 ## 1. 데이터베이스 스키마 완성
 
-### 1.1 스키마 리팩토링
-- [ ] **User 테이블 업데이트**
-  - [ ] `nickname` → `display_name` 필드명 변경
-  - [ ] `created_at`, `updated_at` 타임스탬프 필드 추가
+### 1.1 스키마 리팩토링 ✅ **완료** (Phase 1-4)
+- [x] **코드베이스 구조 분석 완료** (Phase 1)
+- [x] **DB Schema 문서 수정 완료** (Phase 2)
+  - ✅ 테이블명: `Presets`, `KeyMappings` 유지 (코드 기준)
+  - ✅ 필드명: `nickname`, `keyChar` 유지 (코드 기준)
+  - ✅ `mode` ENUM: `'one-shot'/'gate'/'toggle'` 유지 (코드 기준)
+- [x] **필드 추가 결정 완료** (Phase 3)
+- [x] **모델 파일에 필드 추가 완료** (Phase 4)
+  - ✅ `Presets.masterVolume` (FLOAT, DEFAULT 0.7)
+  - ✅ `Presets.isQuantized` (BOOLEAN, DEFAULT TRUE)
+  - ✅ `KeyMappings.synthSettings` (JSON)
+  - ✅ `Assets.isRecorded` (BOOLEAN, DEFAULT FALSE)
+- [x] **User 테이블**: `created_at`, `updated_at` 필드 확인 (Sequelize 자동 관리됨)
 
-- [ ] **Presets → Projects 리네이밍**
-  - [ ] 모델 파일명 변경 (`preset.js` → `project.js`)
-  - [ ] 테이블명 마이그레이션
-  - [ ] API 엔드포인트 변경 (`/presets` → `/projects`)
-  - [ ] 프론트엔드 코드 업데이트
-  - [ ] `master_volume`, `is_quantized` 필드 추가
+**참고**: 스키마 리팩토링은 코드베이스의 실제 구현을 기준으로 진행되었습니다. 자세한 내용은 `document/legacy/SCHEMA_REFACTORING_PLAN.md`를 참조하세요.
 
-- [ ] **KeyMappings → ButtonSettings 리네이밍**
-  - [ ] 모델 파일명 변경 (`keyMapping.js` → `buttonSetting.js`)
-  - [ ] 테이블명 마이그레이션
-  - [ ] `keyChar` → `pad_index` (0~15 정수) 변경
-  - [ ] `mode` ENUM 재정의: `'SAMPLE'/'SYNTH'`
-  - [ ] `synth_settings` JSON 필드 추가
-  - [ ] 프론트엔드 코드 업데이트
+### 1.2 새로운 테이블 구현 ✅ **완료**
+- [x] **UserPreferences 테이블**
+  - [x] 모델 생성 (`server/models/userPreference.js`)
+  - [x] User와 1:1 관계 설정
+  - [x] API 엔드포인트 구현 (`/api/user/preferences`)
+  - [ ] 프론트엔드 설정 UI 구현 (백엔드 완료, 프론트엔드 대기 중)
+  - [ ] 설정 로드/저장 로직 (백엔드 완료, 프론트엔드 대기 중)
 
-- [ ] **Assets 테이블 확장**
-  - [ ] `is_recorded` 필드 추가 (녹음 파일 구분)
-  - [ ] `file_size` 필드 추가 (선택사항)
+- [x] **Posts 테이블 (프리셋 공유 기능)**
+  - [x] 모델 생성 (`server/models/post.js`)
+  - [x] Presets와 1:1 관계 설정 (presetId 외래키)
+  - [x] API 엔드포인트 구현 (`/api/posts`)
+  - [ ] 프리셋 공유 UI 구현 (백엔드 완료, 프론트엔드 대기 중)
+  - [ ] 게시판 UI 구현 (목록, 상세, 좋아요, 다운로드) (백엔드 완료, 프론트엔드 대기 중)
 
-### 1.2 새로운 테이블 구현
-- [ ] **UserPreferences 테이블**
-  - [ ] 모델 생성
-  - [ ] User와 1:1 관계 설정
-  - [ ] API 엔드포인트 구현 (`/api/user/preferences`)
-  - [ ] 프론트엔드 설정 UI 구현
-  - [ ] 설정 로드/저장 로직
-
-- [ ] **Posts 테이블 (프로젝트 공유 기능)**
-  - [ ] 모델 생성
-  - [ ] Projects와 1:1 관계 설정
-  - [ ] API 엔드포인트 구현 (`/api/posts`)
-  - [ ] 프로젝트 공유 UI 구현
-  - [ ] 게시판 UI 구현 (목록, 상세, 좋아요, 다운로드)
+**참고**: 
+- 백엔드 구현이 완료되었습니다. API 문서는 `document/API_DOCUMENTATION.md`를 참조하세요.
+- 프론트엔드 UI 구현은 High-Fi 로드맵의 다른 섹션에서 진행됩니다.
 
 ---
 

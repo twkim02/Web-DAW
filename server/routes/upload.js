@@ -32,15 +32,16 @@ router.post('/', upload.single('file'), async (req, res) => {
         // ... (auth check)
 
         const { originalname, filename, path: filePath, mimetype } = req.file;
-        const { category } = req.body; // 'sample', 'synth', 'instrument'
+        const { isRecorded, category } = req.body; // isRecorded: 'true'/'false' (string), category: 'sample'/'synth'/'instrument'
 
         const asset = await db.Asset.create({
             originalName: originalname,
             filename: filename,
             filePath: filePath,
             mimetype: mimetype,
-            category: category || 'sample',
-            userId: req.user ? req.user.id : null
+            isRecorded: isRecorded === 'true' || isRecorded === true || false, // Default to false for uploads
+            category: category || 'sample', // Default to 'sample' if not provided
+            userId: req.user ? req.user.id : null // Allow null for guest uploads if desired
         });
 
         res.json({

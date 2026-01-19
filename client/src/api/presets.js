@@ -11,7 +11,8 @@ export const getPreset = async (id) => {
 };
 
 export const savePreset = async (data) => {
-    // data: { title, bpm, mappings }
+    // data: { title, bpm, masterVolume?, isQuantized?, mappings }
+    // mappings: Array<{ keyChar, mode, volume, type?, note?, assetId?, synthSettings? }>
     const response = await client.post('/presets', data);
     return response.data;
 };

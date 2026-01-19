@@ -9,8 +9,21 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: 120
         },
         settings: {
-            type: DataTypes.JSON, // Stores global state: mixerLevels, effects, etc.
-            allowNull: true
+            type: DataTypes.JSON, // Stores global state: mixerLevels, effects, launchQuantization, theme, etc.
+            allowNull: true,
+            comment: '프리셋별 전역 설정 (믹서 레벨, 이펙트, 퀀타이즈, 테마 등)'
+        },
+        masterVolume: {
+            type: DataTypes.FLOAT,
+            defaultValue: 0.7,
+            allowNull: false,
+            comment: '전체 마스터 볼륨 (0.0 ~ 1.0) - settings에 포함될 수도 있으나 별도 필드로 유지'
+        },
+        isQuantized: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: true,
+            allowNull: false,
+            comment: '퀀타이즈 활성화 여부 - settings에 포함될 수도 있으나 별도 필드로 유지'
         }
     }, {
         tableName: 'Presets',
@@ -20,6 +33,10 @@ module.exports = (sequelize, DataTypes) => {
     Preset.associate = function (models) {
         Preset.belongsTo(models.User, { foreignKey: 'userId' });
         Preset.hasMany(models.KeyMapping, { foreignKey: 'presetId' });
+        Preset.hasOne(models.Post, { 
+            foreignKey: 'presetId',
+            onDelete: 'RESTRICT' // 프리셋이 게시글에 연결되어 있으면 삭제 불가
+        });
     };
 
     return Preset;

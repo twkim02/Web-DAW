@@ -25,6 +25,14 @@ module.exports = (sequelize, DataTypes) => {
     User.associate = function (models) {
         User.hasMany(models.Preset, { foreignKey: 'userId' });
         User.hasMany(models.Asset, { foreignKey: 'userId' });
+        User.hasOne(models.UserPreference, { 
+            foreignKey: 'userId',
+            onDelete: 'CASCADE'
+        });
+        User.hasMany(models.Post, { 
+            foreignKey: 'userId',
+            onDelete: 'CASCADE'
+        });
     };
 
     return User;

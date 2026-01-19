@@ -93,11 +93,22 @@ Web-DAW/
 │   │   ├── user.js                  # 사용자 모델
 │   │   ├── preset.js                # 프리셋 모델
 │   │   ├── keyMapping.js            # 키 매핑 모델
-│   │   └── asset.js                 # 업로드된 파일(에셋) 모델
+│   │   ├── asset.js                 # 업로드된 파일(에셋) 모델
+│   │   ├── userPreference.js        # 사용자 설정 모델
+│   │   └── post.js                  # 게시글 모델
 │   ├── routes/                       # API 라우트 핸들러
 │   │   ├── auth.js                  # 인증 라우트 (Google OAuth)
 │   │   ├── upload.js                # 파일 업로드 라우트
-│   │   └── presets.js               # 프리셋 CRUD 라우트
+│   │   ├── presets.js               # 프리셋 CRUD 라우트
+│   │   ├── userPreferences.js      # 사용자 설정 API 라우트
+│   │   └── posts.js                 # 게시글 API 라우트
+│   ├── test/                         # 테스트 파일
+│   │   ├── userPreference.test.js   # UserPreference 모델 테스트
+│   │   ├── post.test.js              # Post 모델 테스트
+│   │   ├── api-test-guide.md        # UserPreferences API 테스트 가이드
+│   │   ├── posts-api-test-guide.md  # Posts API 테스트 가이드
+│   │   ├── dummy_data.sql           # 테스트용 더미 데이터 SQL
+│   │   └── README.md                # 테스트 디렉토리 설명
 │   ├── uploads/                      # 업로드된 파일 저장소
 │   ├── database.sqlite               # SQLite 데이터베이스 파일 (로컬 개발용, 선택사항)
 │   ├── init.sql                      # MySQL 초기화 SQL (Docker 사용 시)
@@ -113,8 +124,18 @@ Web-DAW/
 ├── document/                         # 프로젝트 문서 디렉토리
 │   ├── PROJECT_SPEC.md              # 프로젝트 명세서 (이 문서)
 │   ├── DB_SCHEMA.md                 # 데이터베이스 스키마 (DBML 형식)
+│   ├── API_DOCUMENTATION.md         # API 문서 (프론트엔드 팀용)
+│   ├── CURRENT_CODE_STRUCTURE.md    # 현재 코드베이스 구조 분석
+│   ├── HIGH_FI_ROADMAP.md           # High-Fi 로드맵
 │   ├── README_DOCKER.md             # Docker 실행 가이드
-│   └── DOCKER_TROUBLESHOOTING.md    # Docker 트러블슈팅 가이드
+│   ├── DOCKER_TROUBLESHOOTING.md    # Docker 트러블슈팅 가이드
+│   └── legacy/                      # 완료된 작업 문서 (참고용)
+│       ├── SCHEMA_REFACTORING_PLAN.md
+│       ├── PHASE3_FIELD_ADDITION_DECISION.md
+│       ├── PHASE4_EXECUTION_PLAN.md
+│       ├── PHASE4_COMPLETION_SUMMARY.md
+│       ├── NEW_TABLES_IMPLEMENTATION_PLAN.md
+│       └── DOCUMENT_UPDATE_SUMMARY.md
 ├── package.json                      # 루트 package.json (Monorepo 설정)
 ├── start_app.bat                     # Windows 실행 스크립트 (로컬 실행용)
 └── .gitignore                        # Git 무시 파일 목록
@@ -196,14 +217,41 @@ Web-DAW/
 - **`models/`**: Sequelize ORM 데이터베이스 모델
   - `index.js`: 모델 초기화 및 모델 간 연관관계(Associations) 정의
   - `user.js`: 사용자 모델 (Google OAuth 연동)
-  - `preset.js`: 프리셋 모델 (사용자가 저장한 패드 구성)
-  - `keyMapping.js`: 키 매핑 모델 (각 패드에 할당된 샘플/모드/볼륨)
-  - `asset.js`: 업로드된 파일(에셋) 메타데이터 모델
+  - `preset.js`: 프리셋 모델 (사용자가 저장한 패드 구성, `settings` JSON, `masterVolume`, `isQuantized` 필드 포함)
+  - `keyMapping.js`: 키 매핑 모델 (각 패드에 할당된 샘플/모드/볼륨, `synthSettings` JSON 필드 포함)
+  - `asset.js`: 업로드된 파일(에셋) 메타데이터 모델 (`isRecorded`, `category` 필드 포함)
+  - `userPreference.js`: 사용자 설정 모델 (latencyMs, visualizerMode, defaultMasterVolume)
+  - `post.js`: 게시글 모델 (프리셋 공유 기능, likeCount, downloadCount 포함)
 
 - **`routes/`**: Express 라우터 모듈
-  - `auth.js`: Google OAuth 인증 엔드포인트 (`/auth/google`, `/auth/google/callback`, `/auth/logout`, `/auth/me`)
+  - `auth.js`: Google OAuth 인증 엔드포인트 (`/auth/google`, `/auth/google/callback`, `/auth/logout`, `/auth/user`, `/auth/dev_login`)
   - `upload.js`: 파일 업로드 엔드포인트 (`/upload`)
   - `presets.js`: 프리셋 CRUD 엔드포인트 (`/presets`)
+    - GET `/presets`: 사용자의 모든 프리셋 목록 조회
+    - GET `/presets/:id`: 특정 프리셋 상세 정보 및 키 매핑 조회
+    - POST `/presets`: 새 프리셋 생성 (title, bpm, masterVolume, isQuantized, mappings 포함)
+  - `userPreferences.js`: 사용자 설정 API 엔드포인트 (`/api/user/preferences`)
+    - GET `/api/user/preferences`: 현재 사용자 설정 조회
+    - PUT `/api/user/preferences`: 사용자 설정 업데이트/생성
+    - POST `/api/user/preferences`: 사용자 설정 생성 (신규만)
+  - `posts.js`: 게시글 API 엔드포인트 (`/api/posts`)
+    - GET `/api/posts`: 공개 게시글 목록 조회 (페이지네이션, 정렬)
+    - GET `/api/posts/:id`: 게시글 상세 조회
+    - GET `/api/posts/user/my-posts`: 내 게시글 목록
+    - POST `/api/posts`: 게시글 생성
+    - PUT `/api/posts/:id`: 게시글 수정
+    - DELETE `/api/posts/:id`: 게시글 삭제
+    - POST `/api/posts/:id/like`: 좋아요
+    - POST `/api/posts/:id/download`: 다운로드
+    - POST `/api/posts/:id/publish`: 공개/비공개 전환
+
+- **`test/`**: 테스트 파일 및 가이드
+  - `userPreference.test.js`: UserPreference 모델 자동화 테스트
+  - `post.test.js`: Post 모델 자동화 테스트
+  - `api-test-guide.md`: UserPreferences API 수동 테스트 가이드
+  - `posts-api-test-guide.md`: Posts API 수동 테스트 가이드
+  - `dummy_data.sql`: 테스트용 더미 데이터 SQL 스크립트
+  - `README.md`: 테스트 디렉토리 개요 및 사용법
 
 - **`uploads/`**: 업로드된 오디오 파일 저장 디렉토리 (정적 파일 서빙)
 
@@ -232,8 +280,8 @@ Web-DAW/
 - **주요 기능**:
   - Express 애플리케이션 초기화
   - 미들웨어 설정 (CORS, JSON 파싱, 세션, Passport)
-  - Google OAuth 2.0 전략 구성
-  - API 라우트 등록 (`/auth`, `/upload`, `/presets`)
+  - Google OAuth 2.0 전략 구성 (환경 변수 설정 시에만 활성화)
+  - API 라우트 등록 (`/auth`, `/upload`, `/presets`, `/api/user/preferences`, `/api/posts`)
   - Sequelize 데이터베이스 동기화 및 서버 시작 (기본 포트: 3001)
 
 #### `client/src/App.jsx`
@@ -589,7 +637,7 @@ npm start
 
 ```
 ┌─────────────┐         ┌──────────────────┐
-│    User     │────────<│ UserPreferences  │ (1:1)
+│    User     │────────<│ UserPreferences  │ (1:1, 향후 구현)
 └─────────────┘         └──────────────────┘
       │
       │ 1
@@ -601,41 +649,31 @@ npm start
       │ N                │ N
       │                  │
 ┌─────────────┐   ┌─────────────┐
-│   Assets    │   │  Projects   │
+│   Assets    │   │   Presets   │
 └─────────────┘   └─────────────┘
-                        │
-                        │ 1
-                        │
-                        │ N
-                        │
-                  ┌─────────────┐
-                  │ButtonSettings│
-                  └─────────────┘
-                        │
-                        │ N
-                        │
-                        │ 0..1
-                        │
-                  ┌─────────────┐
-                  │   Assets    │
-                  └─────────────┘
-                        │
-                        │
-                        │
-                        │
-┌─────────────┐         │
-│    User     │─────────┤ (1:N)
-└─────────────┘         │
-      │                 │
-      │ N               │
-      │                 │
-┌─────────────┐         │
-│    Posts    │─────────┤ (1:1)
-└─────────────┘         │
-                        │
-                  ┌─────────────┐
-                  │  Projects   │
-                  └─────────────┘
+      │                   │
+      │ 0..1              │ 1
+      │                   │
+      │                   │ N
+      │                   │
+      │            ┌─────────────┐
+      └───────────>│ KeyMappings │
+                   └─────────────┘
+                          │
+                          │
+┌─────────────┐           │
+│    User     │───────────┤ (1:N)
+└─────────────┘           │
+      │                   │
+      │ N                 │
+      │                   │
+┌─────────────┐           │
+│    Posts    │───────────┤ (1:1, 향후 구현)
+└─────────────┘           │
+                          │
+                    ┌─────────────┐
+                    │   Presets   │
+                    └─────────────┘
 ```
 
 ### 5.2 테이블 상세 명세
@@ -646,18 +684,19 @@ Google OAuth를 통해 가입한 사용자 정보를 저장하는 테이블입�
 
 | **필드명** | **타입** | **제약조건** | **설명** |
 | --- | --- | --- | --- |
-| `id` | UUID / INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
-| `google_id` | STRING(255) | UNIQUE, NULL 허용 | Google 고유 식별자 |
-| `email` | STRING(255) | UNIQUE, NOT NULL | 사용자 이메일 |
-| `display_name` | STRING(255) | NOT NULL | 서비스 내 표시될 이름 |
-| `created_at` | DATETIME | NOT NULL, DEFAULT NOW() | 계정 생성일 |
-| `updated_at` | DATETIME | NOT NULL, DEFAULT NOW() | 정보 수정일 |
+| `id` | INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
+| `google_id` | VARCHAR(255) | UNIQUE, NULL 허용 | Google 고유 식별자 (Sequelize: `googleId`) |
+| `email` | VARCHAR(255) | UNIQUE, NOT NULL | 사용자 이메일 |
+| `nickname` | VARCHAR(255) | NOT NULL | 서비스 내 표시될 이름 |
+| `sns_id` | VARCHAR(255) | NULL 허용 | SNS ID (레거시 또는 대체 지원, Sequelize: `snsId`) |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 계정 생성일 (Sequelize: `createdAt`) |
+| `updated_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 정보 수정일 (Sequelize: `updatedAt`) |
 
 **관계 (Relationships)**:
-- `User` 1:N `Projects` (한 사용자는 여러 프로젝트 보유)
+- `User` 1:N `Presets` (한 사용자는 여러 프리셋 보유)
 - `User` 1:N `Assets` (한 사용자는 여러 에셋 업로드)
-- `User` 1:N `Posts` (한 사용자는 여러 게시글 작성)
-- `User` 1:1 `UserPreferences` (한 사용자는 하나의 설정 보유)
+- `User` 1:N `Posts` (한 사용자는 여러 게시글 작성, 향후 구현)
+- `User` 1:1 `UserPreferences` (한 사용자는 하나의 설정 보유, 향후 구현)
 
 **인덱스**:
 - `google_id` (UNIQUE 인덱스)
@@ -695,20 +734,21 @@ Google OAuth를 통해 가입한 사용자 정보를 저장하는 테이블입�
 
 | **필드명** | **타입** | **제약조건** | **설명** |
 | --- | --- | --- | --- |
-| `id` | UUID / INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
-| `user_id` | UUID / INT | FK, NOT NULL | 소유자 외래키 (User.id 참조) |
-| `file_name` | STRING(255) | NOT NULL, UNIQUE | 서버에 저장된 파일명 (랜덤 생성, 중복 방지) |
-| `original_name` | STRING(255) | NOT NULL | 사용자가 올린 원래 파일명 |
-| `file_path` | STRING(500) | NOT NULL | 파일 저장 경로 또는 URL (예: '/uploads/xxx.mp3') |
-| `mimetype` | STRING(100) | NULL 허용 | 파일 MIME 타입 (예: 'audio/mpeg', 'audio/wav') |
-| `file_size` | BIGINT | NULL 허용 | 파일 크기 (단위: 바이트) |
-| `is_recorded` | BOOLEAN | NOT NULL, DEFAULT FALSE | 마이크 녹음 여부 (TRUE: 녹음 파일, FALSE: 업로드 파일) |
-| `created_at` | DATETIME | NOT NULL, DEFAULT NOW() | 생성일 |
-| `updated_at` | DATETIME | NOT NULL, DEFAULT NOW() | 수정일 |
+| `id` | INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
+| `user_id` | INT | FK, NULL 허용 | 소유자 외래키 (User.id 참조, 게스트 업로드 시 NULL, Sequelize: `userId`) |
+| `filename` | VARCHAR(255) | NOT NULL, UNIQUE | 서버에 저장된 파일명 (랜덤 생성, 중복 방지) |
+| `original_name` | VARCHAR(255) | NOT NULL | 사용자가 올린 원래 파일명 (Sequelize: `originalName`) |
+| `file_path` | VARCHAR(500) | NOT NULL | 파일 저장 경로 또는 URL (예: '/uploads/xxx.mp3', Sequelize: `filePath`) |
+| `mimetype` | VARCHAR(100) | NULL 허용 | 파일 MIME 타입 (예: 'audio/mpeg', 'audio/wav') |
+| `is_recorded` | BOOLEAN | NOT NULL, DEFAULT FALSE | 마이크 녹음 여부 (TRUE: 녹음 파일, FALSE: 업로드 파일, Sequelize: `isRecorded`) |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일 (Sequelize: `createdAt`) |
+| `updated_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 수정일 (Sequelize: `updatedAt`) |
 
 **관계 (Relationships)**:
-- `Assets` N:1 `User` (한 에셋은 한 사용자 소유)
-- `Assets` 1:N `ButtonSettings` (한 에셋은 여러 패드에 할당 가능)
+- `Assets` N:1 `User` (한 에셋은 한 사용자 소유, nullable)
+- `Assets` 1:N `KeyMappings` (한 에셋은 여러 패드에 할당 가능)
+
+**참고**: `file_size` 필드는 향후 확장용으로 계획되어 있으나 현재 구현에서는 제외되어 있습니다.
 
 **인덱스**:
 - `user_id` (조회 성능 최적화)
@@ -717,110 +757,95 @@ Google OAuth를 통해 가입한 사용자 정보를 저장하는 테이블입�
 
 ---
 
-#### **Projects** - 프로젝트 관리
+#### **Presets** - 프리셋 관리
 
-프로젝트마다 반영되는 런치패드의 전역 설정을 저장합니다. (기존 `Presets` 테이블과 동일한 역할)
+프리셋마다 반영되는 런치패드의 전역 설정을 저장합니다. (테이블명: `Presets`)
 
 | **필드명** | **타입** | **제약조건** | **설명** |
 | --- | --- | --- | --- |
-| `id` | UUID / INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
-| `user_id` | UUID / INT | FK, NOT NULL | 제작자 외래키 (User.id 참조) |
-| `title` | STRING(255) | NOT NULL, DEFAULT 'Untitled' | 프로젝트 제목 |
-| `bpm` | INTEGER | NOT NULL, DEFAULT 120 | 프로젝트 템포 (60 ~ 200) |
-| `master_volume` | FLOAT | NOT NULL, DEFAULT 0.7 | 전체 마스터 볼륨 (0.0 ~ 1.0) |
-| `is_quantized` | BOOLEAN | NOT NULL, DEFAULT TRUE | 퀀타이즈 활성화 여부 |
-| `created_at` | DATETIME | NOT NULL, DEFAULT NOW() | 생성일 |
-| `updated_at` | DATETIME | NOT NULL, DEFAULT NOW() | 마지막 수정일 |
+| `id` | INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
+| `user_id` | INT | FK, NOT NULL | 제작자 외래키 (User.id 참조, Sequelize: `userId`) |
+| `title` | VARCHAR(255) | NOT NULL, DEFAULT 'Untitled' | 프리셋 제목 |
+| `bpm` | INTEGER | NOT NULL, DEFAULT 120 | 프로젝트 템포 (Beats Per Minute) |
+| `master_volume` | FLOAT | NOT NULL, DEFAULT 0.7 | 전체 마스터 볼륨 (0.0 ~ 1.0, Sequelize: `masterVolume`) |
+| `is_quantized` | BOOLEAN | NOT NULL, DEFAULT TRUE | 퀀타이즈 활성화 여부 (Sequelize: `isQuantized`) |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일 (Sequelize: `createdAt`) |
+| `updated_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 마지막 수정일 (Sequelize: `updatedAt`) |
 
 **관계 (Relationships)**:
-- `Projects` N:1 `User` (한 프로젝트는 한 사용자 소유)
-- `Projects` 1:N `ButtonSettings` (한 프로젝트는 16개 패드 설정 보유)
-- `Projects` 1:1 `Posts` (한 프로젝트는 하나의 게시글에만 연결)
-
-**제약조건**:
-- `bpm` CHECK (60 <= bpm <= 200)
-- `master_volume` CHECK (0.0 <= master_volume <= 1.0)
+- `Presets` N:1 `User` (한 프리셋은 한 사용자 소유)
+- `Presets` 1:N `KeyMappings` (한 프리셋은 여러 키 매핑 보유)
+- `Presets` 1:1 `Posts` (한 프리셋은 하나의 게시글에만 연결, 향후 구현)
 
 **인덱스**:
-- `user_id` (사용자별 프로젝트 조회 최적화)
+- `user_id` (사용자별 프리셋 조회 최적화)
 - `updated_at` (최신순 정렬 최적화)
 
 ---
 
-#### **ButtonSettings** - 패드 설정
+#### **KeyMappings** - 키 매핑 (패드 설정)
 
-하나의 프로젝트는 16개의 패드 설정을 가집니다. 각 패드는 샘플 모드 또는 신스 모드로 동작합니다.
+하나의 프리셋은 여러 개의 키 매핑을 가집니다. 각 키 매핑은 패드 ID를 나타내며, 샘플 또는 신스 설정을 포함합니다. (테이블명: `KeyMappings`)
 
 | **필드명** | **타입** | **제약조건** | **설명** |
 | --- | --- | --- | --- |
-| `id` | UUID / INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
-| `project_id` | UUID / INT | FK, NOT NULL | 소속 프로젝트 외래키 (Projects.id 참조) |
-| `pad_index` | INTEGER | NOT NULL | 0~15번 패드 번호 (프로젝트 내 유일) |
-| `mode` | ENUM | NOT NULL | 패드 모드: 'SAMPLE' (유저 음원 파일) 또는 'SYNTH' (자체 생성) |
-| `volume` | FLOAT | NOT NULL, DEFAULT 0.7 | 패드별 개별 볼륨 (0.0 ~ 1.0) |
-| `asset_id` | UUID / INT | FK, NULL 허용 | mode='SAMPLE'일 경우, 음원 에셋 id (Assets.id 참조) |
-| `synth_settings` | JSON / TEXT | NULL 허용 | mode='SYNTH'일 경우, Tone.js 연동되는 신스 파라미터 묶음 (예: `{"oscillator": {"type": "sine"}, "envelope": {...}}`) |
-| `created_at` | DATETIME | NOT NULL, DEFAULT NOW() | 생성일 |
-| `updated_at` | DATETIME | NOT NULL, DEFAULT NOW() | 수정일 |
+| `id` | INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
+| `preset_id` | INT | FK, NOT NULL | 소속 프리셋 외래키 (Presets.id 참조, Sequelize: `presetId`) |
+| `key_char` | VARCHAR(255) | NOT NULL | 키 문자 ('Z', '0' 등, 패드 ID로도 사용, Sequelize: `keyChar`) |
+| `mode` | ENUM | NOT NULL, DEFAULT 'one-shot' | 패드 동작 모드: 'one-shot' (원샷), 'gate' (게이트), 'toggle' (토글) |
+| `volume` | FLOAT | NOT NULL, DEFAULT 0 | 패드별 개별 볼륨 (0.0 ~ 1.0) |
+| `type` | VARCHAR(50) | DEFAULT 'sample' | 패드 타입: 'sample' (샘플 파일) 또는 'synth' (신서사이저) |
+| `note` | VARCHAR(10) | NULL 허용 | 노트 (예: 'C4') |
+| `asset_id` | INT | FK, NULL 허용 | 연결된 에셋 외래키 (type='sample'일 경우, Sequelize: `assetId`) |
+| `synth_settings` | JSON | NULL 허용 | 신서사이저 파라미터 (type='synth'일 경우 사용, Sequelize: `synthSettings`) |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일 (Sequelize: `createdAt`) |
+| `updated_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 수정일 (Sequelize: `updatedAt`) |
 
 **관계 (Relationships)**:
-- `ButtonSettings` N:1 `Projects` (한 패드 설정은 한 프로젝트에 귀속)
-- `ButtonSettings` N:0..1 `Assets` (SAMPLE 모드일 때만 에셋 참조)
-
-**제약조건**:
-- `pad_index` CHECK (0 <= pad_index <= 15)
-- `volume` CHECK (0.0 <= volume <= 1.0)
-- UNIQUE(`project_id`, `pad_index`) (한 프로젝트 내에서 패드 번호는 유일)
-- `mode='SAMPLE'`일 때 `asset_id`는 NOT NULL
-- `mode='SYNTH'`일 때 `synth_settings`는 NOT NULL
+- `KeyMappings` N:1 `Presets` (한 키 매핑은 한 프리셋에 귀속)
+- `KeyMappings` N:0..1 `Assets` (type='sample'일 때만 에셋 참조)
 
 **인덱스**:
-- `project_id` (프로젝트별 패드 조회 최적화)
-- UNIQUE(`project_id`, `pad_index`)
+- `preset_id` (프리셋별 키 매핑 조회 최적화)
+- `asset_id` (에셋별 키 매핑 조회 최적화)
 
 **예시 `synth_settings` JSON 구조**:
 ```json
 {
   "oscillator": {
-    "type": "sine",  // 'sine', 'square', 'sawtooth', 'triangle'
-    "frequency": 440
+    "type": "sine"  // 'sine', 'square', 'sawtooth', 'triangle'
   },
   "envelope": {
     "attack": 0.1,
     "decay": 0.2,
     "sustain": 0.5,
-    "release": 0.8
-  },
-  "filter": {
-    "type": "lowpass",
-    "frequency": 1000,
-    "Q": 1
+    "release": 1
   }
 }
 ```
 
 ---
 
-#### **Posts** - 게시판
+#### **Posts** - 게시판 (향후 구현)
 
-프로젝트를 게시판에 업로드할 때 생성되는 데이터입니다.
+프리셋을 게시판에 업로드할 때 생성되는 데이터입니다. 현재 코드베이스에는 구현되어 있지 않습니다.
 
 | **필드명** | **타입** | **제약조건** | **설명** |
 | --- | --- | --- | --- |
-| `id` | UUID / INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
-| `user_id` | UUID / INT | FK, NOT NULL | 작성자 외래키 (User.id 참조) |
-| `project_id` | UUID / INT | FK, NOT NULL, UNIQUE | 공유 대상 프로젝트 외래키 (Projects.id 참조) |
-| `title` | STRING(255) | NOT NULL | 게시글 제목 |
+| `id` | INT | PK, NOT NULL, AUTO_INCREMENT | 기본키 |
+| `user_id` | INT | FK, NOT NULL | 작성자 외래키 (User.id 참조, Sequelize: `userId`) |
+| `preset_id` | INT | FK, NOT NULL, UNIQUE | 공유 대상 프리셋 외래키 (Presets.id 참조, Sequelize: `presetId`) |
+| `title` | VARCHAR(255) | NOT NULL | 게시글 제목 |
 | `description` | TEXT | NULL 허용 | 프로젝트 설명 또는 사용법 |
 | `like_count` | INTEGER | NOT NULL, DEFAULT 0 | 좋아요 수 (인기 순 정렬용) |
 | `download_count` | INTEGER | NOT NULL, DEFAULT 0 | 본인 프로젝트로 가져간 횟수 |
 | `is_published` | BOOLEAN | NOT NULL, DEFAULT TRUE | 공개 여부 |
-| `created_at` | DATETIME | NOT NULL, DEFAULT NOW() | 생성일 |
-| `updated_at` | DATETIME | NOT NULL, DEFAULT NOW() | 수정일 |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일 (Sequelize: `createdAt`) |
+| `updated_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 수정일 (Sequelize: `updatedAt`) |
 
 **관계 (Relationships)**:
 - `Posts` N:1 `User` (한 게시글은 한 사용자가 작성)
-- `Posts` 1:1 `Projects` (한 게시글은 한 프로젝트만 연결)
+- `Posts` 1:1 `Presets` (한 게시글은 한 프리셋만 연결)
 
 **제약조건**:
 - `like_count` CHECK (>= 0)
@@ -836,46 +861,49 @@ Google OAuth를 통해 가입한 사용자 정보를 저장하는 테이블입�
 
 ---
 
-### 5.3 현재 구현과의 차이점 및 마이그레이션 계획
+### 5.3 현재 구현 상태
 
-#### 현재 구현 상태
-- `User`: `nickname` 필드 사용 중 → `display_name`으로 변경 필요
-- `Presets`: 기본 구조만 존재 → `Projects`로 리네이밍 및 필드 추가 필요
-- `KeyMapping`: 기본 구조만 존재 → `ButtonSettings`로 리네이밍 및 구조 변경 필요
-- `Assets`: 기본 구조 존재 → `is_recorded` 필드 추가 필요
-- `UserPreferences`: **미구현** → 새로 생성 필요
-- `Posts`: **미구현** → 새로 생성 필요
+#### ✅ 완료된 구현
+- `User`: `nickname` 필드 사용 중, `googleId`, `snsId` 포함, `createdAt`, `updatedAt` 자동 관리
+- `Presets`: 기본 구조 존재, `masterVolume`, `isQuantized` 필드 추가 완료 (Phase 4)
+- `KeyMappings`: 기본 구조 존재, `synthSettings` JSON 필드 추가 완료 (Phase 4)
+- `Assets`: 기본 구조 존재, `isRecorded` 필드 추가 완료 (Phase 4)
 
-#### 주요 변경사항
+#### ⏳ 향후 구현 예정
+- `UserPreferences`: 사용자 전역 설정 테이블 (High-Fi 로드맵 2.9)
+- `Posts`: 프로젝트 공유 게시판 테이블 (High-Fi 로드맵 2.8)
 
-1. **테이블 리네이밍**:
-   - `Presets` → `Projects`
-   - `KeyMappings` → `ButtonSettings`
+#### 📝 스키마 리팩토링 완료 사항 (Phase 1-4)
 
-2. **User 테이블 보완**:
-   - `nickname` → `display_name` (필드명 변경)
-   - `created_at`, `updated_at` 필드 추가
+**결정 사항**: 코드베이스의 실제 구현을 기준으로 DB Schema 문서를 수정하는 방향으로 진행되었습니다.
 
-3. **Projects 테이블 확장**:
-   - `master_volume` 필드 추가 (FLOAT, DEFAULT 0.7)
-   - `is_quantized` 필드 추가 (BOOLEAN, DEFAULT TRUE)
-   - `updated_at` 필드 활용
+1. **테이블명**: 
+   - `Presets` 테이블 유지 (코드 기준)
+   - `KeyMappings` 테이블 유지 (코드 기준)
 
-4. **ButtonSettings 테이블 재설계**:
-   - `keyChar` → `pad_index` (0~15 정수)
-   - `mode` ENUM 변경: `'one-shot'/'gate'/'toggle'` → `'SAMPLE'/'SYNTH'`
-   - `type` 필드 제거 (mode로 통합)
-   - `asset_id` 추가 (SAMPLE 모드 전용)
-   - `synth_settings` JSON 필드 추가 (SYNTH 모드 전용)
-   - `note` 필드는 `synth_settings` 내부로 이동 가능
+2. **필드명**:
+   - `nickname` 필드 유지 (코드 기준)
+   - `keyChar` 필드 유지 (코드 기준)
+   - Sequelize camelCase → DB snake_case 자동 변환
 
-5. **Assets 테이블 확장**:
-   - `is_recorded` 필드 추가 (BOOLEAN)
-   - `file_size` 필드 추가 (BIGINT, 선택사항)
+3. **Presets 테이블 확장** (Phase 4 완료):
+   - ✅ `masterVolume` 필드 추가 (FLOAT, DEFAULT 0.7)
+   - ✅ `isQuantized` 필드 추가 (BOOLEAN, DEFAULT TRUE)
 
-6. **새로운 테이블 추가**:
-   - `UserPreferences`: 사용자 전역 설정
-   - `Posts`: 프로젝트 공유 게시판
+4. **KeyMappings 테이블 확장** (Phase 4 완료):
+   - ✅ `synthSettings` JSON 필드 추가 (NULL 허용)
+   - ✅ `type`, `note` 필드 유지 (코드에 존재)
+   - ✅ `mode` ENUM: `'one-shot'/'gate'/'toggle'` 유지 (코드 기준)
+
+5. **Assets 테이블 확장** (Phase 4 완료):
+   - ✅ `isRecorded` 필드 추가 (BOOLEAN, DEFAULT FALSE)
+   - ⏳ `file_size` 필드는 향후 확장용 (선택적)
+
+6. **API 업데이트** (Phase 4 완료):
+   - ✅ `POST /presets`: 새 필드 처리 추가
+   - ✅ `POST /upload`: `isRecorded` 필드 처리 추가
+
+**참고**: 자세한 리팩토링 과정은 `document/SCHEMA_REFACTORING_PLAN.md`, `document/PHASE3_FIELD_ADDITION_DECISION.md`, `document/PHASE4_COMPLETION_SUMMARY.md`를 참조하세요.
 
 ---
 
@@ -962,5 +990,11 @@ USE web_daw;
 - **문서 위치**: 모든 프로젝트 문서는 `document/` 폴더에 있습니다.
   - `document/PROJECT_SPEC.md`: 프로젝트 명세서 (이 문서)
   - `document/DB_SCHEMA.md`: 데이터베이스 스키마를 DBML 형식으로 정의한 문서 (dbdiagram.io에서 시각화 가능)
+  - `document/CURRENT_CODE_STRUCTURE.md`: 현재 코드베이스 구조 상세 분석 문서 (Phase 1 결과)
+  - `document/SCHEMA_REFACTORING_PLAN.md`: 스키마 리팩토링 작업 계획 및 진행 상황
+  - `document/PHASE3_FIELD_ADDITION_DECISION.md`: 누락된 필드 추가 결정 문서
+  - `document/PHASE4_COMPLETION_SUMMARY.md`: Phase 4 완료 요약
+  - `document/HIGH_FI_ROADMAP.md`: High-Fi 단계 달성을 위한 작업 목록
   - `document/DOCKER_TROUBLESHOOTING.md`: Docker 실행 시 발생할 수 있는 일반적인 문제 해결 가이드
+  - `document/README_DOCKER.md`: Docker를 사용한 실행 가이드 (기본 실행 방법)
   - `document/README_DOCKER.md`: Docker Compose를 사용한 실행 방법 상세 가이드
