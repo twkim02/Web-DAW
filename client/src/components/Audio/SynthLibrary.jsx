@@ -2,34 +2,44 @@ import React, { useEffect, useState, useRef } from 'react';
 import client from '../../api/client';
 import useStore from '../../store/useStore';
 import { uploadFile } from '../../api/upload';
+import { SYNTH_PRESETS } from '../../audio/instruments/Synths';
 
 const SynthLibrary = () => {
-    // Categorized Presets matching Synths.js
+    // Generate Categories Dynamically
+    // We can guess category by prefix: bass_*, lead_*, keys_*, pad_*, fx_*, etc.
+    // Or just group everything into "ALL" if no metadata.
+    // But Synths.js keys are descriptive enough.
+
     const presetCategories = {
-        'BASS': [
-            { id: 'bass_reese', name: 'Reese Bass', type: 'synth', presetId: 'bass_reese' },
-            { id: 'bass_acid', name: 'Acid Bass', type: 'synth', presetId: 'bass_acid' },
-            { id: 'bass_sub', name: 'Sub Bass', type: 'synth', presetId: 'bass_sub' },
-            { id: 'bass_slap', name: 'Slap Bass', type: 'synth', presetId: 'bass_slap' },
-        ],
-        'LEAD': [
-            { id: 'supersaw', name: 'Super Saw (Trance)', type: 'synth', presetId: 'supersaw' },
-            { id: 'lead_saw', name: 'Saw Lead', type: 'synth', presetId: 'lead_saw' },
-            { id: 'lead_sync', name: 'Sync Lead', type: 'synth', presetId: 'lead_sync' },
-            { id: 'lead_theremin', name: 'Theremin', type: 'synth', presetId: 'lead_theremin' },
-        ],
-        'KEYS / PAD': [
-            { id: 'keys_epiano', name: 'E-Piano', type: 'synth', presetId: 'keys_epiano' },
-            { id: 'keys_fm', name: 'FM Bell', type: 'synth', presetId: 'keys_fm' },
-            { id: 'pad_space', name: 'Space Pad', type: 'synth', presetId: 'pad_space' },
-            { id: 'pad_warm', name: 'Warm Pad', type: 'synth', presetId: 'pad_warm' },
-        ],
-        'FX': [
-            { id: 'fx_chiptune', name: 'Chiptune', type: 'synth', presetId: 'fx_chiptune' },
-            { id: 'fx_laser', name: 'Laser', type: 'synth', presetId: 'fx_laser' },
-            { id: 'fx_drop', name: 'Bass Drop', type: 'synth', presetId: 'fx_drop' },
-        ]
+        'BASS': [],
+        'LEAD': [],
+        'KEYS': [],
+        'PAD': [],
+        'FX': [],
+        'MISC': []
     };
+
+    Object.keys(SYNTH_PRESETS).forEach(key => {
+        if (key === 'default') return; // Skip default
+
+        let category = 'MISC';
+        if (key.startsWith('bass_')) category = 'BASS';
+        else if (key.startsWith('lead_') || key === 'supersaw') category = 'LEAD';
+        else if (key.startsWith('keys_')) category = 'KEYS';
+        else if (key.startsWith('pad_')) category = 'PAD';
+        else if (key.startsWith('fx_')) category = 'FX';
+        else if (key.startsWith('pluck_') || key.startsWith('bell_')) category = 'KEYS'; // Group plucks/bells with keys
+
+        const preset = SYNTH_PRESETS[key];
+        const name = key.replace(/_/g, ' ').toUpperCase(); // Simple name formatting
+
+        presetCategories[category].push({
+            id: key,
+            name: name,
+            type: 'synth',
+            presetId: key
+        });
+    });
 
     const [assets, setAssets] = useState([]);
     const [loading, setLoading] = useState(false);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { uploadFile } from '../../api/upload';
 import useStore from '../../store/useStore';
 import { audioEngine } from '../../audio/AudioEngine';
+import styles from './VirtualPiano.module.css';
 
 const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onClose }) => {
     // Global State
@@ -151,23 +152,30 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
     // RECORDING HANDLER
     const toggleRecording = async () => {
         if (isRecording) { // Stop
+            const blob = await instrumentManager.stopRecording();
             setIsRecording(false);
-            setIsUploading(true);
-            try {
-                const blob = await instrumentManager.stopRecording();
-                if (blob) {
-                    const file = new File([blob], `recording_${Date.now()}.webm`, { type: 'audio/webm' });
+
+            if (blob) {
+                // Prompt for name
+                const defaultName = `${type}_${new Date().toISOString().slice(0, 10)}`;
+                const name = window.prompt("Enter a name for your recording:", defaultName);
+
+                if (!name) return; // User cancelled
+
+                setIsUploading(true);
+                try {
+                    const file = new File([blob], `${name}.webm`, { type: 'audio/webm' });
                     // Determine category based on type
                     const category = type === 'synth' ? 'synth' : 'instrument';
                     await uploadFile(file, category);
                     triggerLibraryRefresh(); // REFRESH SIDEBAR
                     alert('Recording Saved to Library!');
+                } catch (err) {
+                    console.error(err);
+                    alert('Save Failed');
+                } finally {
+                    setIsUploading(false);
                 }
-            } catch (err) {
-                console.error(err);
-                alert('Save Failed');
-            } finally {
-                setIsUploading(false);
             }
         } else { // Start
             await instrumentManager.startRecording();
@@ -212,46 +220,27 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
     }, [activeNotes, previewMode, octaveOffset]); // Depend on Offset
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(20px)',
-            zIndex: 9999,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            animation: 'fadeIn 0.2s ease'
-        }}>
+        <div className={styles.overlay}>
             {/* Header */}
-            <div style={{ marginBottom: '20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-                <h1 style={{
-                    color: '#fff', margin: 0,
-                    fontSize: '2rem', textShadow: '0 0 20px rgba(0,255,255,0.5)'
-                }}>
+            <div className={styles.headerContainer}>
+                <h1 className={styles.title}>
                     {previewMode ? `PREVIEW: ${type.toUpperCase()}` : 'VIRTUAL KEYBOARD'}
                 </h1>
 
                 {/* Controls Row */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', background: 'rgba(255,255,255,0.05)', padding: '10px 20px', borderRadius: '10px' }}>
+                <div className={styles.controlsBar}>
 
                     {/* OCTAVE CONTROLS */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span style={{ color: '#aaa', fontSize: '0.8rem', marginRight: '5px', fontWeight: 'bold' }}>OCTAVE</span>
+                    <div className={styles.octaveControls}>
+                        <span className={styles.octaveLabel}>OCTAVE</span>
                         <button
                             onClick={() => setOctaveOffset(p => Math.max(p - 1, MIN_OFFSET))}
-                            style={{
-                                background: '#333', border: '1px solid #555', color: '#fff',
-                                padding: '5px 10px', borderRadius: '4px', cursor: 'pointer',
-                                opacity: octaveOffset <= MIN_OFFSET ? 0.5 : 1
-                            }}
+                            className={`${styles.controlBtn} ${octaveOffset <= MIN_OFFSET ? styles.disabled : ''}`}
                         >
-                            - <span style={{ fontSize: '0.7rem', color: '#888' }}>(↓)</span>
+                            - <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>(↓)</span>
                         </button>
 
-                        <div style={{
-                            width: '40px', textAlign: 'center', fontWeight: 'bold',
+                        <div className={styles.octaveDisplay} style={{
                             color: octaveOffset === 0 ? '#fff' : (octaveOffset > 0 ? '#00ffff' : '#ffaa00')
                         }}>
                             {octaveOffset > 0 ? `+${octaveOffset}` : octaveOffset}
@@ -259,17 +248,13 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
 
                         <button
                             onClick={() => setOctaveOffset(p => Math.min(p + 1, MAX_OFFSET))}
-                            style={{
-                                background: '#333', border: '1px solid #555', color: '#fff',
-                                padding: '5px 10px', borderRadius: '4px', cursor: 'pointer',
-                                opacity: octaveOffset >= MAX_OFFSET ? 0.5 : 1
-                            }}
+                            className={`${styles.controlBtn} ${octaveOffset >= MAX_OFFSET ? styles.disabled : ''}`}
                         >
-                            + <span style={{ fontSize: '0.7rem', color: '#888' }}>(↑)</span>
+                            + <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>(↑)</span>
                         </button>
                     </div>
 
-                    <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.2)' }}></div>
+                    <div className={styles.divider}></div>
 
                     {/* RECORD & CLOSE */}
                     <div style={{ display: 'flex', gap: '10px' }}>
@@ -277,26 +262,15 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
                             <button
                                 onClick={toggleRecording}
                                 disabled={isUploading}
-                                style={{
-                                    background: isRecording ? '#ff3333' : '#333',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    color: '#fff', padding: '5px 20px', borderRadius: '20px',
-                                    cursor: 'pointer', fontWeight: 'bold',
-                                    boxShadow: isRecording ? '0 0 15px #ff0000' : 'none',
-                                    animation: isRecording ? 'pulse 1s infinite' : 'none'
-                                }}
+                                className={`${styles.actionBtn} ${styles.recordBtn} ${isRecording ? styles.recording : ''}`}
                             >
-                                {isUploading ? 'SAVING...' : (isRecording ? 'STOP' : 'REC ●')}
+                                {isUploading ? 'SAVING...' : (isRecording ? 'STOP' : <>REC ●</>)}
                             </button>
                         )}
 
                         <button
                             onClick={onClose}
-                            style={{
-                                background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
-                                color: '#fff', padding: '5px 20px', borderRadius: '20px',
-                                cursor: 'pointer'
-                            }}
+                            className={`${styles.actionBtn} ${styles.closeBtn}`}
                         >
                             CLOSE
                         </button>
@@ -305,10 +279,10 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
             </div>
 
             {/* Piano Container */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className={styles.pianoContainer}>
 
                 {/* Visual Hint */}
-                <div style={{ color: '#888', textAlign: 'center', fontSize: '0.9rem', marginBottom: '5px' }}>
+                <div className={styles.hintText}>
                     Upper Row (QWERTY) &nbsp;&nbsp; | &nbsp;&nbsp; Lower Row (ASDF / ZXCV)
                 </div>
 
@@ -340,17 +314,7 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
 // Helper Component for a Single Octave Row
 const PianoRow = ({ whiteKeys, blackKeys, activeNotes, playNote, stopNote, label }) => {
     return (
-        <div style={{
-            position: 'relative',
-            height: '180px',
-            padding: '10px 20px 20px 20px',
-            background: 'rgba(30,30,30,0.8)',
-            borderRadius: '12px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1)',
-            display: 'flex',
-            userSelect: 'none',
-            justifyContent: 'center'
-        }}>
+        <div className={styles.pianoRow}>
             {/* White Keys */}
             {whiteKeys.map((key) => {
                 const isActive = activeNotes.has(key.note);
@@ -360,35 +324,14 @@ const PianoRow = ({ whiteKeys, blackKeys, activeNotes, playNote, stopNote, label
                         onMouseDown={() => playNote(key.note)}
                         onMouseUp={() => stopNote(key.note)}
                         onMouseLeave={() => isActive && stopNote(key.note)}
-                        style={{
-                            width: '60px',
-                            height: '100%',
-                            background: isActive ? 'linear-gradient(to bottom, #eee, #00ffff)' : 'linear-gradient(to bottom, #fff, #ddd)',
-                            border: '1px solid #777',
-                            borderTop: 'none',
-                            borderRadius: '0 0 8px 8px',
-                            margin: '0 1px',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            zIndex: 1,
-                            boxShadow: isActive ? '0 0 20px #00ffff inset' : 'inset 0 -5px 10px rgba(0,0,0,0.1)',
-                            transformOrigin: 'top',
-                            transform: isActive ? 'rotateX(-5deg) translateY(2px)' : 'none',
-                            transition: 'all 0.05s'
-                        }}
+                        className={`${styles.whiteKey} ${isActive ? styles.active : ''}`}
                     >
                         {/* Note Label */}
-                        <span style={{
-                            position: 'absolute', bottom: '25px', width: '100%', textAlign: 'center',
-                            color: isActive ? '#000' : '#aaa', fontSize: '0.7rem', fontWeight: 'bold'
-                        }}>
+                        <span className={styles.noteLabel}>
                             {key.note}
                         </span>
                         {/* Key Char Label - ENHANCED VISIBILITY */}
-                        <span style={{
-                            position: 'absolute', bottom: '5px', width: '100%', textAlign: 'center',
-                            color: isActive ? '#000' : '#444', fontSize: '1.1rem', fontWeight: '900'
-                        }}>
+                        <span className={styles.keyCharLabel}>
                             {key.char.toUpperCase()}
                         </span>
                     </div>
@@ -396,22 +339,7 @@ const PianoRow = ({ whiteKeys, blackKeys, activeNotes, playNote, stopNote, label
             })}
 
             {/* Black Keys (Overlay) */}
-            <div style={{
-                position: 'absolute',
-                top: '10px', left: '20px', right: '20px',
-                display: 'flex',
-                justifyContent: 'center', // Center alginment matching white keys
-                pointerEvents: 'none'
-            }}>
-                {/* We map relative to the white key container start. 
-                    Since we use Flexbox for white keys, absolute positioning needs careful calc.
-                    Or better: Put black keys inside the mapped white keys? No, overlap issues.
-                    We iterate black keys and calculate Position.
-                    Calculation: (Index * (Width + Margin)) + Offset
-                    White Key Width: 60px + 2px margin = 62px space.
-                    Black Key Center ~= Between White Key i and i+1.
-                    Left = (i * 62) + 40 ?
-                */}
+            <div className={styles.blackKeyContainer}>
                 <div style={{ position: 'relative', width: `${whiteKeys.length * 62}px`, height: '100%' }}>
                     {blackKeys.map((key) => {
                         const isActive = activeNotes.has(key.note);
@@ -423,29 +351,13 @@ const PianoRow = ({ whiteKeys, blackKeys, activeNotes, playNote, stopNote, label
                                 onMouseDown={() => playNote(key.note)}
                                 onMouseUp={() => stopNote(key.note)}
                                 onMouseLeave={() => isActive && stopNote(key.note)}
+                                className={`${styles.blackKey} ${isActive ? styles.active : ''}`}
                                 style={{
-                                    pointerEvents: 'auto',
-                                    position: 'absolute',
                                     left: `${leftPos}px`,
-                                    width: '42px',
-                                    height: '100px',
-                                    background: isActive ? '#00ffff' : 'linear-gradient(to bottom, #444, #111)',
-                                    borderRadius: '0 0 6px 6px',
-                                    zIndex: 2,
-                                    cursor: 'pointer',
-                                    boxShadow: '3px 3px 8px rgba(0,0,0,0.6)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    transform: isActive ? 'translateY(2px)' : 'none',
-                                    transition: 'all 0.05s'
                                 }}
                             >
                                 {/* Key Char Label - ENHANCED VISIBILITY */}
-                                <span style={{
-                                    position: 'absolute', bottom: '10px', width: '100%', textAlign: 'center',
-                                    color: isActive ? '#000' : '#ffcc00', // Yellow for high contrast on black
-                                    fontSize: '1rem', fontWeight: '900',
-                                    textShadow: '0px 1px 2px black'
-                                }}>
+                                <span className={styles.blackKeyCharLabel}>
                                     {key.char.toUpperCase()}
                                 </span>
                             </div>
@@ -455,7 +367,6 @@ const PianoRow = ({ whiteKeys, blackKeys, activeNotes, playNote, stopNote, label
             </div>
         </div>
     );
-
 };
 
 export default VirtualPiano;

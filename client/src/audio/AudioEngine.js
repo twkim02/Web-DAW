@@ -30,30 +30,36 @@ class AudioEngine {
 
             this.isInitialized = true;
 
-            // Initialize Effects
-            this.reverb = new Tone.Reverb({
-                decay: 1.5,
-                preDelay: 0.01,
-                wet: 1 // Sends usually expect 100% wet on the return bus
-            });
-            await this.reverb.generate();
-
-            this.delay = new Tone.FeedbackDelay({
-                delayTime: 0.25,
-                feedback: 0.5,
-                wet: 1 // Return bus 100% wet
-            });
-
-            // Master Buss
+            // Master Buss (Must function before effects connect to it)
             this.masterBuss = new Tone.Gain(1).toDestination();
 
-            // Initialize Analyser for Visualizer
+            // --- Analyser Setup (Visualizer) ---
+            // Create a combined FFT/Waveform analyser or just FFT?
+            // ThreeVisualizer uses getFrequencyData (FFT) and getTimeDomainData (Waveform).
+            // Tone.Analyser default type is 'fft'. 
+            // We need 'waveform' to get time domain? 
+            // Actually Web Audio AnalyserNode does both always. Tone.Analyser wrapper might hide one.
+            // Let's use specific Tone.Waveform and Tone.FFT? 
+            // Or just access the raw node as I planned.
+            // Let's instantiate a standard Tone.Analyser just to be safe and standard.
             this.analyser = new Tone.Analyser("fft", 256);
             this.masterBuss.connect(this.analyser);
 
-            // Connect Returns to Master
-            this.reverb.connect(this.masterBuss);
-            this.delay.connect(this.masterBuss);
+            // Dedicated Waveform Node for 'circular_wave' visualizer
+            this.waveform = new Tone.Waveform(256);
+            this.masterBuss.connect(this.waveform);
+
+            // Also enable time domain support if needed? 
+            // Tone.Analyser with type="fft" still supports getByteTimeDomainData on the native node.
+            // So we are good.
+
+            // Initialize Global Send Inputs
+            this.sendAInput = new Tone.Gain(1);
+            this.sendBInput = new Tone.Gain(1);
+
+            // Initial Default Chains (Matches Store)
+            await this.updateGlobalChain('sendA', []);
+            await this.updateGlobalChain('sendB', []);
 
             // Initialize 8 Mixer Channels
             this.channels = Array(8).fill(null).map((_, i) => {
@@ -116,16 +122,16 @@ class AudioEngine {
 
             // Safe fallback: Manual Send Gains.
             this.channels.forEach(channel => {
-                // Send A -> Reverb
+                // Send A -> Global Chain A
                 const sendAGain = new Tone.Gain(0);
                 channel.connect(sendAGain);
-                sendAGain.connect(this.reverb);
+                sendAGain.connect(this.sendAInput);
                 channel.sendA = sendAGain;
 
-                // Send B -> Delay
+                // Send B -> Global Chain B
                 const sendBGain = new Tone.Gain(0);
                 channel.connect(sendBGain);
-                sendBGain.connect(this.delay);
+                sendBGain.connect(this.sendBInput);
                 channel.sendB = sendBGain;
             });
 
@@ -230,6 +236,151 @@ class AudioEngine {
         return this.recordingDest.stream;
     }
 
+    // --- Global FX Chain Management ---
+
+    async updateGlobalChain(bus, chainDefs) {
+        // bus: 'sendA' or 'sendB'
+        const inputNode = bus === 'sendA' ? this.sendAInput : this.sendBInput;
+
+        // 1. Cleanup existing chain nodes for this bus
+        if (this[`${bus}Nodes`]) {
+            this[`${bus}Nodes`].forEach(node => {
+                node.disconnect();
+                node.dispose();
+            });
+        }
+        this[`${bus}Nodes`] = [];
+
+        // 2. Create new nodes
+        const nodes = [];
+        for (const def of chainDefs) {
+            const node = await this.createEffectNode(def);
+            if (node) nodes.push(node);
+        }
+        this[`${bus}Nodes`] = nodes;
+
+        // 3. Connect Chain: Input -> Node1 -> Node2 ... -> Master
+        inputNode.disconnect(); // Disconnect from previous destination
+
+        if (nodes.length === 0) {
+            // Empty chain? Connect input directly to master? Or consume? 
+            // Usually empty send means no sound. But let's verify.
+            // If empty, we probably shouldn't hear anything from the send.
+            // So do nothing (disconnected).
+            return;
+        }
+
+        let currentNode = inputNode;
+        nodes.forEach(node => {
+            currentNode.connect(node);
+            currentNode = node;
+        });
+
+        // Final node connects to Master
+        currentNode.connect(this.masterBuss);
+
+        console.log(`[AudioEngine] Updated ${bus} chain with ${nodes.length} effects.`);
+    }
+
+    async createEffectNode(def) {
+        const { type, params } = def;
+        let node;
+
+        switch (type) {
+            case 'reverb':
+                node = new Tone.Reverb({
+                    decay: params.decay || 1.5,
+                    preDelay: params.preDelay || 0.01,
+                    wet: params.mix !== undefined ? params.mix : 1
+                });
+                await node.generate();
+                break;
+            case 'delay':
+                node = new Tone.FeedbackDelay({
+                    delayTime: params.delayTime || 0.25,
+                    feedback: params.feedback || 0.5,
+                    wet: params.mix !== undefined ? params.mix : 1
+                });
+                break;
+            case 'distortion':
+                node = new Tone.Distortion(params.distortion || 0.4);
+                break;
+            case 'bitcrusher':
+                node = new Tone.BitCrusher(params.bits || 4);
+                break;
+            case 'eq3':
+                node = new Tone.EQ3(params.low || 0, params.mid || 0, params.high || 0);
+                break;
+            case 'compressor':
+                node = new Tone.Compressor(params.threshold || -24, params.ratio || 4);
+                node.attack.value = params.attack || 0.003;
+                node.release.value = params.release || 0.25;
+                break;
+            case 'flanger':
+                node = new Tone.Flanger({
+                    delayTime: params.delayTime || 0.005,
+                    depth: params.depth || 0.1,
+                    feedback: params.feedback || 0.1
+                });
+                break;
+            case 'chorus':
+                node = new Tone.Chorus(params.frequency || 4, params.delayTime || 2.5, params.depth || 0.5).start();
+                break;
+            case 'phaser':
+                node = new Tone.Phaser({
+                    frequency: params.frequency || 0.5,
+                    octaves: params.octaves || 3,
+                    baseFrequency: params.baseFrequency || 350
+                });
+                break;
+            case 'pitchshift':
+                node = new Tone.PitchShift(params.pitch || 0);
+                break;
+            case 'tremolo':
+                node = new Tone.Tremolo(params.frequency || 10, params.depth || 0.5).start();
+                break;
+            case 'autowah':
+                node = new Tone.AutoWah({
+                    baseFrequency: params.baseFrequency || 100,
+                    octaves: params.octaves || 6,
+                    sensitivity: params.sensitivity || 0
+                });
+                break;
+            case 'panner':
+                node = new Tone.Panner(params.pan || 0);
+                break;
+            default:
+                console.warn('Unknown effect type:', type);
+                return null;
+        }
+        return node;
+    }
+
+    // Helper to update parameters of an existing chain node live (without rebuilding)
+    updateGlobalEffectParam(bus, index, params) {
+        if (!this[`${bus}Nodes`] || !this[`${bus}Nodes`][index]) return;
+        const node = this[`${bus}Nodes`][index];
+
+        // Map params to Tone.js properties
+        // This repeats logic from createEffectNode but for setting values.
+        // Simplified mapping:
+        Object.keys(params).forEach(key => {
+            const val = params[key];
+            // Handle specific cases or direct assignment
+            if (node[key] && node[key].value !== undefined) {
+                // It's a signal
+                node[key].rampTo(val, 0.1);
+            } else if (node[key] !== undefined) {
+                // It's a property
+                node[key] = val;
+            }
+
+            // Special cases
+            if (key === 'mix') node.wet.value = val;
+            if (key === 'time') node.delayTime.value = val; // delay legacy
+        });
+    }
+
     // ... (rest of methods)
 
     updateMixerTrack(trackIndex, params) {
@@ -290,6 +441,7 @@ class AudioEngine {
 
     getFrequencyData() {
         if (!this.analyser) return new Uint8Array(0);
+
         const dbData = this.analyser.getValue(); // Float32Array in dB
         const byteData = new Uint8Array(dbData.length);
         for (let i = 0; i < dbData.length; i++) {
@@ -300,6 +452,18 @@ class AudioEngine {
             if (val < 0) val = 0;
             if (val > 255) val = 255;
             byteData[i] = val;
+        }
+        return byteData;
+    }
+
+    getTimeDomainData() {
+        if (!this.waveform) return new Uint8Array(0);
+
+        const values = this.waveform.getValue(); // Float32Array -1 to 1
+        // Convert to Uint8 0-255 for consistency
+        const byteData = new Uint8Array(values.length);
+        for (let i = 0; i < values.length; i++) {
+            byteData[i] = (values[i] + 1) * 127.5;
         }
         return byteData;
     }

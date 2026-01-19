@@ -2,16 +2,14 @@
   width: 380px;
   /* Slightly wider for better control spacing */
   height: 100%;
-  background: rgba(12, 12, 16, 0.65);
-  /* More transparent, sophisticated dark tint */
-  backdrop-filter: blur(25px) saturate(180%);
-  /* Stronger blur + saturation for premium glass feel */
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--glass-bg-panel);
+  backdrop-filter: var(--glass-blur-lg);
+  border-left: var(--glass-border-medium);
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   z-index: 10000;
-  color: #eee;
+  color: var(--color-text-secondary);
   font-family: 'Inter', system-ui, sans-serif;
 }
 
@@ -37,34 +35,34 @@
 .sidebarTitle {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #888;
+  color: var(--color-text-muted);
   letter-spacing: 2px;
   text-transform: uppercase;
   margin-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: var(--glass-border-medium);
   padding-bottom: 8px;
 }
 
 /* Glass Card for FX */
 .fxGroup {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  background: var(--glass-bg-subtle);
+  border: var(--glass-border-subtle);
+  border-radius: var(--radius-md);
   padding: 16px;
   margin-bottom: 12px;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
   position: relative;
 }
 
 .fxGroup:hover {
   border-color: rgba(0, 255, 204, 0.3);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  background: var(--glass-bg-medium);
 }
 
 .fxLabel {
   font-size: 0.9rem;
-  color: #00ffcc;
+  color: var(--color-accent-primary);
   margin-bottom: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -84,7 +82,7 @@
 
 .paramLabel {
   font-size: 0.7rem;
-  color: #888;
+  color: var(--color-text-muted);
   width: 50px;
   text-transform: uppercase;
   font-weight: 500;
@@ -92,14 +90,14 @@
 
 .valueDisplay {
   font-size: 0.75rem;
-  color: #ddd;
+  color: var(--color-text-secondary);
   width: 40px;
   text-align: right;
   font-feature-settings: "tnum";
   font-family: 'JetBrains Mono', monospace;
   background: rgba(0, 0, 0, 0.3);
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 /* Custom Range Slider */
@@ -120,7 +118,7 @@
   appearance: none;
   width: 14px;
   height: 14px;
-  background: #00ffcc;
+  background: var(--color-accent-primary);
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
@@ -135,7 +133,7 @@
 
 .slider:active::-webkit-slider-thumb {
   transform: scale(1.1);
-  background: #00ffcc;
+  background: var(--color-accent-primary);
 }
 
 /* Custom Dropdown/Select */
@@ -143,22 +141,22 @@
   width: 100%;
   padding: 12px;
   background: rgba(0, 0, 0, 0.4);
-  color: #00ffcc;
+  color: var(--color-accent-primary);
   border: 1px dashed rgba(0, 255, 204, 0.4);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-family: inherit;
   font-weight: 600;
   text-align: center;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  transition: var(--transition-fast);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .glassSelect:hover {
-  background: rgba(0, 255, 204, 0.1);
-  border-color: #00ffcc;
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-primary);
   box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
 }
 
@@ -171,7 +169,7 @@
 /* Input Fields */
 .glassInput {
   background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: var(--glass-border-medium);
   color: #fff;
   padding: 6px 10px;
   border-radius: 6px;
@@ -181,7 +179,7 @@
 }
 
 .glassInput:focus {
-  border-color: #00ffcc;
+  border-color: var(--color-accent-primary);
 }
 
 /* Mode Buttons Container */
@@ -193,40 +191,40 @@
 
 /* Mode Buttons */
 .modeBtn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #888;
+  background: var(--glass-bg-medium);
+  border: var(--glass-border-medium);
+  color: var(--color-text-muted);
   padding: 8px 0;
   border-radius: 6px;
   font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--transition-fast);
   flex: 1;
 }
 
 .modeBtn.active {
-  background: rgba(0, 255, 204, 0.2);
-  border-color: #00ffcc;
-  color: #00ffcc;
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
   box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
 }
 
 .delBtn {
   background: transparent;
   border: 1px solid rgba(255, 85, 85, 0.3);
-  color: #ff5555;
+  color: var(--color-danger);
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 0.7rem;
   font-weight: bold;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--transition-fast);
 }
 
 .delBtn:hover {
-  background: rgba(255, 85, 85, 0.2);
-  border-color: #ff5555;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
 }
 
 /* Color Palette Grid */

@@ -218,13 +218,13 @@ const FileLibrary = ({ category = 'sample' }) => {
     // Render Synth Presets
     const renderSynthPresets = () => (
         <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#888', marginBottom: '10px', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--color-text-muted)', marginBottom: '10px', textTransform: 'uppercase' }}>
                 Factory Presets
             </div>
             {Object.entries(synthPresets).map(([grp, items]) => (
                 <div key={grp} style={{ marginBottom: '10px' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#555', fontWeight: 'bold', marginBottom: '4px' }}>{grp}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 'bold', marginBottom: '4px' }}>{grp}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
                         {items.map(item => (
                             <div
                                 key={item.id}
@@ -233,9 +233,9 @@ const FileLibrary = ({ category = 'sample' }) => {
                                 onClick={() => setPreviewMode(true, item.type, item.presetId)}
                                 className={styles.fileItemHover}
                                 style={{
-                                    background: 'rgba(255,255,255,0.03)', padding: '8px', borderRadius: '6px',
-                                    border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer',
-                                    fontSize: '0.75rem', color: '#ccc', textAlign: 'center'
+                                    background: 'var(--glass-bg-subtle)', padding: '8px', borderRadius: 'var(--radius-md)',
+                                    border: 'var(--glass-border-subtle)', cursor: 'pointer',
+                                    fontSize: '0.75rem', color: 'var(--color-text-secondary)', textAlign: 'center'
                                 }}
                             >
                                 {item.name}
@@ -257,17 +257,18 @@ const FileLibrary = ({ category = 'sample' }) => {
         return (
             <div style={{ marginBottom: '20px' }}>
                 {/* Sub Tabs */}
-                <div style={{ display: 'flex', gap: '5px', marginBottom: '10px', overflowX: 'auto', paddingBottom: '5px' }}>
+                <div className={styles.subTabContainer}>
                     {['ALL', 'KEYS', 'STRINGS', 'WIND', 'OTHERS'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setInstSubTab(tab)}
                             style={{
-                                background: instSubTab === tab ? '#00ffcc' : 'transparent',
-                                color: instSubTab === tab ? '#000' : '#888',
-                                border: '1px solid #444',
+                                background: instSubTab === tab ? 'var(--color-accent-primary)' : 'transparent',
+                                color: instSubTab === tab ? '#000' : 'var(--color-text-muted)',
+                                border: instSubTab === tab ? '1px solid var(--color-accent-primary)' : 'var(--glass-border-medium)',
                                 borderRadius: '12px', padding: '4px 10px', fontSize: '0.65rem',
-                                fontWeight: 'bold', cursor: 'pointer'
+                                fontWeight: 'bold', cursor: 'pointer',
+                                transition: 'var(--transition-fast)'
                             }}
                         >
                             {tab}
@@ -275,7 +276,7 @@ const FileLibrary = ({ category = 'sample' }) => {
                     ))}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
                     {filtered.map(item => (
                         <div
                             key={item.id}
@@ -284,9 +285,9 @@ const FileLibrary = ({ category = 'sample' }) => {
                             onClick={() => setPreviewMode(true, item.type, item.preset)}
                             className={styles.fileItemHover}
                             style={{
-                                background: 'rgba(255,255,255,0.03)', padding: '8px', borderRadius: '6px',
-                                border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer',
-                                fontSize: '0.75rem', color: '#ccc', display: 'flex', alignItems: 'center', gap: '6px'
+                                background: 'var(--glass-bg-subtle)', padding: '8px', borderRadius: 'var(--radius-md)',
+                                border: 'var(--glass-border-subtle)', cursor: 'pointer',
+                                fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px'
                             }}
                         >
                             <span style={{ fontSize: '1rem' }}>
@@ -310,9 +311,26 @@ const FileLibrary = ({ category = 'sample' }) => {
             {/* 1. Header (No Tabs) */}
             <div style={{ marginBottom: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', letterSpacing: '1px', color: '#fff' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold', letterSpacing: '1px', color: '#fff' }}>
                         {currentCategory.icon} {currentCategory.label.toUpperCase()}
                     </span>
+
+
+                </div>
+            </div>
+
+            <input type="file" multiple ref={fileInputRef} style={{ display: 'none' }} accept="audio/*" onChange={handleFileUpload} />
+
+            {/* 2. File List / Content */}
+            <div className={styles.scrollContainer}>
+
+                {/* PRESETS SECTION (Only for Synth/Inst) */}
+                {category === 'synth' && !isSelectionMode && renderSynthPresets()}
+                {category === 'instrument' && !isSelectionMode && renderInstPresets()}
+
+                {/* USER FILES SECTION */}
+                <div style={{ marginBottom: '10px', fontSize: '0.8rem', fontWeight: 'bold', color: '#888', borderTop: (category === 'synth' || category === 'instrument') ? '1px solid rgba(255,255,255,0.1)' : 'none', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>MY {currentCategory.label.toUpperCase()}</span>
 
                     <div style={{ display: 'flex', gap: '5px' }}>
                         {isSelectionMode ? (
@@ -330,21 +348,6 @@ const FileLibrary = ({ category = 'sample' }) => {
                             </button>
                         )}
                     </div>
-                </div>
-            </div>
-
-            <input type="file" multiple ref={fileInputRef} style={{ display: 'none' }} accept="audio/*" onChange={handleFileUpload} />
-
-            {/* 2. File List / Content */}
-            <div className={styles.scrollContainer}>
-
-                {/* PRESETS SECTION (Only for Synth/Inst) */}
-                {category === 'synth' && !isSelectionMode && renderSynthPresets()}
-                {category === 'instrument' && !isSelectionMode && renderInstPresets()}
-
-                {/* USER FILES SECTION */}
-                <div style={{ marginBottom: '10px', fontSize: '0.8rem', fontWeight: 'bold', color: '#888', borderTop: (category === 'synth' || category === 'instrument') ? '1px solid rgba(255,255,255,0.1)' : 'none', paddingTop: '10px' }}>
-                    MY {currentCategory.label.toUpperCase()}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

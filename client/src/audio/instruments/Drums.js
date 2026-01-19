@@ -44,6 +44,21 @@ export const DRUM_KITS = {
             "ride": "hihat.mp3"   // Fallback
         }
     },
+    'cr78': {
+        baseUrl: "https://tonejs.github.io/audio/drum-samples/CR78/",
+        urls: {
+            "kick": "kick.mp3",
+            "snare": "snare.mp3",
+            "hh_closed": "hihat.mp3",
+            "hh_open": "hihat.mp3",
+            "tom_low": "tom1.mp3",
+            "tom_mid": "tom2.mp3",
+            "tom_high": "tom3.mp3",
+            "clap": "snare.mp3",
+            "crash": "hihat.mp3",
+            "ride": "hihat.mp3"
+        }
+    }
 };
 
 // Map Keyboard Notes (from VirtualDrums) to Sample Names

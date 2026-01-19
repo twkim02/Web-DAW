@@ -1,5 +1,7 @@
 import React from 'react';
 import useStore from '../../store/useStore';
+import KeyboardMap from './KeyboardMap';
+import styles from './InstructionModal.module.css';
 
 const InstructionModal = () => {
     const isInstructionOpen = useStore((state) => state.isInstructionOpen);
@@ -7,101 +9,75 @@ const InstructionModal = () => {
 
     if (!isInstructionOpen) return null;
 
-    const modalStyle = {
-        position: 'fixed',
-        top: 0, left: 0, width: '100%', height: '100%',
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        zIndex: 2000,
-        color: 'white',
-        fontFamily: 'Inter, sans-serif'
-    };
-
-    const contentStyle = {
-        backgroundColor: '#1E1E1E',
-        padding: '30px',
-        borderRadius: '12px',
-        width: '600px',
-        maxWidth: '90%',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 0 30px rgba(0, 0, 0, 0.5)',
-        border: '1px solid #333'
-    };
-
-    const h2Style = { borderBottom: '1px solid #444', paddingBottom: '15px', marginBottom: '20px', fontSize: '24px' };
-    const h3Style = { color: '#00ffcc', marginTop: '20px', marginBottom: '10px', fontSize: '18px' };
-    const rowStyle = { display: 'flex', justifyContent: 'space-between', marginBottom: '8px', borderBottom: '1px solid #333', paddingBottom: '4px' };
-    const keyStyle = { fontWeight: 'bold', color: '#fff', backgroundColor: '#333', padding: '2px 8px', borderRadius: '4px', fontSize: '14px' };
-    const descStyle = { color: '#ccc', fontSize: '14px' };
-
-    const sections = [
-        {
-            title: '🎹 Loop Station (루프 스테이션)',
-            items: [
-                { key: '5 ~ 0', desc: 'Loop Slot 1 ~ 6 Toggle (Rec/Play/Stop)' },
-            ]
-        },
-        {
-            title: '🎮 Instrument Pads (악기 연주)',
-            items: [
-                { key: '1, 2, 3, 4', desc: 'Row 1 Pads' },
-                { key: 'Q, W, E, R', desc: 'Row 2 Pads' },
-                { key: 'A, S, D, F', desc: 'Row 3 Pads' },
-                { key: 'Z, X, C, V', desc: 'Row 4 Pads' },
-            ]
-        },
-        {
-            title: '🎛️ Control & Shortcuts (컨트롤)',
-            items: [
-                { key: 'Space', desc: 'Play / Stop Music (Transport)' },
-                { key: 'Enter', desc: 'Start / Stop Recording (Live Mode Only)' },
-                { key: 'Tab', desc: 'Switch Session / Mixer View' },
-                { key: 'Shift + Click', desc: 'Edit Pad Settings' },
-                { key: 'Esc', desc: 'Zoom Out / Close Modal' },
-            ]
-        },
-        {
-            title: '🔊 Mixer Shortcuts',
-            items: [
-                { key: 'Tab', desc: 'Select / Toggle Mixer Mode' },
-                { key: '1 ~ 8', desc: 'Select Track (Column) directly' },
-                { key: '↑ / ↓ Arrows', desc: 'Adjust Volume / Parameter' },
-                { key: '[  /  ]', desc: 'Cycle Modes (Vol, Pan, Send, Mute...)' },
-                { key: 'M -> 1-8', desc: 'Mute Mode: Press M, then 1-8 to Toggle Track' },
-                { key: 'K -> 1-8', desc: 'Solo Mode: Press K, then 1-8 to Toggle Track' },
-                { key: 'Stop Mode -> 1-8', desc: 'Press Backspace, then 1-8 to Stop Track' },
-                { key: 'U, I, O, P', desc: 'Quick View: Vol, Pan, Send A, Send B' },
-            ]
-        }
-    ];
-
     return (
-        <div style={modalStyle} onClick={() => setIsInstructionOpen(false)}>
-            <div style={contentStyle} onClick={(e) => e.stopPropagation()}>
-                <h2 style={h2Style}>⌨️ Keyboard Shortcuts</h2>
+        <div className={styles.overlay} onClick={() => setIsInstructionOpen(false)}>
+            <div className={styles.content} onClick={(e) => e.stopPropagation()}>
 
-                {sections.map((section, idx) => (
-                    <div key={idx}>
-                        <h3 style={h3Style}>{section.title}</h3>
-                        {section.items.map((item, i) => (
-                            <div key={i} style={rowStyle}>
-                                <span style={keyStyle}>{item.key}</span>
-                                <span style={descStyle}>{item.desc}</span>
-                            </div>
-                        ))}
+                <div className={styles.headerContainer}>
+                    <h2 className={styles.title}>⌨️ Keyboard Shortcuts</h2>
+                    <button
+                        onClick={() => setIsInstructionOpen(false)}
+                        className={styles.closeButton}
+                    >✕</button>
+                </div>
+
+                {/* 1. Visual Keyboard Map */}
+                <KeyboardMap />
+
+                {/* 2. Detailed Lists */}
+                <div className={styles.columnsContainer}>
+
+                    {/* Column 1: Session & Global */}
+                    <div className={styles.column}>
+                        <div className={styles.section}>
+                            <h3 className={styles.sectionTitle}>🎹 Pads & Session (Pads)</h3>
+                            <div className={styles.row}><div className={styles.keyBadge}>1 ~ 4</div><span>Row 1 Pads</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Q ~ R</div><span>Row 2 Pads</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>A ~ F</div><span>Row 3 Pads</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Z ~ V</div><span>Row 4 Pads</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>T, G, B</div><span>Trigger Scene 1, 2, 3</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Shift + Click</div><span>Edit Pad Settings</span></div>
+                        </div>
+
+                        <div className={styles.section}>
+                            <h3 className={styles.sectionTitle}>🌐 Global Controls (Action)</h3>
+                            <div className={styles.row}><div className={styles.keyBadge}>Space</div><span>Play / Pause Music</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Enter</div><span>Start / Stop Recording (Live Mode)</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Esc</div><span>Close Modal / Zoom Out</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Arrows</div><span>Navigate Banks (Left/Right/Up/Down)</span></div>
+                        </div>
                     </div>
-                ))}
+
+                    {/* Column 2: Mixer */}
+                    <div className={styles.column}>
+                        <div className={styles.section}>
+                            <h3 className={styles.sectionTitle}>🎛️ Mixer Mode (Purple)</h3>
+                            <div style={{ marginBottom: '15px', fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>
+                                Hold <strong>TAB</strong> or Toggle with <strong>Tab</strong> to switch views.
+                            </div>
+
+                            <div className={styles.row}><div className={styles.keyBadge}>1 ~ 8</div><span>Select Track 1-8</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>↑ / ↓</div><span>Adjust Selected Value (Vol/Pan/Send)</span></div>
+
+                            <div style={{ marginTop: '15px', fontWeight: '700', fontSize: '14px', color: 'var(--color-accent-secondary)', marginBottom: '8px' }}>Quick Modes</div>
+                            <div className={styles.row}><div className={styles.keyBadge}>U, I, O, P</div><span>Volume, Pan, Send A, Send B</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>[   ]</div><span>Cycle Previous / Next Mode</span></div>
+
+                            <div style={{ marginTop: '15px', fontWeight: '700', fontSize: '14px', color: 'var(--color-danger)', marginBottom: '8px' }}>Track Actions</div>
+                            <div className={styles.row}><div className={styles.keyBadge}>M</div><span>Mute Mode (then press 1-8 to toggle)</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>K</div><span>Solo Mode (then press 1-8 to toggle)</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>; (Semi)</div><span>Stop Mode (then press 1-8 to stop)</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>L</div><span>Clear Mode (then press 1-8 to clear)</span></div>
+                        </div>
+                    </div>
+
+                </div>
 
                 <button
                     onClick={() => setIsInstructionOpen(false)}
-                    style={{
-                        marginTop: '30px', width: '100%', padding: '12px',
-                        backgroundColor: '#333', color: 'white', border: 'none',
-                        borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
-                    }}
+                    className={styles.footerButton}
                 >
-                    Close
+                    Close Help
                 </button>
             </div>
         </div>

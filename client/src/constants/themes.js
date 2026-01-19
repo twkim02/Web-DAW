@@ -60,9 +60,9 @@ export const THEMES = [
         type: 'dynamic',
         visualizerMode: 'bass',
         background: '#000000',
-        primaryColor: '#ff0055', // Initial color
+        primaryColor: '#00ffcc', // Cyan base (flashes Red on bass)
         secondaryColor: '#ffaa00',
-        gridColor: 'rgba(255, 0, 85, 0.2)',
+        gridColor: 'rgba(0, 255, 204, 0.2)', // Cyan grid
         textColor: '#ffffff'
     },
     {
@@ -75,5 +75,27 @@ export const THEMES = [
         secondaryColor: '#aa00ff',
         gridColor: 'rgba(0, 204, 255, 0.2)',
         textColor: '#ffffff'
+    },
+    {
+        id: 'stardust',
+        name: '✨ Stardust',
+        type: 'dynamic',
+        visualizerMode: 'particles',
+        background: '#000000',
+        primaryColor: '#ffffff',
+        secondaryColor: '#dda0dd',
+        gridColor: 'rgba(255, 255, 255, 0.15)',
+        textColor: '#ffffff'
+    },
+    {
+        id: 'sonar',
+        name: '📡 Sonar',
+        type: 'dynamic',
+        visualizerMode: 'circular_wave',
+        background: '#0a0a0a',
+        primaryColor: '#00ff00', // Radar Green
+        secondaryColor: '#003300',
+        gridColor: 'rgba(0, 255, 0, 0.2)',
+        textColor: '#ccffcc'
     }
 ];

@@ -196,5 +196,27 @@ export const SYNTH_PRESETS = {
             envelope: { attack: 0.01, decay: 0.1, sustain: 1, release: 0.5 }
         },
         volume: -10
+    },
+    'pluck_sine': {
+        params: {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 }
+        },
+        volume: -5
+    },
+    'bell_fm': {
+        params: {
+            oscillator: { type: 'fmsine', modulationType: 'sine', modulationIndex: 10, harmonicity: 1.5 },
+            envelope: { attack: 0.01, decay: 1.0, sustain: 0, release: 1.0 }
+        },
+        volume: -8
+    },
+    'lead_retro': {
+        params: {
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.5 },
+            portamento: 0.1
+        },
+        volume: -8
     }
 };

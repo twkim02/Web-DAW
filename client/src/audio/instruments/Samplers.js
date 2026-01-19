@@ -75,5 +75,13 @@ export const SAMPLER_PRESETS = {
             "C7": "C7.mp3", "D#7": "Ds7.mp3", "F#7": "Fs7.mp3", "A7": "A7.mp3",
             "C8": "C8.mp3"
         }
+    },
+    'harp': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/orchestral_harp-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'violin': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/violin-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
     }
 };

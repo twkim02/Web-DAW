@@ -3,6 +3,7 @@ import Pad from './Pad';
 import SubButton from './SubButton';
 import InstructionModal from './InstructionModal';
 import styles from './Grid.module.css';
+import ThreeVisualizer from '../Visualizer/ThreeVisualizer';
 import useKeyboardMap from '../../hooks/useKeyboardMap';
 import useStore from '../../store/useStore';
 import { sequencer } from '../../audio/Sequencer';
@@ -31,7 +32,7 @@ const FaderColumn = ({ index, type, value, onChange, color }) => {
                     style={{
                         width: '80%',
                         height: '10%',
-                        backgroundColor: i < filled ? color : 'rgba(255,255,255,0.1)',
+                        backgroundColor: i < filled ? color : 'var(--glass-bg-subtle)',
                         cursor: 'pointer',
                         borderRadius: '2px',
                         transition: 'background 0.1s'
@@ -249,8 +250,8 @@ const Grid = () => {
                     key={i}
                     className={styles.columnCell}
                     style={{
-                        border: i === selectedMixerTrack ? '2px solid #fff' : '1px solid #333',
-                        backgroundColor: i === selectedMixerTrack ? 'rgba(255,255,255,0.1)' : 'transparent',
+                        border: i === selectedMixerTrack ? '2px solid var(--color-text-primary)' : '1px solid var(--glass-border-medium)',
+                        backgroundColor: i === selectedMixerTrack ? 'var(--glass-bg-subtle)' : 'transparent',
                         padding: '2px'
                     }}
                 >
@@ -410,12 +411,11 @@ const Grid = () => {
                 // 2. Get Screen Stream (Clean Web Capture)
                 const screenStream = await navigator.mediaDevices.getDisplayMedia({
                     video: {
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                        frameRate: 30, // Reduced from 60 to 30 to save resources
-                        displaySurface: 'browser',
+                        width: { ideal: 1920, max: 3840 },
+                        height: { ideal: 1080, max: 2160 },
+                        frameRate: { ideal: 60 },
                     },
-                    audio: false,
+                    audio: false, // We mix audio manually below
                     preferCurrentTab: true,
                     selfBrowserSurface: 'include',
                     systemAudio: 'exclude',
@@ -440,11 +440,11 @@ const Grid = () => {
                 ]);
 
                 // 5. Start MediaRecorder
-                // Use slightly lower bitrate to prevent performance choking
+                // Safe High Quality Settings (VP8 is more compatible)
                 const options = {
-                    mimeType: 'video/webm; codecs=vp9,opus',
-                    videoBitsPerSecond: 2500000, // Reduced to 2.5 Mbps
-                    audioBitsPerSecond: 128000 // 128 kbps (Good Quality Audio)
+                    mimeType: 'video/webm; codecs=vp8,opus',
+                    videoBitsPerSecond: 5000000, // 5 Mbps (Safe High Quality)
+                    audioBitsPerSecond: 320000 // 320 kbps (Studio Quality)
                 };
 
                 if (!MediaRecorder.isTypeSupported(options.mimeType)) {
@@ -528,11 +528,46 @@ const Grid = () => {
     // Safer to include handleRecordToggle in dependency list, but it triggers re-effect.
     // Let's rely on standard Hook behavior.
 
+    // --- Render Content ---
+
+
+    // Import Visualizer (Need to ensure it's imported at top of file - adding via separate Edit if needed, but lets assume I can add import in a separate tool call first? 
+    // No, I can do checking. I'll issue a separate import tool call first to be safe, or just do the return block update here assuming I fix imports.)
+
+    // Actually, I'll assume I need to do the Imports first.
+    // Let's do the styling update first (previous tool).
+    // This tool is for Grid.jsx STRUCTURE.
+
+    // Updated Return with Layers:
+    const showVisualizer = useStore((state) => state.showVisualizer);
+    const visualizerMode = useStore((state) => state.visualizerMode);
+
     return (
-        <div className={`${styles.wrapper} ${isZoomed ? styles.zoomed : ''}`} style={{ ...zoomStyle, ...gridStyle }}>
+        <div className={`${styles.wrapper} ${isZoomed ? styles.zoomed : ''}`} style={{ ...zoomStyle, /* ...gridStyle removed - applied to wrapper? needs color? yes */ ...gridStyle }}>
+
+            {/* Layer 0: Glass Background Panel */}
+            <div className={styles.glassPanel} />
+
+            {/* Layer 1: Visualizer (Sandwiched) */}
+            {showVisualizer && (
+                <div className={styles.visualizerLayer}>
+                    {/* Re-using BackgroundVisualizer logic? Or direct ThreeVisualizer? */}
+                    {/* Direct ThreeVisualizer prefered to keep it simple locally */}
+                    <ThreeVisualizer
+                        themeType={currentTheme.type}
+                        primaryColor={currentTheme.primaryColor}
+                        visualizerMode={visualizerMode}
+                    />
+                </div>
+            )}
+
             <InstructionModal />
+
+            {/* Layer 2: Grid Content (Top, Corner, Main, Side) */}
+            {/* Need to ensure these have z-index > 5 in CSS or inline */}
+
             {/* 1. Top Row */}
-            <div className={styles.topSection}>
+            <div className={styles.topSection} style={{ zIndex: 10, position: 'relative' }}>
                 {topButtons.map((label, i) => (
                     <SubButton
                         key={`top-${i}`}
@@ -544,16 +579,16 @@ const Grid = () => {
             </div>
 
             {/* 2. Top Right Corner */}
-            <div className={styles.corner}>
+            <div className={styles.corner} style={{ zIndex: 10, position: 'relative' }}>
                 {/* Dynamic Logo / Record Button */}
                 <div
                     onClick={!isLiveMode ? toggleLiveMode : handleRecordToggle}
                     style={{
                         width: '100%', height: '100%',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: isRecording ? '#ffffff' : (isLiveMode ? '#ffffff' : '#111'),
+                        background: isRecording ? '#ffffff' : (isLiveMode ? '#ffffff' : 'var(--color-bg-dark)'),
                         borderRadius: '4px',
-                        border: isRecording ? '2px solid #ff4444' : (isLiveMode ? '1px solid #ccc' : '1px solid #333'),
+                        border: isRecording ? '2px solid var(--color-danger)' : (isLiveMode ? '1px solid var(--color-text-secondary)' : '1px solid var(--glass-border-medium)'),
                         cursor: 'pointer',
                         overflow: 'hidden',
                         animation: isRecording ? 'recordingBgPulse 1s infinite' : 'none',
@@ -569,41 +604,36 @@ const Grid = () => {
                         alt="WEB DAW"
                         style={{
                             width: '80%', height: '80%', objectFit: 'contain',
-                            filter: isLiveMode ? 'none' : 'grayscale(100%) opacity(0.7)' // Optional: Dim logo when not active? 
-                            // User liked the original logo. Let's keep it simple.
-                            // Actually, let's just keep it standard.
+                            filter: isLiveMode ? 'none' : 'grayscale(100%) opacity(0.7)'
                         }}
                     />
                 </div>
             </div>
 
             {/* 3. Main Grid */}
-            <div className={styles.gridSection}>
+            <div className={styles.gridSection} style={{ zIndex: 10, position: 'relative' }}>
                 {renderGridContent()}
             </div>
 
             {/* 4. Side Column */}
-            <div className={styles.sideSection}>
+            <div className={styles.sideSection} style={{ zIndex: 10, position: 'relative' }}>
                 {sideButtons.map((label, i) => {
                     // Logic for Active State
                     let isActive = false;
                     let customStyle = {};
 
                     if (isSession) {
-                        // In Session Mode, Side Buttons are Scene Launchers. 
-                        // They don't stick "Active" unless playing? 
-                        // For now, let's flash them on click? Or just simple trigger.
-                        // Maybe toggle green if scene is playing? (requires sequencer state)
+                        // Session Mode logic
                     } else {
-                        // Mixer Mode
+                        // Mixer Mode logic
                         if (label === 'Vol' && viewMode === 'VOLUME') isActive = true;
                         if (label === 'Pan' && viewMode === 'PAN') isActive = true;
                         if (label === 'Snd A' && viewMode === 'SEND_A') isActive = true;
                         if (label === 'Snd B' && viewMode === 'SEND_B') isActive = true;
-                        if (label === 'Mute' && viewMode === 'MUTE') { isActive = true; customStyle = { borderColor: '#ffca00', color: '#ffca00', boxShadow: '0 0 15px rgba(255, 202, 0, 0.4)' }; }
-                        if (label === 'Solo' && viewMode === 'SOLO') { isActive = true; customStyle = { borderColor: '#00ccff', color: '#00ccff', boxShadow: '0 0 15px rgba(0, 204, 255, 0.4)' }; }
-                        if (label === 'Stop' && viewMode === 'STOP') { isActive = true; customStyle = { borderColor: '#ff4444', color: '#ff4444', boxShadow: '0 0 15px rgba(255, 68, 68, 0.4)' }; }
-                        if (label === 'Rec' && viewMode === 'ARM') { isActive = true; customStyle = { borderColor: '#ff0000', color: '#ff0000', boxShadow: '0 0 15px rgba(255, 0, 0, 0.4)' }; }
+                        if (label === 'Mute' && viewMode === 'MUTE') isActive = true;
+                        if (label === 'Solo' && viewMode === 'SOLO') isActive = true;
+                        if (label === 'Stop' && viewMode === 'STOP') isActive = true;
+                        if (label === 'Clear' && viewMode === 'CLEAR') isActive = true;
                     }
 
                     return (
@@ -611,8 +641,8 @@ const Grid = () => {
                             key={`side-${i}`}
                             label={label}
                             onClick={() => handleSideClick(label, i)}
-                            isActive={isActive}
                             style={customStyle}
+                            isActive={isActive}
                         />
                     );
                 })}

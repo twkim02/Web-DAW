@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { uploadFile } from '../../api/upload';
 import useStore from '../../store/useStore';
 import { DRUM_NOTE_MAP } from '../../audio/instruments/Drums';
+import styles from './VirtualDrums.module.css';
 
 const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onClose }) => {
     const [activePads, setActivePads] = useState(new Set());
@@ -99,21 +100,27 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
 
     const toggleRecording = async () => {
         if (isRecording) {
+            const blob = await instrumentManager.stopRecording();
             setIsRecording(false);
-            setIsUploading(true);
-            try {
-                const blob = await instrumentManager.stopRecording();
-                if (blob) {
-                    const file = new File([blob], `drum_beat_${Date.now()}.webm`, { type: 'audio/webm' });
+
+            if (blob) {
+                const defaultName = `DrumBeat_${new Date().toISOString().slice(0, 10)}`;
+                const name = window.prompt("Enter a name for your beat:", defaultName);
+
+                if (!name) return;
+
+                setIsUploading(true);
+                try {
+                    const file = new File([blob], `${name}.webm`, { type: 'audio/webm' });
                     await uploadFile(file, 'instrument');
                     triggerLibraryRefresh();
                     alert('Beat Saved to Library!');
+                } catch (err) {
+                    console.error(err);
+                    alert('Save Failed');
+                } finally {
+                    setIsUploading(false);
                 }
-            } catch (err) {
-                console.error(err);
-                alert('Save Failed');
-            } finally {
-                setIsUploading(false);
             }
         } else {
             await instrumentManager.startRecording();
@@ -137,30 +144,21 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
     }, [previewMode, type, selectedPad, tuning]); // Depend on tuning state
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)',
-            zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center',
-            animation: 'fadeIn 0.2s ease'
-        }}>
-            <div style={{ display: 'flex', gap: '40px', background: 'rgba(30,30,30,0.6)', padding: '30px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className={styles.overlay}>
+            <div className={styles.mainPanel}>
 
                 {/* LEFT: DRUM PADS */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-                        <h1 style={{ color: '#fff', fontSize: '2rem', textShadow: '0 0 20px rgba(0,255,255,0.5)', margin: 0 }}>
+                <div className={styles.leftSection}>
+                    <div className={styles.header}>
+                        <h1 className={styles.title}>
                             DRUM RACK
                         </h1>
-                        <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>
+                        <div className={styles.subtitle}>
                             Shift + Click to Select & Tune
                         </div>
                     </div>
 
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(5, 1fr)', // 5 Columns
-                        gap: '15px'
-                    }}>
+                    <div className={styles.padsGrid}>
                         {pads.map((pad) => {
                             const isActive = activePads.has(pad.note);
                             const isSelected = selectedPad?.key === pad.key;
@@ -168,50 +166,33 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
                                 <div
                                     key={pad.key}
                                     onMouseDown={(e) => handlePlay(pad.note, e.shiftKey)}
+                                    className={`${styles.pad} ${isActive ? styles.active : ''} ${isSelected ? styles.selected : ''}`}
                                     style={{
-                                        width: '80px', height: '80px',
                                         background: isActive ? pad.color : 'rgba(50,50,50,0.5)',
-                                        border: isSelected ? `2px solid ${pad.color}` : '1px solid #444',
-                                        borderRadius: '8px',
-                                        display: 'flex', flexDirection: 'column',
-                                        justifyContent: 'center', alignItems: 'center',
-                                        cursor: 'pointer',
+                                        borderColor: isSelected ? pad.color : '#444',
                                         boxShadow: isActive ? `0 0 30px ${pad.color}` : (isSelected ? `0 0 15px ${pad.color}44` : 'none'),
-                                        transform: isActive ? 'scale(0.95)' : 'scale(1)',
-                                        transition: 'all 0.05s'
                                     }}
                                 >
-                                    <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isActive ? '#000' : pad.color }}>{pad.key}</span>
-                                    <span style={{ fontSize: '0.7rem', color: isActive ? '#000' : '#ccc' }}>{pad.label}</span>
+                                    <span className={styles.padKey} style={{ color: isActive ? '#000' : pad.color }}>{pad.key}</span>
+                                    <span className={styles.padLabel} style={{ color: isActive ? '#000' : '#ccc' }}>{pad.label}</span>
                                 </div>
                             );
                         })}
                     </div>
 
-                    <div style={{ marginTop: '30px', display: 'flex', gap: '10px' }}>
+                    <div className={styles.controlsRow}>
                         {previewMode && (
                             <button
                                 onClick={toggleRecording}
                                 disabled={isUploading}
-                                style={{
-                                    background: isRecording ? '#ff3333' : '#333',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    color: '#fff', padding: '10px 30px', borderRadius: '30px',
-                                    cursor: 'pointer', fontWeight: 'bold',
-                                    boxShadow: isRecording ? '0 0 15px #ff0000' : 'none',
-                                    animation: isRecording ? 'pulse 1s infinite' : 'none'
-                                }}
+                                className={`${styles.recordBtn} ${isRecording ? styles.recording : ''}`}
                             >
-                                {isUploading ? 'SAVING...' : (isRecording ? 'STOP & SAVE' : 'REC ●')}
+                                {isUploading ? 'SAVING...' : (isRecording ? 'STOP & SAVE' : <>REC ●</>)}
                             </button>
                         )}
                         <button
                             onClick={onClose}
-                            style={{
-                                background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
-                                color: '#fff', padding: '10px 30px', borderRadius: '30px',
-                                cursor: 'pointer'
-                            }}
+                            className={styles.closeBtn}
                         >
                             CLOSE
                         </button>
@@ -219,23 +200,20 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
                 </div>
 
                 {/* RIGHT: TUNING SIDEBAR */}
-                <div style={{
-                    width: '180px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '20px',
-                    display: 'flex', flexDirection: 'column', borderLeft: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                    <div style={{ color: '#aaa', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '20px', textAlign: 'center' }}>
+                <div className={styles.tuningSidebar}>
+                    <div className={styles.sidebarTitle}>
                         PAD TUNING
                     </div>
 
                     {selectedPad ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
-                            <div style={{ textAlign: 'center', color: selectedPad.color, fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '10px' }}>
+                            <div className={styles.selectedPadInfo} style={{ color: selectedPad.color }}>
                                 {selectedPad.label}
                             </div>
 
                             {/* Pitch Control */}
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ccc', fontSize: '0.8rem', marginBottom: '5px' }}>
+                            <div className={styles.tuningControl}>
+                                <div className={styles.controlHeader}>
                                     <span>Pitch</span>
                                     <span>{tuning[selectedPad.sample]?.pitch || 0} st</span>
                                 </div>
@@ -243,13 +221,13 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
                                     type="range" min="-12" max="12" step="1"
                                     value={tuning[selectedPad.sample]?.pitch || 0}
                                     onChange={(e) => handleTuneChange('pitch', e.target.value)}
-                                    style={{ width: '100%', cursor: 'pointer' }}
+                                    className={styles.rangeInput}
                                 />
                             </div>
 
                             {/* Volume Control */}
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ccc', fontSize: '0.8rem', marginBottom: '5px' }}>
+                            <div className={styles.tuningControl}>
+                                <div className={styles.controlHeader}>
                                     <span>Volume</span>
                                     <span>{tuning[selectedPad.sample]?.volume || 0} dB</span>
                                 </div>
@@ -257,26 +235,26 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
                                     type="range" min="-24" max="6" step="1"
                                     value={tuning[selectedPad.sample]?.volume || 0}
                                     onChange={(e) => handleTuneChange('volume', e.target.value)}
-                                    style={{ width: '100%', cursor: 'pointer' }}
+                                    className={styles.rangeInput}
                                 />
                             </div>
 
                         </div>
                     ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '0.8rem', textAlign: 'center', height: '150px', border: '1px dashed #444', borderRadius: '8px' }}>
+                        <div className={styles.emptyState}>
                             Select a pad<br />(Shift+Click)<br />to tune
                         </div>
                     )}
 
                     {/* GLOBAL EFFECTS SECTION */}
-                    <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ color: '#aaa', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '15px', textAlign: 'center' }}>
+                    <div className={styles.globalFxSection}>
+                        <div className={styles.sidebarTitle}>
                             GLOBAL EFFECTS
                         </div>
 
                         {/* Distortion */}
-                        <div style={{ marginBottom: '15px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ff5500', fontSize: '0.8rem', marginBottom: '5px' }}>
+                        <div className={styles.tuningControl}>
+                            <div className={styles.controlHeader} style={{ color: '#ff5500' }}>
                                 <span>Distortion</span>
                                 <span>{Math.round(globalEffects?.distortion * 100) || 0}%</span>
                             </div>
@@ -284,13 +262,14 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
                                 type="range" min="0" max="1" step="0.01"
                                 value={globalEffects?.distortion || 0}
                                 onChange={(e) => handleGlobalEffectChange('distortion', e.target.value)}
-                                style={{ width: '100%', cursor: 'pointer', accentColor: '#ff5500' }}
+                                className={styles.rangeInput}
+                                style={{ accentColor: '#ff5500' }}
                             />
                         </div>
 
                         {/* Reverb */}
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#00ccff', fontSize: '0.8rem', marginBottom: '5px' }}>
+                        <div className={styles.tuningControl}>
+                            <div className={styles.controlHeader} style={{ color: '#00ccff' }}>
                                 <span>Reverb</span>
                                 <span>{Math.round(globalEffects?.reverb * 100) || 0}%</span>
                             </div>
@@ -298,7 +277,8 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
                                 type="range" min="0" max="1" step="0.01"
                                 value={globalEffects?.reverb || 0}
                                 onChange={(e) => handleGlobalEffectChange('reverb', e.target.value)}
-                                style={{ width: '100%', cursor: 'pointer', accentColor: '#00ccff' }}
+                                className={styles.rangeInput}
+                                style={{ accentColor: '#00ccff' }}
                             />
                         </div>
                     </div>

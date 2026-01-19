@@ -117,7 +117,7 @@ const Pad = React.memo(({ id, label }) => {
     // If Ghost: Fill = Transparent. Glow = VisualState.
 
     // Default Colors
-    const defaultColor = '#00ffcc';
+    const defaultColor = 'var(--color-accent-primary)';
     const assignedColor = mapping?.color || defaultColor;
     const visualColor = visualState?.color || assignedColor;
 

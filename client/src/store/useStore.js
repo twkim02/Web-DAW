@@ -15,6 +15,12 @@ const useStore = create((set) => ({
     setIsLoopRecording: (isLoopRecording) => set({ isLoopRecording }),
     setLaunchQuantization: (val) => set({ launchQuantization: val }),
 
+    // Visualizer State
+    showVisualizer: true,
+    visualizerMode: 'default', // 'default', 'particles', 'circular_wave', 'bass', 'rainbow', 'gradient'
+    setShowVisualizer: (show) => set({ showVisualizer: show }),
+    setVisualizerMode: (mode) => set({ visualizerMode: mode }),
+
     // Global FX State (Reverb, Delay)
     // We already have 'effects' slice, but need to ensure it's loaded from presets.
 
@@ -196,16 +202,24 @@ const useStore = create((set) => ({
     setTracks: (tracks) => set({ tracks }),
 
     // Global FX State
+    // Global FX State (Modular Chains)
     effects: {
-        reverb: { mix: 0, decay: 1.5 },
-        delay: { mix: 0, time: 0.25, feedback: 0.5 }
+        sendA: [],
+        sendB: []
     },
-    setEffectParams: (type, params) => set((state) => ({
+    updateGlobalEffectChain: (bus, newChain) => set((state) => ({
         effects: {
             ...state.effects,
-            [type]: { ...state.effects[type], ...params }
+            [bus]: newChain
         }
     })),
+    // specific param update helper (optional, or just use chain replacement)
+    setGlobalEffectParam: (bus, index, params) => set((state) => {
+        const chain = [...state.effects[bus]];
+        if (!chain[index]) return {};
+        chain[index] = { ...chain[index], params: { ...chain[index].params, ...params } };
+        return { effects: { ...state.effects, [bus]: chain } };
+    }),
 
     // Bank Navigation State
     bankCoords: { x: 0, y: 0 }, // x: 0-1, y: 0-1

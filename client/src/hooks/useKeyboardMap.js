@@ -178,7 +178,24 @@ const useKeyboardMap = () => {
             if (code === 'KeyU') { setViewMode('VOLUME'); return; }
             if (code === 'KeyI') { setViewMode('PAN'); return; }
             if (code === 'KeyO') { setViewMode('SEND_A'); return; }
+            if (code === 'KeyO') { setViewMode('SEND_A'); return; }
             if (code === 'KeyP') { setViewMode('SEND_B'); return; }
+
+            // Global FX Settings (Y)
+            // Global FX Settings (Y)
+            if (code === 'KeyY') {
+                e.preventDefault();
+                const { isRightSidebarOpen, rightSidebarView, setIsRightSidebarOpen, setRightSidebarView } = useStore.getState();
+
+                if (isRightSidebarOpen && rightSidebarView === 'global_fx') {
+                    setIsRightSidebarOpen(false);
+                    setRightSidebarView(null);
+                } else {
+                    setRightSidebarView('global_fx');
+                    setIsRightSidebarOpen(true);
+                }
+                return;
+            }
 
             // Row 2: States
             if (code === 'KeyM') { setViewMode('MUTE'); return; } // M for Mute (Intuitive) - Overrides KeyJ plan
@@ -212,7 +229,8 @@ const useKeyboardMap = () => {
             if (code === 'Tab') {
                 e.preventDefault();
                 const current = useStore.getState().viewMode;
-                setViewMode(current === 'SESSION' ? 'MIXER_SELECTION' : 'SESSION');
+                // Default to VOLUME directly as requested
+                setViewMode(current === 'SESSION' ? 'VOLUME' : 'SESSION');
                 return;
             }
             if (code === 'Backspace') {

@@ -50,16 +50,16 @@ const CustomDropdown = ({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '6px 12px',
-                    borderRadius: '20px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#fff',
+                    borderRadius: 'var(--radius-xl)',
+                    background: 'var(--glass-bg-medium)',
+                    border: 'var(--glass-border-medium)',
+                    color: 'var(--color-text-primary)',
                     fontSize: '0.8rem',
                     cursor: 'pointer',
                     userSelect: 'none',
-                    backdropFilter: 'blur(5px)',
-                    transition: 'all 0.2s',
-                    borderColor: isOpen ? '#00ffcc' : 'rgba(255, 255, 255, 0.1)'
+                    backdropFilter: 'var(--glass-blur-sm)',
+                    transition: 'var(--transition-fast)',
+                    borderColor: isOpen ? 'var(--color-accent-primary)' : 'transparent' // transparent because border property handles base, or strictly switch
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -76,7 +76,7 @@ const CustomDropdown = ({
                 <span style={{
                     fontSize: '0.6rem',
                     marginLeft: '8px',
-                    color: '#888',
+                    color: 'var(--color-text-muted)',
                     transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.2s'
                 }}>▼</span>
@@ -90,9 +90,9 @@ const CustomDropdown = ({
                     left: 0,
                     width: '100%',
                     minWidth: 'max-content',
-                    background: '#1a1a1a',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
+                    background: 'var(--color-bg-panel)',
+                    border: 'var(--glass-border-medium)',
+                    borderRadius: 'var(--radius-md)',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                     zIndex: 1000,
                     overflow: 'hidden',
@@ -106,8 +106,8 @@ const CustomDropdown = ({
                             style={{
                                 padding: '8px 12px',
                                 fontSize: '0.8rem',
-                                color: option.value === value ? '#00ffcc' : '#ccc',
-                                background: option.value === value ? 'rgba(0, 255, 204, 0.1)' : 'transparent',
+                                color: option.value === value ? 'var(--color-accent-primary)' : 'var(--color-text-secondary)',
+                                background: option.value === value ? 'var(--color-accent-hover)' : 'transparent',
                                 cursor: 'pointer',
                                 transition: 'background 0.1s',
                                 display: 'flex',
@@ -115,7 +115,7 @@ const CustomDropdown = ({
                                 gap: '8px'
                             }}
                             onMouseEnter={(e) => {
-                                if (option.value !== value) e.target.style.background = '#2a2a2a';
+                                if (option.value !== value) e.target.style.background = 'var(--glass-bg-medium)';
                             }}
                             onMouseLeave={(e) => {
                                 if (option.value !== value) e.target.style.background = 'transparent';

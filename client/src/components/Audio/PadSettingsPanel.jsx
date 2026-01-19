@@ -24,7 +24,9 @@ const PadSettingsPanel = () => {
     }, [mapping, editingPadId]);
 
     if (editingPadId === null || !mapping) {
-        return <div style={{ padding: '20px', color: '#666' }}>No Pad Selected</div>;
+        if (editingPadId === null || !mapping) {
+            return null; // Don't show "No Pad Selected" message
+        }
     }
 
     const handleSave = (updates) => {

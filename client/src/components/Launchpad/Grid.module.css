@@ -1,75 +1,117 @@
 /* Main Container (Circular Glass) */
+/* Main Container (Layout Only) */
 .wrapper {
     display: grid;
-    /* 9x9 Layout: 8 cols (522px) + Gap + 1 col (60px) */
-    grid-template-columns: 522px 60px;
-    grid-template-rows: 60px 522px;
-    gap: 12px;
-    /* Gap between alignment blocks */
+    /* 9x9 Strict Layout: 9 cols of 60px */
+    grid-template-columns: repeat(9, 60px);
+    grid-template-rows: repeat(9, 60px);
+    gap: 6px;
+    /* Uniform 6px gap everywhere */
 
-    background: rgba(17, 17, 17, 0.6);
-    backdrop-filter: blur(20px);
-    padding: 85px;
-    /* Padding creates the circle around the 588px square content */
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 0 100px rgba(0, 255, 204, 0.1);
+    padding: 135px;
+    /* Increased to 135px to ensure 588px square fits in circle (Diag ~832px) */
+
+    position: relative;
+    /* For absolute children */
 
     user-select: none;
     aspect-ratio: 1/1;
     justify-content: center;
     align-items: center;
-    transform: scale(0.9);
+    transform: scale(0.8);
+}
+
+/* The Frosted Glass Background Circle */
+.glassPanel {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: 50%;
+
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border-medium);
+    box-shadow: 0 0 100px rgba(0, 255, 204, 0.1);
+
+    /* Ensure it doesn't block clicks on visualizer? Visualizer needs distinct z-index */
+    pointer-events: none;
+}
+
+/* Visualizer Container within Grid */
+.visualizerLayer {
+    position: absolute;
+    /* Expand beyond parent boundaries to allow visuals to "flow out" */
+    width: 140%;
+    height: 140%;
+    top: -20%;
+    left: -20%;
+
+    z-index: 5;
+    /* Above Glass (0), Below Buttons (10) */
+    pointer-events: none;
+    /* No border-radius or overflow hidden - allow squares to fill */
 }
 
 /* 1. Top Buttons (Row of 8) */
 .topSection {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    /* Fill space */
+    grid-column: 1 / 9;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    /* Fill parent cells */
     gap: 6px;
     width: 100%;
-    align-self: end;
+    height: 100%;
 }
 
 /* 2. Top Right Corner */
 .corner {
+    grid-column: 9;
+    grid-row: 1;
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 60px;
-    height: 60px;
+    width: 100%;
+    height: 100%;
 }
 
 /* 3. Main Grid (8x8) */
 .gridSection {
+    grid-column: 1 / 9;
+    grid-row: 2 / 10;
     display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
     gap: 6px;
     position: relative;
+    width: 100%;
+    height: 100%;
 }
 
 /* 4. Side Buttons (Col of 8) */
 .sideSection {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    grid-column: 9;
+    grid-row: 2 / 10;
+    display: grid;
+    grid-template-rows: repeat(8, 1fr);
     gap: 6px;
+    width: 100%;
     height: 100%;
 }
 
 /* Neon Bank Border */
 .bankBorder {
     position: absolute;
-    width: 260px;
-    /* 4*60 + 3*6 + 2px border adj */
-    height: 260px;
-    border: 2px solid #fff;
+    /* Size is dynamic based on zoom, but initial is 8x8 grid? No, bank is 4x4 usually? 
+       Wait, bankCoords suggests viewport logic. 
+       If this is the zoomed view border, it must overlay correct cells. */
+    width: 262px;
+    /* 4*60 + 3*6 + 4px border (extends -2px to +2px) -> Inner 258px */
+    height: 262px;
+    border: 2px solid var(--color-text-primary);
     border-radius: 8px;
     pointer-events: none;
-    box-shadow: 0 0 10px #fff, 0 0 20px #0ff, 0 0 40px #0ff;
+    box-shadow: 0 0 10px var(--color-text-primary), 0 0 20px var(--color-accent-primary), 0 0 40px var(--color-accent-primary);
     opacity: 0;
     transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     z-index: 10;
@@ -82,15 +124,15 @@
 
 @keyframes neonFlash {
     0% {
-        box-shadow: 0 0 20px #fff, 0 0 40px #fff, 0 0 80px #0ff;
-        border-color: #fff;
+        box-shadow: 0 0 20px var(--color-text-primary), 0 0 40px var(--color-text-primary), 0 0 80px var(--color-accent-primary);
+        border-color: var(--color-text-primary);
         opacity: 0;
         transform: scale(1.1);
     }
 
     100% {
-        box-shadow: 0 0 5px #fff, 0 0 15px #0ff;
-        border-color: #0ff;
+        box-shadow: 0 0 5px var(--color-text-primary), 0 0 15px var(--color-accent-primary);
+        border-color: var(--color-accent-primary);
         opacity: 1;
         transform: scale(1);
     }

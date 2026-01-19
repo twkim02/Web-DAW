@@ -14,13 +14,13 @@
 }
 
 .modal {
-    background: #1e1e1e;
+    background: var(--color-bg-panel);
     width: 450px;
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
     padding: 30px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
-    border: 1px solid #333;
-    color: white;
+    box-shadow: var(--shadow-xl);
+    border: var(--glass-border-medium);
+    color: var(--color-text-primary);
     font-family: 'Inter', sans-serif;
 }
 
@@ -34,7 +34,7 @@
 .header h2 {
     margin: 0;
     font-size: 1.5rem;
-    color: #00ffcc;
+    color: var(--color-accent-primary);
     font-weight: 600;
 }
 
@@ -97,8 +97,8 @@
 
 .optionItem:hover,
 .optionItem.active {
-    background: #333;
-    border-color: #00ffcc;
+    background: var(--glass-bg-medium);
+    border-color: var(--color-accent-primary);
     transform: translateX(5px);
 }
 
@@ -108,8 +108,8 @@
 }
 
 .keyBadge {
-    background: #00ffcc;
-    color: #000;
+    background: var(--color-accent-primary);
+    color: var(--color-bg-dark);
     font-weight: bold;
     width: 24px;
     height: 24px;
@@ -163,14 +163,14 @@
 .toolBtn {
     background: rgba(0, 255, 204, 0.1);
     border: 1px solid rgba(0, 255, 204, 0.3);
-    color: #00ffcc;
+    color: var(--color-accent-primary);
     padding: 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     font-weight: bold;
     font-size: 0.9rem;
     width: 100%;
-    transition: all 0.2s;
+    transition: var(--transition-fast);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -188,21 +188,21 @@
 }
 
 .input {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    color: white;
+    background: var(--glass-bg-subtle);
+    border: var(--glass-border-medium);
+    color: var(--color-text-primary);
     padding: 10px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     width: 100%;
     box-sizing: border-box;
 }
 
 .select {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    color: white;
+    background: var(--glass-bg-subtle);
+    border: var(--glass-border-medium);
+    color: var(--color-text-primary);
     padding: 10px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     width: 100%;
     box-sizing: border-box;
     cursor: pointer;
@@ -233,11 +233,11 @@
 }
 
 .saveBtn {
-    background: #00ffcc;
-    color: #000;
+    background: var(--color-accent-primary);
+    color: var(--color-bg-dark);
     border: none;
     padding: 10px 20px;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     font-weight: bold;
     cursor: pointer;
 }

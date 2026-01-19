@@ -39,7 +39,7 @@ class ErrorBoundary extends React.Component {
             <br />
             {this.state.errorInfo && this.state.errorInfo.componentStack}
           </details>
-          <button onClick={() => window.location.reload()} style={{ marginTop: 20, padding: 10 }}>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 20, padding: 10, background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>
             Reload Page
           </button>
         </div>
@@ -70,6 +70,7 @@ function App() {
   const launchQuantization = useStore((state) => state.launchQuantization);
   const setLaunchQuantization = useStore((state) => state.setLaunchQuantization);
   const setIsMetronomeOn = useStore((state) => state.setIsMetronomeOn);
+  const isInstructionOpen = useStore((state) => state.isInstructionOpen);
   const setIsInstructionOpen = useStore((state) => state.setIsInstructionOpen);
   // Live Mode
   const isLiveMode = useStore((state) => state.isLiveMode);
@@ -85,14 +86,16 @@ function App() {
   const isLeftSidebarOpen = useStore((state) => state.isLeftSidebarOpen);
   const isRightSidebarOpen = useStore((state) => state.isRightSidebarOpen);
 
-  const [showVisualizer, setShowVisualizer] = React.useState(true); // Default ON
+  const showVisualizer = useStore(state => state.showVisualizer);
+  const visualizerMode = useStore(state => state.visualizerMode);
+
   const [isHeaderVisible, setIsHeaderVisible] = React.useState(true); // Header Toggle State
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
 
   // Mixer State selectors removed from App to prevent re-renders
   // They are now in AudioController
 
-  const [tempPresets, setTempPresets] = React.useState([]);
+
 
   // useEffect for User/Presets (Kept)
   useEffect(() => {
@@ -107,7 +110,7 @@ function App() {
   const fetchPresets = async () => {
     try {
       const data = await getPresets();
-      setTempPresets(data);
+      useStore.getState().setPresets(data);
     } catch (e) {
       // console.error(e);
     }
@@ -319,18 +322,12 @@ function App() {
               zIndex: 10
             }}>
               {/* ... content */}
-              {/* Dynamic Theme Visualizer (zIndex: 1) */}
-              {showVisualizer && (
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none' }}>
-                  <React.Suspense fallback={null}>
-                    <BackgroundVisualizer
-                      themeType={customBackgroundImage ? 'static' : currentTheme.type}
-                      primaryColor={currentTheme.primaryColor}
-                      visualizerMode={currentTheme.visualizerMode || 'default'}
-                    />
-                  </React.Suspense>
-                </div>
-              )}
+              {/* Dynamic Theme Visualizer (Moved to Grid.jsx for layering) */}
+              {/* Left here only for static wallpaper support if needed? 
+                  BackgroundVisualizer contains ThreeVisualizer + Logic. 
+                  Now Grid handles ThreeVisualizer directly. 
+                  App should handle just the WALLPAPER (Static).
+              */}
 
               {/* Custom Background Layer (zIndex: 0) */}
               {customBackgroundImage && (
@@ -367,138 +364,82 @@ function App() {
               {isHeaderVisible && !isLiveMode && (
                 <div className="header-panel">
 
-                  {/* Top Row: Audio Controls & Visuals */}
-                  <div className="header-row">
+                  {/* Single Consolidated Row */}
+                  <div className="header-row" style={{ justifyContent: 'space-between', width: '100%' }}>
 
-                    {/* Visualizer Toggle */}
-                    <button onClick={() => setShowVisualizer(!showVisualizer)}
-                      className={`glass-btn ${showVisualizer ? 'active' : ''}`}>
-                      {showVisualizer ? 'VIS ON' : 'VIS OFF'}
-                    </button>
+                    {/* Left Group: Tempo & Metro */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      {/* BPM Control */}
+                      <div className="glass-input-group" style={{ gap: '0' }}>
+                        <label className="glass-label" style={{ marginRight: '8px' }}>BPM</label>
+                        <button
+                          onClick={() => setBpm(Math.max(20, bpm - 1))}
+                          className="glass-btn"
+                          style={{ padding: '2px 8px', borderRadius: '4px 0 0 4px', borderRight: 'none', background: 'var(--glass-bg-medium)' }}
+                        >-</button>
+                        <input
+                          type="number"
+                          value={bpm}
+                          onChange={(e) => setBpm(parseInt(e.target.value) || 120)}
+                          className="glass-input"
+                          style={{ borderRadius: '0', width: '40px', borderLeft: 'none', borderRight: 'none', textAlign: 'center' }}
+                        />
+                        <button
+                          onClick={() => setBpm(Math.min(300, bpm + 1))}
+                          className="glass-btn"
+                          style={{ padding: '2px 8px', borderRadius: '0 4px 4px 0', borderLeft: 'none', background: 'var(--glass-bg-medium)' }}
+                        >+</button>
+                      </div>
 
-                    <div className="header-divider"></div>
-
-                    {/* BPM Control */}
-                    <div className="glass-input-group" style={{ gap: '0' }}>
-                      <label className="glass-label" style={{ marginRight: '8px' }}>BPM</label>
-
-                      <button
-                        onClick={() => setBpm(Math.max(20, bpm - 1))}
-                        className="glass-btn"
-                        style={{ padding: '2px 8px', borderRadius: '4px 0 0 4px', borderRight: 'none', background: 'rgba(255,255,255,0.05)' }}
-                      >-</button>
-
-                      <input
-                        type="number"
-                        value={bpm}
-                        onChange={(e) => setBpm(parseInt(e.target.value) || 120)}
-                        className="glass-input"
-                        style={{ borderRadius: '0', width: '40px', borderLeft: 'none', borderRight: 'none' }}
-                      />
-
-                      <button
-                        onClick={() => setBpm(Math.min(300, bpm + 1))}
-                        className="glass-btn"
-                        style={{ padding: '2px 8px', borderRadius: '0 4px 4px 0', borderLeft: 'none', background: 'rgba(255,255,255,0.05)' }}
-                      >+</button>
+                      {/* Metronome */}
+                      <button onClick={() => setIsMetronomeOn(!isMetronomeOn)}
+                        className={`glass-btn ${isMetronomeOn ? 'active-metro' : ''}`}
+                        style={{ minWidth: '70px' }}
+                      >
+                        METRO
+                      </button>
                     </div>
 
-                    {/* Metronome */}
-                    <button onClick={() => setIsMetronomeOn(!isMetronomeOn)}
-                      className={`glass-btn ${isMetronomeOn ? 'active-metro' : ''}`}>
-                      METRO
-                    </button>
+                    {/* Right Group: Tools & User */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 
+                      {/* Help */}
+                      <button
+                        onClick={() => setIsInstructionOpen(!isInstructionOpen)}
+                        className={`glass-btn ${isInstructionOpen ? 'active' : ''}`}
+                        title="Keyboard Shortcuts"
+                        style={{ fontSize: '0.9rem' }}
+                      >
+                        ❔ Help
+                      </button>
 
+                      {/* Presets */}
+                      <button
+                        onClick={() => setIsPresetManagerOpen(true)}
+                        className="glass-btn"
+                        style={{ borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px' }}
+                      >
+                        📂 Presets
+                      </button>
 
+                      <div className="header-divider"></div>
 
-                    <div className="header-divider"></div>
-
-                    {/* Theme Selector */}
-                    <CustomDropdown
-                      value={currentThemeId}
-                      onChange={(val) => useStore.getState().setThemeId(val)}
-                      options={THEMES.map(t => ({ label: t.name, value: t.id }))}
-                      icon="🎨"
-                    />
-
-                    {/* BG Upload */}
-                    <input type="file" accept="image/*" style={{ display: 'none' }} id="bg-upload"
-                      onChange={async (e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          const file = e.target.files[0];
-                          const formData = new FormData();
-                          formData.append('file', file);
-                          formData.append('category', 'background');
-                          try {
-                            const response = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
-                            const data = await response.json();
-                            if (data.file) {
-                              const timestamp = Date.now();
-                              useStore.getState().setCustomBackgroundImage(`http://localhost:3001/uploads/${data.file.filename}?t=${timestamp}`);
-                              // alert('Background Set!'); // Visual feedback via image change is enough
-                            }
-                          } catch (err) { alert('Upload Failed'); }
-                          e.target.value = '';
-                        }
-                      }}
-                    />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <label htmlFor="bg-upload" className="glass-btn" style={{ padding: '6px 12px' }} title="Upload Background Image">
-                        🖼️ BG
-                      </label>
-                      {customBackgroundImage && (
-                        <button
-                          onClick={() => useStore.getState().setCustomBackgroundImage(null)}
-                          className="glass-btn"
-                          style={{ padding: '6px 8px', color: '#ff5555', borderColor: '#ff5555' }}
-                          title="Remove Background"
-                        >
-                          ✕
-                        </button>
+                      {/* User Actions */}
+                      {user ? (
+                        <div className="user-badge" style={{ marginLeft: 0 }}>
+                          <span className="user-name">👤 {user.nickname || user.username}</span>
+                          <button onClick={handleSave} className="action-btn btn-save">Save</button>
+                          <button onClick={handleLogout} className="action-btn btn-logout">Logout</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button onClick={handleLogin} className="action-btn btn-login">Login</button>
+                          <button onClick={() => window.location.href = devLoginURL} className="action-btn btn-dev">Dev</button>
+                        </div>
                       )}
                     </div>
+
                   </div>
-
-                  {/* Bottom Row: User & Presets */}
-                  <div className="header-row" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-
-                    {/* Help Button */}
-                    <button
-                      onClick={() => setIsInstructionOpen(true)}
-                      className="glass-btn"
-                      title="Keyboard Shortcuts"
-                      style={{ marginRight: '10px', fontSize: '0.9rem' }}
-                    >
-                      ❔ Help
-                    </button>
-
-                    {/* Presets Manager Button */}
-                    <button
-                      onClick={() => setIsPresetManagerOpen(true)}
-                      className="glass-btn"
-                      style={{ minWidth: '120px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                    >
-                      📂 Presets
-                    </button>
-
-                    <div className="header-divider"></div>
-
-                    {/* User Actions */}
-                    {user ? (
-                      <div className="user-badge">
-                        <span className="user-name">👤 {user.nickname || user.username}</span>
-                        <button onClick={handleSave} className="action-btn btn-save">Save</button>
-                        <button onClick={handleLogout} className="action-btn btn-logout">Logout</button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={handleLogin} className="action-btn btn-login">Login</button>
-                        <button onClick={() => window.location.href = devLoginURL} className="action-btn btn-dev">Dev</button>
-                      </div>
-                    )}
-                  </div>
-
                 </div>
               )}
 

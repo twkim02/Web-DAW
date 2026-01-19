@@ -1,0 +1,234 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 30px;
+    /* Mechanical: Dark metal plate look */
+    background: linear-gradient(135deg, #1e1e1e, #141414);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8), 0 10px 30px rgba(0, 0, 0, 0.5);
+    margin-bottom: 25px;
+    user-select: none;
+    width: fit-content;
+    /* Prevent stretching to modal width */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.row {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    /* Reduced gap */
+}
+
+.key {
+    /* Mechanical Keycap Base */
+    background: linear-gradient(to bottom, #3a3a3a, #2b2b2b);
+    border-radius: 6px;
+    /* Squarer look */
+    border: 1px solid rgba(0, 0, 0, 0.5);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    /* Limit highlight */
+
+    color: #e0e0e0;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    /* Top align */
+    align-items: center;
+
+    position: relative;
+    transition: all 0.1s ease-out;
+    /* Fast snappy response */
+    box-sizing: border-box;
+
+    /* 3D Depth Shadow (The "Height" of the key) */
+    box-shadow:
+        0 4px 0 #111,
+        0 5px 5px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+    /* Original Size */
+    min-width: 42px;
+    /* reduced from 50px */
+    height: 55px;
+    /* reduced from 60px */
+    padding: 6px 2px 2px 2px;
+}
+
+/* ... existing hover/active styles ... */
+
+.key:hover {
+    /* Hover Hint */
+    background: linear-gradient(to bottom, #444, #333);
+    color: #fff;
+    cursor: pointer;
+    z-index: 10;
+    /* Pop above others */
+}
+
+/* ... */
+
+.keyLabel {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    /* slight reduction */
+    letter-spacing: -0.3px;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+    margin-bottom: 2px;
+}
+
+.keyDesc {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.5rem;
+    /* Small font for details */
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+
+    /* Multi-line support */
+    white-space: pre-wrap;
+    /* Preserve newlines */
+    word-break: break-word;
+    text-align: center;
+    line-height: 1.1;
+
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+/* --- Sizes --- */
+.key.xl {
+    width: 108px;
+    /* approx 2.5u */
+}
+
+/* Space */
+.key.lg {
+    width: 80px;
+    /* approx 2u */
+}
+
+/* Shift/Enter */
+.key.md {
+    width: 60px;
+    /* approx 1.5u */
+}
+
+/* Tab/Caps */
+.key.sm {
+    width: 42px;
+    /* 1u */
+}
+
+/* Normal */
+
+/* --- Category Colors (LED Accents) --- */
+
+/* 1. Pads (Cyan) */
+.key.pad {
+    border-bottom: 3px solid #0088cc;
+    /* Darker cyan base */
+}
+
+.key.pad:hover {
+    border-bottom-color: #00ffcc;
+    box-shadow: 0 4px 0 #004444, 0 0 15px rgba(0, 255, 204, 0.2);
+}
+
+.key.pad .keyLabel {
+    color: #80ffe5;
+}
+
+/* 2. Mixer (Purple) */
+.key.mixer {
+    border-bottom: 3px solid #6a00aa;
+}
+
+.key.mixer:hover {
+    border-bottom-color: #aa00ff;
+    box-shadow: 0 4px 0 #330044, 0 0 15px rgba(170, 0, 255, 0.2);
+}
+
+.key.mixer .keyLabel {
+    color: #e5afff;
+}
+
+/* 3. Global / Scene (Green) */
+.key.global {
+    border-bottom: 3px solid #44aa00;
+}
+
+.key.global:hover {
+    border-bottom-color: #76ff03;
+    box-shadow: 0 4px 0 #224400, 0 0 15px rgba(118, 255, 3, 0.2);
+}
+
+.key.global .keyLabel {
+    color: #ccff99;
+}
+
+/* 4. Action / Danger (Red) */
+.key.action {
+    border-bottom: 3px solid #aa0000;
+}
+
+.key.action:hover {
+    border-bottom-color: #ff4444;
+    box-shadow: 0 4px 0 #440000, 0 0 15px rgba(255, 68, 68, 0.2);
+}
+
+.key.action .keyLabel {
+    color: #ff9999;
+}
+
+/* Adjust pressed state for colored keys to keep color */
+.key.pad:active {
+    box-shadow: 0 1px 0 #004444, inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.key.mixer:active {
+    box-shadow: 0 1px 0 #330044, inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.key.global:active {
+    box-shadow: 0 1px 0 #224400, inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.key.action:active {
+    box-shadow: 0 1px 0 #440000, inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.legend {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #ccc;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    box-shadow: 0 0 5px currentColor;
+}

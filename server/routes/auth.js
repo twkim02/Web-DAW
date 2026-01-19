@@ -41,7 +41,7 @@ router.get('/dev_login', async (req, res) => {
 router.get('/logout', (req, res, next) => {
     req.logout((err) => {
         if (err) { return next(err); }
-        res.redirect('/');
+        res.sendStatus(200);
     });
 });
 

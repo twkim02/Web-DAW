@@ -291,9 +291,9 @@ const SampleEditor = ({ fileUrl, fileName, onClose, onSave }) => {
             zIndex: 10000, display: 'flex', justifyContent: 'center', alignItems: 'center'
         }}>
             <div style={{
-                background: '#1e1e1e', padding: '20px', borderRadius: '12px',
+                background: 'var(--color-bg-panel)', padding: '20px', borderRadius: 'var(--radius-lg)',
                 width: '700px', display: 'flex', flexDirection: 'column', gap: '20px',
-                border: '1px solid #444', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+                border: 'var(--glass-border-medium)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 style={{ margin: 0, color: '#fff' }}>Edit Sample</h2>
@@ -303,7 +303,7 @@ const SampleEditor = ({ fileUrl, fileName, onClose, onSave }) => {
                         <label style={{ color: '#aaa', fontSize: '0.9rem' }}>BPM Grid:</label>
                         <input
                             type="number" value={bpm} onChange={(e) => setBpm(Number(e.target.value))}
-                            style={{ width: '60px', padding: '4px', background: '#333', border: '1px solid #555', color: '#fff', borderRadius: '4px' }}
+                            style={{ width: '60px', padding: '4px', background: 'var(--glass-bg-subtle)', border: 'var(--glass-border-medium)', color: 'var(--color-text-primary)', borderRadius: 'var(--radius-sm)' }}
                         />
                         <label style={{ color: '#aaa', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
                             <input
@@ -338,8 +338,8 @@ const SampleEditor = ({ fileUrl, fileName, onClose, onSave }) => {
 
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
                     <button onClick={togglePreview} style={{
-                        padding: '10px 30px', borderRadius: '20px', border: 'none',
-                        background: isPlaying ? '#ffaa00' : '#444', color: '#fff',
+                        padding: '10px 30px', borderRadius: 'var(--radius-full)', border: 'none',
+                        background: isPlaying ? 'var(--color-accent-secondary)' : 'var(--glass-bg-medium)', color: 'var(--color-text-primary)',
                         cursor: 'pointer', fontWeight: 'bold'
                     }}>
                         {isPlaying ? 'STOP' : 'PREVIEW'}
@@ -348,14 +348,14 @@ const SampleEditor = ({ fileUrl, fileName, onClose, onSave }) => {
                     <div style={{ flex: 1 }}></div>
 
                     <button onClick={onClose} style={{
-                        padding: '10px 20px', borderRadius: '20px', border: '1px solid #666',
-                        background: 'transparent', color: '#ccc', cursor: 'pointer'
+                        padding: '10px 20px', borderRadius: 'var(--radius-full)', border: 'var(--glass-border-medium)',
+                        background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer'
                     }}>
                         CANCEL
                     </button>
                     <button onClick={handleCropSave} disabled={isSaving} style={{
-                        padding: '10px 30px', borderRadius: '20px', border: 'none',
-                        background: '#00ffcc', color: '#000', fontWeight: 'bold',
+                        padding: '10px 30px', borderRadius: 'var(--radius-full)', border: 'none',
+                        background: 'var(--color-accent-primary)', color: 'var(--color-bg-dark)', fontWeight: 'bold',
                         cursor: 'pointer', opacity: isSaving ? 0.5 : 1
                     }}>
                         {isSaving ? 'SAVING...' : 'CROP & SAVE'}
