@@ -333,6 +333,7 @@ function App() {
                     <BackgroundVisualizer
                       themeType={customBackgroundImage ? 'static' : currentTheme.type}
                       primaryColor={currentTheme.primaryColor}
+                      visualizerMode={currentTheme.visualizerMode || 'default'}
                     />
                   </React.Suspense>
                 </div>
@@ -384,11 +385,29 @@ function App() {
 
                     <div className="header-divider"></div>
 
-                    {/* BPM */}
-                    <div className="glass-input-group">
-                      <label className="glass-label">BPM</label>
-                      <input type="number" value={bpm} onChange={(e) => setBpm(parseInt(e.target.value) || 120)}
-                        className="glass-input" />
+                    {/* BPM Control */}
+                    <div className="glass-input-group" style={{ gap: '0' }}>
+                      <label className="glass-label" style={{ marginRight: '8px' }}>BPM</label>
+
+                      <button
+                        onClick={() => setBpm(Math.max(20, bpm - 1))}
+                        className="glass-btn"
+                        style={{ padding: '2px 8px', borderRadius: '4px 0 0 4px', borderRight: 'none', background: 'rgba(255,255,255,0.05)' }}
+                      >-</button>
+
+                      <input
+                        type="number"
+                        value={bpm}
+                        onChange={(e) => setBpm(parseInt(e.target.value) || 120)}
+                        className="glass-input"
+                        style={{ borderRadius: '0', width: '40px', borderLeft: 'none', borderRight: 'none' }}
+                      />
+
+                      <button
+                        onClick={() => setBpm(Math.min(300, bpm + 1))}
+                        className="glass-btn"
+                        style={{ padding: '2px 8px', borderRadius: '0 4px 4px 0', borderLeft: 'none', background: 'rgba(255,255,255,0.05)' }}
+                      >+</button>
                     </div>
 
                     {/* Metronome */}
@@ -399,18 +418,14 @@ function App() {
 
 
 
+
                     <div className="header-divider"></div>
 
                     {/* Theme Selector */}
                     <CustomDropdown
                       value={currentThemeId}
                       onChange={(val) => useStore.getState().setThemeId(val)}
-                      options={[
-                        { label: "🚀 Cosmic", value: "cosmic" },
-                        { label: "🌃 Neon", value: "neon" },
-                        { label: "🌿 Nature", value: "nature" },
-                        { label: "⚫ Minimal", value: "minimal" },
-                      ]}
+                      options={THEMES.map(t => ({ label: t.name, value: t.id }))}
                       icon="🎨"
                     />
 
@@ -421,21 +436,35 @@ function App() {
                           const file = e.target.files[0];
                           const formData = new FormData();
                           formData.append('file', file);
-                          formData.append('category', 'background'); // Prevent showing in FileLibrary
+                          formData.append('category', 'background');
                           try {
                             const response = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
                             const data = await response.json();
                             if (data.file) {
-                              useStore.getState().setCustomBackgroundImage(`http://localhost:3001/uploads/${data.file.filename}`);
-                              alert('Background Set!');
+                              const timestamp = Date.now();
+                              useStore.getState().setCustomBackgroundImage(`http://localhost:3001/uploads/${data.file.filename}?t=${timestamp}`);
+                              // alert('Background Set!'); // Visual feedback via image change is enough
                             }
                           } catch (err) { alert('Upload Failed'); }
+                          e.target.value = '';
                         }
                       }}
                     />
-                    <label htmlFor="bg-upload" className="glass-btn" style={{ padding: '6px 12px' }}>
-                      🖼️ BG
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <label htmlFor="bg-upload" className="glass-btn" style={{ padding: '6px 12px' }} title="Upload Background Image">
+                        🖼️ BG
+                      </label>
+                      {customBackgroundImage && (
+                        <button
+                          onClick={() => useStore.getState().setCustomBackgroundImage(null)}
+                          className="glass-btn"
+                          style={{ padding: '6px 8px', color: '#ff5555', borderColor: '#ff5555' }}
+                          title="Remove Background"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Bottom Row: User & Presets */}
@@ -498,176 +527,7 @@ function App() {
                 </div>
               )}
 
-              {/* --- HEADER CONTENT (Floating, Duplicate?) --- */}
-              {/* Note: There seems to be a duplicate Header Content block in the original file. 
-                  I will apply the !isLiveMode check to this one too just in case. */}
-              {isHeaderVisible && !isLiveMode && (
-                <div style={{
-                  position: 'absolute', top: '50px', left: '50%', transform: 'translateX(-50%)',
-                  display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center',
-                  zIndex: 100,
-                  width: '90%', maxWidth: '1000px',
-                  background: 'rgba(10, 10, 10, 0.7)',
-                  backdropFilter: 'blur(15px)',
-                  padding: '15px 25px',
-                  borderRadius: '20px',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
-                }}>
-
-                  {/* Top Row: Audio Controls & Visuals */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-
-                    {/* Visualizer Toggle */}
-                    <button onClick={() => setShowVisualizer(!showVisualizer)}
-                      style={{
-                        background: showVisualizer ? 'rgba(0, 255, 204, 0.2)' : 'transparent',
-                        border: showVisualizer ? '1px solid #00ffcc' : '1px solid rgba(255,255,255,0.1)',
-                        color: showVisualizer ? '#00ffcc' : '#888',
-                        padding: '6px 12px', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer'
-                      }}>
-                      {showVisualizer ? 'VIS ON' : 'VIS OFF'}
-                    </button>
-
-                    <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }}></div>
-
-                    {/* BPM */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <label style={{ color: '#888', fontSize: '0.8rem', fontWeight: 'bold' }}>BPM</label>
-                      <input type="number" value={bpm} onChange={(e) => setBpm(parseInt(e.target.value) || 120)}
-                        style={{ background: 'transparent', border: 'none', color: '#00ffcc', width: '40px', textAlign: 'center', fontSize: '1rem', fontWeight: 'bold' }} />
-                    </div>
-
-                    {/* Metronome */}
-                    <button onClick={() => setIsMetronomeOn(!isMetronomeOn)}
-                      className={`glass-btn ${isMetronomeOn ? 'active-metro' : ''}`}>
-                      METRO
-                    </button>
-
-                    <div className="header-divider"></div>
-
-                    {/* Loop Controls */}
-                    <button
-                      onClick={() => isLoopRecording ? sequencer.stopRecording() : sequencer.startRecording()}
-                      className={`glass-btn`}
-                      style={{
-                        borderColor: isLoopRecording ? '#ff4444' : 'rgba(255,255,255,0.1)',
-                        color: isLoopRecording ? '#ff4444' : 'rgba(255,255,255,0.6)',
-                        background: isLoopRecording ? 'rgba(255, 68, 68, 0.1)' : 'transparent',
-                        boxShadow: isLoopRecording ? '0 0 10px rgba(255, 68, 68, 0.2)' : 'none'
-                      }}
-                    >
-                      {isLoopRecording ? '🔴 REC' : '⚪ LOOP'}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        if (confirm('Clear all recorded loops?')) sequencer.clearSequence();
-                      }}
-                      className="glass-btn"
-                      title="Clear All Loops"
-                    >
-                      ❌
-                    </button>
-
-                    {/* Quantize */}
-                    <CustomDropdown
-                      value={launchQuantization}
-                      onChange={setLaunchQuantization}
-                      options={[
-                        { label: "Q: None", value: "none" },
-                        { label: "Q: 1 Bar", value: "1m" },
-                        { label: "Q: 1/4", value: "4n" },
-                        { label: "Q: 1/8", value: "8n" },
-                      ]}
-                      icon="⏱️"
-                      style={{ borderRadius: '20px' }}
-                    />
-
-                    <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }}></div>
-
-                    {/* Theme Selector */}
-                    <CustomDropdown
-                      value={currentThemeId}
-                      onChange={(val) => useStore.getState().setThemeId(val)}
-                      options={[
-                        { label: "🚀 Cosmic", value: "cosmic" },
-                        { label: "🌃 Neon", value: "neon" },
-                        { label: "🌿 Nature", value: "nature" },
-                        { label: "⚫ Minimal", value: "minimal" },
-                      ]}
-                      icon="🎨"
-                      style={{ borderRadius: '20px' }}
-                    />
-
-                    {/* BG Upload */}
-                    {/* ... (existing bg upload code) ... */}
-                    <input type="file" accept="image/*" style={{ display: 'none' }} id="bg-upload-float"
-                      onChange={async (e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          const file = e.target.files[0];
-                          const formData = new FormData();
-                          formData.append('file', file);
-                          formData.append('category', 'background'); // Prevent showing in FileLibrary
-                          try {
-                            const response = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
-                            const data = await response.json();
-                            if (data.file) {
-                              useStore.getState().setCustomBackgroundImage(`http://localhost:3001/uploads/${data.file.filename}`);
-                              alert('Background Set!');
-                            }
-                          } catch (err) { alert('Upload Failed'); }
-                        }
-                      }}
-                    />
-                    <label htmlFor="bg-upload-float" style={{
-                      background: 'rgba(255,255,255,0.05)', color: '#aaa', padding: '6px 10px', borderRadius: '20px', cursor: 'pointer', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '5px'
-                    }}>
-                      🖼️ BG
-                    </label>
-                  </div>
-
-                  {/* Bottom Row: User & Presets */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'center', alignItems: 'center', width: '100%', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-
-                    {/* Help Button */}
-                    <button
-                      onClick={() => setIsInstructionOpen(true)}
-                      className="glass-btn"
-                      title="Keyboard Shortcuts"
-                      style={{ marginRight: '10px', fontSize: '0.9rem', borderRadius: '20px' }}
-                    >
-                      ❔ Help
-                    </button>
-
-                    {/* Presets Manager Button */}
-                    <button
-                      onClick={() => setIsPresetManagerOpen(true)}
-                      className="glass-btn"
-                      style={{ minWidth: '120px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                    >
-                      📂 Presets
-                    </button>
-
-                    <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }}></div>
-
-                    {/* User Actions */}
-                    {user ? (
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold', marginRight: '5px' }}>👤 {user.nickname || user.username}</span>
-                        <button onClick={handleSave} style={{ background: '#4CAF50', border: 'none', color: '#fff', borderRadius: '20px', padding: '6px 14px', cursor: 'pointer', fontSize: '0.8rem' }}>Save</button>
-                        <button onClick={handleLogout} style={{ background: '#f44336', border: 'none', color: '#fff', borderRadius: '20px', padding: '6px 14px', cursor: 'pointer', fontSize: '0.8rem' }}>Logout</button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={handleLogin} style={{ background: '#00ffcc', border: 'none', color: '#000', borderRadius: '20px', padding: '6px 16px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Login</button>
-                        <button onClick={() => window.location.href = devLoginURL} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#ccc', borderRadius: '20px', padding: '6px 14px', cursor: 'pointer', fontSize: '0.8rem' }}>Dev</button>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              )}
+              {/* (Duplicate Header Block Removed) */}
 
               {/* ... central grid ... */}
               <div style={{ position: 'relative', zIndex: 20 }}>

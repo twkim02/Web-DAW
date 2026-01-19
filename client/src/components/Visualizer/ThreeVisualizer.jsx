@@ -4,7 +4,7 @@ import { audioEngine } from '../../audio/AudioEngine';
 
 
 
-const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc' }) => {
+const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc', visualizerMode = 'default' }) => {
     const mountRef = useRef(null);
 
     useEffect(() => {
@@ -26,12 +26,14 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc' }) =>
 
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
             renderer.setSize(width, height);
+            renderer.domElement.style.background = 'transparent'; // Force CSS transparency
 
             // Logic: If Dynamic, use black. Else transparent.
             if (themeType === 'dynamic') {
                 renderer.setClearColor(0x000000, 1);
             } else {
                 renderer.setClearColor(0x000000, 0);
+                scene.background = null; // Ensure scene has no background color
             }
 
             if (container) {
@@ -85,13 +87,40 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc' }) =>
 
                 const array = audioEngine.getFrequencyData();
                 if (array && array.length > 0) {
+                    const bass = array[10] || 0;
+
+                    // --- Color Logic ---
+                    if (visualizerMode === 'rainbow') {
+                        const hue = (Date.now() * 0.0002) % 1;
+                        const color = new THREE.Color().setHSL(hue, 1, 0.5);
+                        bars.forEach(b => b.material.color.copy(color));
+                        ring.material.color.copy(color);
+                    } else if (visualizerMode === 'bass') {
+                        // React to Bass (Threshold)
+                        const isBassHit = bass > 200;
+                        const targetColor = isBassHit ? new THREE.Color('#ff0055') : new THREE.Color(primaryColor);
+                        bars.forEach(b => b.material.color.lerp(targetColor, 0.1));
+                        ring.material.color.lerp(targetColor, 0.1);
+                    } else if (visualizerMode === 'gradient') {
+                        const timeOffset = Date.now() * 0.0002;
+                        bars.forEach((b, i) => {
+                            const hue = ((i / BAR_COUNT) + timeOffset) % 1;
+                            b.material.color.setHSL(hue, 1, 0.5);
+                        });
+                    } else {
+                        // Default
+                        const defaultColor = new THREE.Color(primaryColor);
+                        bars.forEach(b => b.material.color.lerp(defaultColor, 0.1));
+                    }
+
+                    // --- Scale Logic ---
                     for (let i = 0; i < BAR_COUNT; i++) {
                         const index = Math.floor((i / BAR_COUNT) * array.length * 0.5);
                         const val = array[index] || 0;
                         const scale = 1 + (val / 255) * 4;
                         bars[i].scale.y = scale;
                     }
-                    const bass = array[10] || 0;
+
                     const scaleBase = 1 + (bass / 255) * 0.1;
                     ring.scale.set(scaleBase, scaleBase, 1);
                 }
@@ -149,7 +178,7 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc' }) =>
             }
         };
 
-    }, [themeType, primaryColor]);
+    }, [themeType, primaryColor, visualizerMode]);
 
     return <div ref={mountRef} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0 }} />;
 };

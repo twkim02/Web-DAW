@@ -106,13 +106,24 @@ const Grid = () => {
                 setIsZoomed(false);
             }
 
-            // Loop Station: 5-0 (as requested)
+            // Loop Station: 6-0,- 
+            // BLOCKED in Mixer Mode
+            const MIXER_MODES = ['VOLUME', 'PAN', 'SEND_A', 'SEND_B', 'MIXER_SELECTION', 'MUTE', 'SOLO', 'STOP', 'ARM', 'CLEAR'];
+            if (MIXER_MODES.includes(useStore.getState().viewMode)) return;
+
             if (!editingPadId && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-                const loopKeys = ['Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0'];
+                const loopKeys = ['Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0', 'Minus'];
                 if (loopKeys.includes(e.code)) {
                     const slotIndex = loopKeys.indexOf(e.code);
                     e.preventDefault();
-                    sequencer.toggleSlot(slotIndex);
+
+                    if (e.altKey) {
+                        // Alt + Key -> Clear Slot
+                        sequencer.clearSlot(slotIndex);
+                    } else {
+                        // Solo Key -> Toggle/Record
+                        sequencer.toggleSlot(slotIndex);
+                    }
                 }
             }
         };
@@ -148,6 +159,15 @@ const Grid = () => {
                     color: '#ff4444',
                     backgroundColor: 'rgba(255, 68, 68, 0.2)',
                     animation: 'recordingBgPulse 1s infinite'
+                };
+                isActive = true;
+            } else if (status === 'armed') {
+                style = {
+                    borderColor: '#ffdd00',
+                    color: '#ffdd00',
+                    backgroundColor: 'rgba(255, 221, 0, 0.1)',
+                    animation: 'recordingBgPulse 0.5s infinite', // Faster pulse for Ready
+                    opacity: 0.9
                 };
                 isActive = true;
             } else if (status === 'playing') {

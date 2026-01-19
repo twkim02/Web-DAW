@@ -52,50 +52,116 @@ const useKeyboardMap = () => {
 
             // Arrow Keys for Bank Navigation or Mixer Control
             const viewMode = useStore.getState().viewMode;
-            if (['VOLUME', 'PAN', 'SEND_A', 'SEND_B'].includes(viewMode)) {
+            const MIXER_MODES = ['VOLUME', 'PAN', 'SEND_A', 'SEND_B', 'MIXER_SELECTION', 'MUTE', 'SOLO', 'STOP', 'ARM', 'CLEAR'];
+
+            if (MIXER_MODES.includes(viewMode)) {
                 // --- Mixer Mode Logic ---
                 const selectedTrack = useStore.getState().selectedMixerTrack;
-                const typeMap = { 'VOLUME': 'vol', 'PAN': 'pan', 'SEND_A': 'sendA', 'SEND_B': 'sendB' };
-                const type = typeMap[viewMode];
 
-                if (code === 'ArrowLeft') {
+                // Track Selection / Action via Numbers (1-8)
+                if (['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'].includes(code)) {
                     e.preventDefault();
-                    const newIdx = Math.max(0, selectedTrack - 1);
-                    useStore.getState().setSelectedMixerTrack(newIdx);
-                    return;
-                }
-                if (code === 'ArrowRight') {
-                    e.preventDefault();
-                    const newIdx = Math.min(7, selectedTrack + 1);
-                    useStore.getState().setSelectedMixerTrack(newIdx);
-                    return;
-                }
-                if (code === 'ArrowUp' || code === 'ArrowDown') {
-                    e.preventDefault();
-                    const state = useStore.getState();
-                    let currentVal = state.mixerLevels[type][selectedTrack];
+                    // Map Digit1 -> 0, Digit8 -> 7
+                    const trackIdx = parseInt(code.replace('Digit', '')) - 1;
 
-                    // Defined ranges and steps
-                    let min = 0, max = 1, step = 0.05;
+                    // Always select the track visually
+                    useStore.getState().setSelectedMixerTrack(trackIdx);
 
-                    if (type === 'pan') {
-                        min = -1;
-                        max = 1;
-                        step = 0.1;
+                    // If in Action Mode, Trigger Immediately
+                    if (['MUTE', 'SOLO', 'STOP'].includes(viewMode)) {
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            const tracks = useStore.getState().tracks;
+                            const track = tracks[trackIdx];
+                            const trackId = track ? track.id : `slot-${trackIdx}`;
+
+                            if (viewMode === 'MUTE') {
+                                if (trackId) sequencer.toggleMute(trackId);
+                            }
+                            else if (viewMode === 'SOLO') {
+                                if (trackId) sequencer.toggleSolo(trackId);
+                            }
+                            else if (viewMode === 'STOP') {
+                                sequencer.stopTrack(trackIdx);
+                            }
+                        });
                     }
 
-                    const delta = (code === 'ArrowUp' ? step : -step);
-                    let newVal = currentVal + delta;
+                    return; // Blocking Launchpad/Loop logic
+                }
 
-                    // Clamp
-                    if (newVal > max) newVal = max;
-                    if (newVal < min) newVal = min;
+                // Arrow Keys: Left/Right DISABLED for Track Selection as per request
+                // Only Up/Down/Enter remain for Parameter Control
 
-                    // Round to avoid float precision issues
-                    newVal = Math.round(newVal * 100) / 100;
+                // Parameter / Action Control (Up/Down/Enter)
+                if (code === 'ArrowUp' || code === 'ArrowDown' || code === 'Enter') {
+                    e.preventDefault();
 
-                    state.setMixerLevel(type, selectedTrack, newVal);
-                    return;
+                    // 1. Parameter Modes (Volume, Pan, Sends)
+                    // MIXER_SELECTION defaults to Volume control
+                    if (['VOLUME', 'PAN', 'SEND_A', 'SEND_B', 'MIXER_SELECTION'].includes(viewMode)) {
+                        if (code === 'Enter') return; // Enter doesn't adjust sliders
+
+                        const typeMap = {
+                            'VOLUME': 'vol',
+                            'MIXER_SELECTION': 'vol',
+                            'PAN': 'pan',
+                            'SEND_A': 'sendA',
+                            'SEND_B': 'sendB'
+                        };
+                        const type = typeMap[viewMode];
+                        const state = useStore.getState();
+                        let currentVal = state.mixerLevels[type][selectedTrack];
+
+
+                        let min = 0, max = 1, step = 0.125; // Default for Vol/Send (1/8 of 0-1)
+
+                        if (type === 'pan') {
+                            min = -1;
+                            max = 1;
+                            step = 0.25; // 1/8 of -1 to 1 (Range 2)
+                        }
+                        // Sends share the same 0-1 range as Volume
+
+                        const delta = (code === 'ArrowUp' ? step : -step);
+                        let newVal = currentVal + delta;
+                        if (newVal > max) newVal = max;
+                        if (newVal < min) newVal = min;
+                        // Precision handling for 0.125 steps
+                        newVal = Math.round(newVal * 1000) / 1000;
+
+                        state.setMixerLevel(type, selectedTrack, newVal);
+
+                        // Sync with AudioEngine
+                        import('../audio/AudioEngine').then(({ audioEngine }) => {
+                            audioEngine.updateMixerTrack(selectedTrack, { [type]: newVal });
+                        });
+                        return;
+                    }
+
+                    // 2. Action Modes (Mute, Solo, Stop)
+                    if (['MUTE', 'SOLO', 'STOP'].includes(viewMode)) {
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            // Try to find track by index
+                            const tracks = useStore.getState().tracks;
+                            // Note: track ordering in store should match mixer columns 0-7
+                            const track = tracks[selectedTrack];
+                            const trackId = track ? track.id : `slot-${selectedTrack}`; // Fallback to slot ID
+
+                            if (viewMode === 'MUTE') {
+                                // Toggle Mute
+                                if (trackId) sequencer.toggleMute(trackId);
+                            }
+                            else if (viewMode === 'SOLO') {
+                                // Toggle Solo
+                                if (trackId) sequencer.toggleSolo(trackId);
+                            }
+                            else if (viewMode === 'STOP') {
+                                // Trigger Stop
+                                sequencer.stopTrack(selectedTrack);
+                            }
+                        });
+                        return;
+                    }
                 }
             } else {
                 // --- Standard Bank Navigation ---
@@ -162,15 +228,25 @@ const useKeyboardMap = () => {
             }
 
             // --- Scene Launch Keys (5, T, G, B) ---
+            // DISABLED IN MIXER MODE? No, user only asked for Loop (5-0) and Launchpad (1-4)
+            // But '5' is also Loop 1 in new mapping?
+            // "1234(Launchpad) 567890(Loop)" -> 1-0 are now used for Mixer.
+            // So we must intercept Scene Launch '5' if it conflicts?
+            // Scene Launch is on 5, T, G, B. 
+            // If Mixer Mode uses 5 for Track 5, Scene Launch 5 is blocked by the return above. Correct.
+
+            // --- Loop / Bank Logic ---
             const bankCoords = useStore.getState().bankCoords;
             const bankOffset = bankCoords.y * 4; // Top Bank = 0, Bottom Bank = 4
 
-            // if (code === 'Digit5') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 0)); return; }
+            // Handle Scene Launch IF NOT handled by Mixer
+            // But we processed Digit5 above and returned. So this only runs if not Mixer.
+            // if (code === 'Digit5') ...
             if (code === 'KeyT') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 1)); return; }
             if (code === 'KeyG') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 2)); return; }
             if (code === 'KeyB') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 3)); return; }
 
-            // Bank Logic
+            // Bank Logic (Launchpad Grid & Loop Keys)
             if (Object.prototype.hasOwnProperty.call(CODE_MAP, code)) {
                 // Determine Global Index based on Active Bank
                 const bankCoords = useStore.getState().bankCoords; // {x, y}
@@ -212,6 +288,17 @@ const useKeyboardMap = () => {
 
         const handleKeyUp = (e) => {
             const code = e.code;
+
+            // Allow Mixer Mode to block 'up' events for reused keys
+            const viewMode = useStore.getState().viewMode;
+            const MIXER_MODES = ['VOLUME', 'PAN', 'SEND_A', 'SEND_B', 'MIXER_SELECTION', 'MUTE', 'SOLO', 'STOP', 'ARM', 'CLEAR'];
+
+            if (MIXER_MODES.includes(viewMode)) {
+                if (['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'].includes(code)) {
+                    return; // Suppress 'up' triggers for pads
+                }
+            }
+
             if (Object.prototype.hasOwnProperty.call(CODE_MAP, code)) {
                 // Determine Global Index based on Active Bank
                 const bankCoords = useStore.getState().bankCoords; // {x, y}

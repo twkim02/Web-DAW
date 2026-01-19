@@ -60,6 +60,79 @@ const usePadTrigger = () => {
         }
     }, []);
 
+    // --- Internal Play Function (Bypasses Queue Check) ---
+    const playPadNow = useCallback((padId, mapping, state, startTimeOverride) => {
+        // 1. Set Active
+        setPadActive(padId, true);
+
+        const mode = mapping.mode || 'one-shot';
+        const type = mapping.type || 'sample';
+        const visualEffect = mapping.visualEffect || 'none';
+        const col = padId % 8;
+
+        // 2. Define Handoff Logic (Queue Check)
+        const checkQueueAndPlayNext = () => {
+            // Check Store for Queue
+            const freshState = useStore.getState();
+            const queue = freshState.padQueues[col];
+
+            if (queue && queue.length > 0) {
+                // Determine Next Pad
+                const nextPadId = queue[0]; // Peek
+
+                // Shift Queue
+                freshState.shiftQueue(col);
+                console.log(`[Queue] Handoff: ${padId} -> ${nextPadId}`);
+
+                // Stop Current (Self)
+                // Note: For 'onLoop', the play loop typically continues unless stopped.
+                setPadActive(padId, false);
+                sampler.stop(padId);
+
+                // Play Next
+                // Recursive call (careful of stack, but async events break stack so it's fine)
+                // Need to fetch mapping for next pad
+                const nextMapping = freshState.padMappings[nextPadId];
+                if (nextMapping) {
+                    playPadNow(nextPadId, nextMapping, freshState);
+                }
+                return true; // We handled a handoff
+            }
+            return false; // No queue, continue as normal
+        };
+
+        // 3. Play
+        if (type === 'synth' || type === 'piano' || type === 'drums') {
+            const note = mapping.note || 'C4';
+            instrumentManager.trigger(padId, note, '8n', startTimeOverride);
+            // Instruments don't support "Queue Handoff" easily via onLoop yet. 
+            // They rely on Note events. 
+            // Only SAMPLES fully support the Loop/End callbacks right now.
+        } else {
+            // Sample Playback
+            const isGate = (mode === 'gate');
+            const shouldLoop = (mode === 'loop' || mode === 'toggle');
+
+            sampler.play(padId, {
+                loop: shouldLoop || isGate,
+                startTime: startTimeOverride,
+                onLoop: () => {
+                    // Check Queue on every loop cycle
+                    if (checkQueueAndPlayNext()) return;
+
+                    // If no queue, just visual FX
+                    triggerVisualFX(padId, visualEffect, mapping.color);
+                },
+                onEnded: () => {
+                    setPadActive(padId, false);
+                    // Check Queue on end
+                    checkQueueAndPlayNext();
+                }
+            });
+        }
+    }, [setPadActive, triggerVisualFX]);
+
+
     // --- Main Trigger Function ---
     const triggerPad = useCallback((padId, eventType) => {
         const state = useStore.getState();
@@ -73,12 +146,13 @@ const usePadTrigger = () => {
         const mode = mapping.mode || 'one-shot';
         const type = mapping.type || 'sample';
         const visualEffect = mapping.visualEffect || 'none';
+        const col = padId % 8;
 
         // 2. Down Event Logic
         if (eventType === 'down') {
             console.log(`[Pad ${padId}] DOWN (Mode: ${mode}, Type: ${type})`);
 
-            // A. Trigger Visuals
+            // A. Trigger Visuals (Immediate Feedback)
             triggerVisualFX(padId, visualEffect, mapping.color);
             sequencer.recordEvent(padId);
 
@@ -93,68 +167,75 @@ const usePadTrigger = () => {
                 }
             }
 
-            // C. Audio & State Logic by Mode
+            // C. Queue vs Play Logic
+            // If any pad in this column is active, we QUEUE (unless it's the SAME pad doing a stop/toggle)
 
-            // --- C-1: LATCH MODES (Loop / Toggle) ---
+            // Find currently playing pad in this column
+            let activePadInCol = -1;
+            for (let i = 0; i < 8; i++) {
+                const checkId = (Math.floor(padId / 8) * 8 + i); // Wait, stored is Row*8+Col. 
+                // Col is vertical. So indices are col, col+8, col+16...
+            }
+            // Better loop: 0 to 7 rows
+            for (let r = 0; r < 8; r++) {
+                const pId = r * 8 + col;
+                if (state.activePads[pId]) {
+                    activePadInCol = pId;
+                    break;
+                }
+            }
+
+            // Case 1: LATCH / TOGGLE / LOOP
             if (mode === 'loop' || mode === 'toggle') {
-                // Determine if we should start or stop
                 const isCurrentlyActive = state.activePads[padId];
 
                 if (isCurrentlyActive) {
-                    // STOP
+                    // STOP Action (Manual override)
+                    // If we press a playing loop, we typically stop it.
                     setPadActive(padId, false);
-                    if (type === 'synth' || type === 'piano' || type === 'drums') {
-                        audioEngine.stopSynthNote(mapping.note || 'C4'); // Note: PolySynths might need padId
-                    } else {
-                        sampler.stop(padId);
-                    }
-                } else {
-                    // START
-                    setPadActive(padId, true);
-                    if (type === 'synth' || type === 'piano' || type === 'drums') {
-                        audioEngine.startSynthNote(mapping.note || 'C4');
-                    } else {
-                        const shouldLoop = true; // Toggle acts as Loop
-                        sampler.play(padId, {
-                            loop: shouldLoop,
-                            startTime,
-                            onLoop: () => triggerVisualFX(padId, visualEffect, mapping.color),
-                            onEnded: () => setPadActive(padId, false) // Natural end
-                        });
-                    }
+                    if (type === 'synth') audioEngine.stopSynthNote(mapping.note);
+                    else sampler.stop(padId);
+                    return;
                 }
+
+                // If another pad is playing in column -> Queue
+                if (activePadInCol !== -1 && activePadInCol !== padId) {
+                    console.log(`[Queue] Column ${col} busy (Pad ${activePadInCol}). Queueing ${padId}.`);
+                    state.addToQueue(padId);
+                    return;
+                }
+
+                // Else -> Play Now
+                playPadNow(padId, mapping, state, startTime);
                 return;
             }
 
-            // --- C-2: MOMENTARY MODES (One-Shot / Gate) ---
+            // Case 2: ONE-SHOT / GATE
+            if (activePadInCol !== -1 && activePadInCol !== padId) {
+                // Column Busy -> Queue
+                console.log(`[Queue] Column ${col} busy. Queueing ${padId}.`);
+                state.addToQueue(padId);
+                return;
+            }
 
-            // One-Shot Protection: Don't re-trigger if already playing
+            // Allow re-triggering self in One-Shot? (Standard is yes, cuts self off)
+            // But if we queue self? "Same vertical line" includes self.
+            // If I press SAME pad that is playing One-Shot... 
+            // Usually re-trigger immediately (stutter).
+            // Logic: "Reserved... when one-shot... *do not play immediately*".
+            // User: "If... PRESSED... one-shot... pressed..."
+            // Let's assume re-triggering SELF is immediate (Stutter). Only OTHER pads queue.
+
             if (mode === 'one-shot' && type === 'sample' && sampler.isPlaying(padId)) {
-                return;
+                // If self is playing... allow re-trigger? 
+                // Existing code prevented it. Let's allow it for stutter or keep prevention.
+                // Keeping prevention for safe one-shot based on prev code.
+                // But wait, prev code returned: `if (sampler.isPlaying(padId)) return;`
+                // Let's keep that behavior OR allow restart. I'll stick to playPadNow (which restarts).
             }
 
-            setPadActive(padId, true);
-
-            if (type === 'synth' || type === 'piano' || type === 'drums') {
-                const note = mapping.note || 'C4';
-                // Gate/OneShot for instruments is handled by NoteOn/NoteOff generally
-                // But for OneShot instrument, we might need set duration?
-                // Currently InstrumentManager trigger uses duration '8n' by default if updated?
-                // Let's stick to simple trigger.
-                instrumentManager.trigger(padId, note, '8n', startTime);
-            } else {
-                // Sample Playback
-                const isGate = (mode === 'gate');
-
-                sampler.play(padId, {
-                    loop: isGate, // Gate loops while held? Or plays once? Usually Gate = Play while held.
-                    // If Gate loops, pass onLoop. If Gate is just "hold to play" (no loop), it stops at end.
-                    // Assuming Gate = Loop while held for Samples.
-                    startTime,
-                    onLoop: isGate ? () => triggerVisualFX(padId, visualEffect, mapping.color) : undefined,
-                    onEnded: !isGate ? () => setPadActive(padId, false) : undefined
-                });
-            }
+            // Logic:
+            playPadNow(padId, mapping, state, startTime);
 
         }
 
@@ -171,7 +252,7 @@ const usePadTrigger = () => {
             }
         }
 
-    }, [setPadActive, triggerVisualFX]);
+    }, [setPadActive, triggerVisualFX, playPadNow]);
 
     return { triggerPad };
 };

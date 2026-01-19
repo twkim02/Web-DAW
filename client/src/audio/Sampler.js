@@ -111,7 +111,8 @@ class Sampler {
             }
 
             // Unconditionally stop previous playback
-            player.onstop = null;
+            // Tone.js player.onstop handling: Use no-op to clear safely
+            player.onstop = () => { };
             player.stop();
 
             // Setup Loop Timer if needed
@@ -143,7 +144,8 @@ class Sampler {
                         this.loopTimers.delete(key);
                     }
                     options.onEnded();
-                    player.onstop = null;
+                    // Reset to no-op to avoid double calls or dangling refs
+                    player.onstop = () => { };
                 };
             } else {
                 player.onstop = () => {
@@ -152,7 +154,7 @@ class Sampler {
                         clearInterval(this.loopTimers.get(key));
                         this.loopTimers.delete(key);
                     }
-                    player.onstop = null;
+                    player.onstop = () => { };
                 };
             }
 
@@ -160,6 +162,14 @@ class Sampler {
         } else {
             console.warn(`Sample ${key} not found`);
         }
+    }
+
+    getDuration(key) {
+        if (this.players.has(key)) {
+            const player = this.players.get(key);
+            if (player.buffer) return player.buffer.duration;
+        }
+        return 0;
     }
 
     isPlaying(key) {

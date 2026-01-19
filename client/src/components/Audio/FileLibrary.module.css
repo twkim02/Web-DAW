@@ -1,0 +1,76 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: #ccc;
+    padding: 16px;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+.glassBtnSmall {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.glassBtnSmall:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.glassBtnSmall.action {
+    background: rgba(0, 255, 204, 0.1);
+    border-color: rgba(0, 255, 204, 0.3);
+    color: #00ffcc;
+}
+
+.glassBtnSmall.action:hover {
+    background: rgba(0, 255, 204, 0.2);
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+}
+
+.glassBtnSmall.delete {
+    background: rgba(255, 68, 68, 0.1);
+    border-color: rgba(255, 68, 68, 0.3);
+    color: #ff4444;
+}
+
+.glassBtnSmall.delete:hover {
+    background: rgba(255, 68, 68, 0.2);
+}
+
+.fileItemHover:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Scrollbar Styling */
+.scrollContainer {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.scrollContainer::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.scrollContainer::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
