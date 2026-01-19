@@ -31,7 +31,7 @@
   - ✅ `Presets.isQuantized` (BOOLEAN, DEFAULT TRUE)
   - ✅ `KeyMappings.synthSettings` (JSON)
   - ✅ `Assets.isRecorded` (BOOLEAN, DEFAULT FALSE)
-- [ ] **User 테이블**: `created_at`, `updated_at` 필드 확인 (Sequelize 자동 관리됨)
+- [x] **User 테이블**: `created_at`, `updated_at` 필드 확인 (Sequelize 자동 관리됨)
 
 **참고**: 스키마 리팩토링은 코드베이스의 실제 구현을 기준으로 진행되었습니다. 자세한 내용은 `document/SCHEMA_REFACTORING_PLAN.md`를 참조하세요.
 

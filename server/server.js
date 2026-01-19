@@ -6,6 +6,7 @@ const db = require('./models');
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const presetRoutes = require('./routes/presets');
+const userPreferencesRoutes = require('./routes/userPreferences');
 require('dotenv').config();
 
 const app = express();
@@ -78,6 +79,7 @@ passport.deserializeUser(async (id, done) => {
 app.use('/auth', authRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/presets', presetRoutes);
+app.use('/api/user/preferences', userPreferencesRoutes);
 
 // Sync Database & Start Server
 db.sequelize.sync().then(() => {
