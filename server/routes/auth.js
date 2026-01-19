@@ -2,12 +2,31 @@ const express = require('express');
 const passport = require('passport');
 const router = express.Router();
 
+// Check if Google OAuth is configured
+const isGoogleOAuthConfigured = () => {
+    return !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+};
+
 // GET /auth/google
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', (req, res, next) => {
+    if (!isGoogleOAuthConfigured()) {
+        return res.status(503).json({ 
+            message: 'Google OAuth is not configured. Please use Dev Login or set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.' 
+        });
+    }
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
 
 // GET /auth/google/callback
 router.get('/google/callback',
-    passport.authenticate('google', { failureRedirect: '/' }),
+    (req, res, next) => {
+        if (!isGoogleOAuthConfigured()) {
+            return res.status(503).json({ 
+                message: 'Google OAuth is not configured. Please use Dev Login.' 
+            });
+        }
+        passport.authenticate('google', { failureRedirect: '/' })(req, res, next);
+    },
     (req, res) => {
         // Successful authentication, redirect frontend.
         // In dev, usually redirect to client URL.
@@ -29,7 +48,8 @@ router.get('/dev_login', async (req, res) => {
 
         req.login(user, (err) => {
             if (err) return res.status(500).json({ error: err });
-            res.redirect('http://localhost:5173/');
+            // Community 페이지로 리다이렉트
+            res.redirect('http://localhost:5173/community');
         });
     } catch (err) {
         console.error(err);
@@ -40,8 +60,11 @@ router.get('/dev_login', async (req, res) => {
 // GET /auth/logout
 router.get('/logout', (req, res, next) => {
     req.logout((err) => {
-        if (err) { return next(err); }
-        res.redirect('/');
+        if (err) { 
+            return res.status(500).json({ message: 'Logout failed', error: err.message });
+        }
+        // JSON 응답 반환 (프론트엔드에서 처리)
+        res.json({ message: 'Logged out successfully' });
     });
 });
 

@@ -7,7 +7,7 @@ import { instrumentManager } from './audio/InstrumentManager'; // Import Instrum
 import VirtualPiano from './components/Instruments/VirtualPiano'; // Import VirtualPiano
 import VirtualDrums from './components/Instruments/VirtualDrums'; // Import VirtualDrums
 import { getCurrentUser, loginURL, devLoginURL, logout } from './api/auth';
-import { getPresets, savePreset } from './api/presets';
+import { getPresets, savePreset, getPreset } from './api/presets';
 import { useUserPreferences } from './hooks/useUserPreferences';
 import LeftSidebar from './components/Layout/LeftSidebar';
 import RightSidebar from './components/Layout/RightSidebar';
@@ -62,6 +62,7 @@ function App() {
   const setAudioContextReady = useStore((state) => state.setAudioContextReady);
   const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
+  const setPresets = useStore((state) => state.setPresets);
   const padMappings = useStore((state) => state.padMappings);
   const bpm = useStore((state) => state.bpm);
   const setBpm = useStore((state) => state.setBpm);
@@ -93,6 +94,9 @@ function App() {
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // User Preferences Hook
+  const { preferences, loadPreferences } = useUserPreferences();
+
   // Mixer State selectors removed from App to prevent re-renders
   // They are now in AudioController
 
@@ -109,12 +113,14 @@ function App() {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setUser]);
+  }, [setUser, loadPreferences]);
 
   const fetchPresets = async () => {
     try {
       const data = await getPresets();
       setTempPresets(data);
+      // Store의 presets도 업데이트 (PresetManagerModal에서 사용)
+      setPresets(data);
     } catch (e) {
       // console.error(e);
     }
@@ -124,14 +130,8 @@ function App() {
     if (!presetId) return;
 
     try {
-      const token = localStorage.getItem('token');
-      // Fetch full preset data securely
-      const res = await fetch(`http://localhost:3001/presets/${presetId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch preset');
-
-      const preset = await res.json();
+      // API 함수 사용 (세션 기반 인증 자동 처리)
+      const preset = await getPreset(presetId);
       console.log('Loaded preset:', preset);
 
       // 1. Load BPM
@@ -197,21 +197,9 @@ function App() {
     return () => window.removeEventListener('loadPreset', handleLoadEvent);
   }, []); // Empty dependency array ok here, or depend on store if needed for refreshes
 
-  const handleStart = async () => {
-    try {
-      // 1. Explicitly start Tone.js context
-      await import('tone').then(t => t.start());
-
-      // 2. Initialize Audio Engine (synths, etc.)
-      await audioEngine.init();
-
-      // 3. Update State
-      setAudioContextReady(true);
-
-    } catch (e) {
-      console.error('[App] Start Error:', e);
-      alert('Error starting Audio Engine: ' + (e.message || e));
-    }
+  const handleStart = () => {
+    // Community 페이지로 이동
+    window.location.href = '/community';
   };
 
   // Spacebar to Toggle Live Mode
@@ -238,12 +226,22 @@ function App() {
   }, [toggleLiveMode]);
 
   const handleLogin = () => {
+    // Google 로그인
     window.location.href = loginURL;
   };
 
   const handleLogout = async () => {
-    await logout();
-    setUser(null);
+    try {
+      await logout();
+      setUser(null);
+      // 페이지 새로고침하여 상태 초기화
+      window.location.reload();
+    } catch (err) {
+      console.error('Logout failed:', err);
+      // 에러가 발생해도 사용자 상태는 초기화
+      setUser(null);
+      window.location.reload();
+    }
   };
 
   const handleSave = async () => {
