@@ -16,3 +16,8 @@ export const savePreset = async (data) => {
     const response = await client.post('/presets', data);
     return response.data;
 };
+
+export const deletePreset = async (id) => {
+    const response = await client.delete(`/presets/${id}`);
+    return response.data;
+};

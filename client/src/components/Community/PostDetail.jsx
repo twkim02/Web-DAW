@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPost, likePost, downloadPost, deletePost, togglePublish } from '../../api/posts';
 import useStore from '../../store/useStore';
+import EditPostModal from './EditPostModal';
 
 /**
  * 게시글 상세 컴포넌트 (MVP)
@@ -13,6 +14,7 @@ const PostDetail = () => {
     const [post, setPost] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchPost = async () => {
@@ -58,8 +60,7 @@ const PostDetail = () => {
 
         try {
             const result = await downloadPost(id);
-            // TODO: 프리셋 데이터를 로드하는 로직 추가 필요
-            // 현재는 다운로드 카운트만 업데이트
+            // 다운로드 카운트 업데이트
             if (post) {
                 setPost({ ...post, downloadCount: result.downloadCount });
             }
@@ -67,6 +68,21 @@ const PostDetail = () => {
         } catch (err) {
             alert('다운로드에 실패했습니다: ' + (err.response?.data?.message || err.message));
         }
+    };
+
+    const handleApplyPreset = async () => {
+        const postId = post?.id;
+        if (!postId) {
+            alert('게시글 정보를 찾을 수 없습니다.');
+            return;
+        }
+
+        // Post ID를 저장하여 downloadPost API로 프리셋 데이터 가져오기
+        localStorage.setItem('loadPostId', postId.toString());
+        localStorage.setItem('skipStartPage', 'true');
+
+        // 메인 페이지로 이동 (START 페이지 생략, App.jsx에서 자동으로 초기화)
+        window.location.href = '/';
     };
 
     const handleDelete = async () => {
@@ -91,6 +107,19 @@ const PostDetail = () => {
         } catch (err) {
             alert('공개 상태 변경에 실패했습니다: ' + (err.response?.data?.message || err.message));
         }
+    };
+
+    const handleEditSuccess = () => {
+        // 수정 후 포스트 데이터 다시 로드
+        const fetchPost = async () => {
+            try {
+                const data = await getPost(id);
+                setPost(data);
+            } catch (err) {
+                console.error('Failed to refresh post:', err);
+            }
+        };
+        fetchPost();
     };
 
     const isOwner = user && post && user.id === post.userId;
@@ -155,6 +184,21 @@ const PostDetail = () => {
             {/* 액션 버튼 */}
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button
+                    onClick={handleApplyPreset}
+                    style={{
+                        padding: '10px 20px',
+                        borderRadius: '5px',
+                        border: 'none',
+                        backgroundColor: '#2196F3',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: 'bold'
+                    }}
+                >
+                    ✨ 프리셋 적용
+                </button>
+                <button
                     onClick={handleLike}
                     disabled={!user}
                     style={{
@@ -188,6 +232,19 @@ const PostDetail = () => {
                 {isOwner && (
                     <>
                         <button
+                            onClick={() => setIsEditModalOpen(true)}
+                            style={{
+                                padding: '10px 20px',
+                                borderRadius: '5px',
+                                border: 'none',
+                                backgroundColor: '#FF9800',
+                                color: '#fff',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            ✏️ 수정
+                        </button>
+                        <button
                             onClick={handleTogglePublish}
                             style={{
                                 padding: '10px 20px',
@@ -216,6 +273,16 @@ const PostDetail = () => {
                     </>
                 )}
             </div>
+
+            {/* Edit Post Modal */}
+            {isOwner && (
+                <EditPostModal
+                    post={post}
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onSuccess={handleEditSuccess}
+                />
+            )}
         </div>
     );
 };

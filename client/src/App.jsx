@@ -115,6 +115,124 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setUser, loadPreferences]);
 
+  // Check if we should skip START page and auto-initialize audio context
+  useEffect(() => {
+    const skipStartPage = localStorage.getItem('skipStartPage');
+    if (skipStartPage === 'true') {
+      localStorage.removeItem('skipStartPage');
+      
+      // Auto-initialize audio context
+      const initAudio = async () => {
+        try {
+          await import('tone').then(t => t.start());
+          await audioEngine.init();
+          setAudioContextReady(true);
+        } catch (err) {
+          console.error('Failed to initialize audio context:', err);
+        }
+      };
+      
+      initAudio();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setAudioContextReady]);
+
+  // Check for post ID or preset ID from community page (load after START button is clicked)
+  useEffect(() => {
+    const checkAndLoadPreset = async () => {
+      const postId = localStorage.getItem('loadPostId');
+      const presetId = localStorage.getItem('loadPresetId');
+      
+      if (isAudioContextReady) {
+        if (postId) {
+          // Post ID가 있으면 downloadPost API로 프리셋 데이터 가져오기
+          localStorage.removeItem('loadPostId');
+          setTimeout(async () => {
+            try {
+              const { downloadPost } = await import('./api/posts');
+              const { getPresets, savePreset } = await import('./api/presets');
+              const result = await downloadPost(parseInt(postId));
+              
+              if (result.post && result.post.Preset) {
+                const originalPreset = result.post.Preset;
+                
+                // 로그인한 사용자인 경우, 해당 preset이 본인 계정에 있는지 확인
+                const user = useStore.getState().user;
+                if (user) {
+                  try {
+                    const myPresets = await getPresets();
+                    // 본인 계정의 presets 목록에서 원본 presetId와 동일한 preset이 있는지 확인
+                    const existingPreset = myPresets.find(p => p.id === originalPreset.id);
+                    
+                    if (!existingPreset) {
+                      // 본인 계정에 해당 preset이 없으면 복사본 생성
+                      console.log('Creating copy of preset:', originalPreset.id);
+                      
+                      // KeyMappings를 savePreset 형식으로 변환
+                      const mappings = (originalPreset.KeyMappings || []).map(m => ({
+                        keyChar: m.keyChar,
+                        mode: m.mode,
+                        volume: m.volume,
+                        type: m.type || null,
+                        note: m.note || null,
+                        assetId: m.assetId || null,
+                        synthSettings: m.synthSettings || null
+                      }));
+                      
+                      // 새 preset 생성
+                      const newPreset = await savePreset({
+                        title: originalPreset.title,
+                        bpm: originalPreset.bpm,
+                        masterVolume: originalPreset.masterVolume,
+                        isQuantized: originalPreset.isQuantized,
+                        settings: originalPreset.settings,
+                        mappings: mappings
+                      });
+                      
+                      console.log('Created new preset:', newPreset.id);
+                      
+                      // 새로 생성된 preset의 전체 데이터 가져오기 (KeyMappings 포함)
+                      const { getPreset } = await import('./api/presets');
+                      const fullNewPreset = await getPreset(newPreset.id);
+                      
+                      // 새로 생성된 preset으로 로드
+                      loadPresetFromData(fullNewPreset);
+                      
+                      // presets 목록 새로고침
+                      fetchPresets();
+                    } else {
+                      // 이미 본인 계정에 있으면 기존 preset으로 로드
+                      loadPresetFromData(originalPreset);
+                    }
+                  } catch (err) {
+                    console.error('Failed to check or copy preset:', err);
+                    // 에러 발생 시 원본 프리셋으로 로드 시도
+                    loadPresetFromData(originalPreset);
+                  }
+                } else {
+                  // 로그인하지 않은 경우 원본 프리셋으로 로드
+                  loadPresetFromData(originalPreset);
+                }
+              }
+            } catch (err) {
+              console.error('Failed to load preset from post:', err);
+              alert('프리셋을 불러오는데 실패했습니다.');
+            }
+          }, 500);
+        } else if (presetId) {
+          // Preset ID가 있으면 직접 로드 (자신의 프리셋)
+          localStorage.removeItem('loadPresetId');
+          setTimeout(() => {
+            loadPresetData(parseInt(presetId));
+          }, 500);
+        }
+      }
+    };
+
+    checkAndLoadPreset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAudioContextReady]);
+
   const fetchPresets = async () => {
     try {
       const data = await getPresets();
@@ -126,12 +244,11 @@ function App() {
     }
   };
 
-  const loadPresetData = async (presetId) => {
-    if (!presetId) return;
+  // 프리셋 데이터를 직접 로드하는 함수 (Post에서 가져온 데이터 또는 API로 가져온 데이터)
+  const loadPresetFromData = (preset) => {
+    if (!preset) return;
 
     try {
-      // API 함수 사용 (세션 기반 인증 자동 처리)
-      const preset = await getPreset(presetId);
       console.log('Loaded preset:', preset);
 
       // 1. Load BPM
@@ -183,7 +300,20 @@ function App() {
         // Refresh Library UI
         useStore.getState().triggerLibraryRefresh();
       }
-      alert(`Loaded: ${preset.title}`);
+      alert(`Loaded: ${preset.title || 'Preset'}`);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load preset');
+    }
+  };
+
+  const loadPresetData = async (presetId) => {
+    if (!presetId) return;
+
+    try {
+      // API 함수 사용 (세션 기반 인증 자동 처리) - 자신의 프리셋만 가능
+      const preset = await getPreset(presetId);
+      loadPresetFromData(preset);
     } catch (e) {
       console.error(e);
       alert('Failed to load preset');

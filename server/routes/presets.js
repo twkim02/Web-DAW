@@ -92,22 +92,57 @@ router.post('/', isAuthenticated, async (req, res) => {
 
 // DELETE /presets/:id - Delete a preset
 router.delete('/:id', isAuthenticated, async (req, res) => {
+    const t = await db.sequelize.transaction();
+    
     try {
-        const result = await db.Preset.destroy({
+        // 먼저 preset이 존재하고 사용자 소유인지 확인
+        const preset = await db.Preset.findOne({
             where: {
                 id: req.params.id,
                 userId: req.user.id
-            }
+            },
+            transaction: t
         });
 
-        if (result === 0) {
+        if (!preset) {
+            await t.rollback();
             return res.status(404).json({ message: 'Preset not found or unauthorized' });
         }
 
+        // 연결된 Post들을 먼저 삭제 (CASCADE 대신 명시적 삭제)
+        await db.Post.destroy({
+            where: {
+                presetId: req.params.id
+            },
+            transaction: t
+        });
+
+        // 연결된 KeyMapping들을 삭제
+        await db.KeyMapping.destroy({
+            where: {
+                presetId: req.params.id
+            },
+            transaction: t
+        });
+
+        // 마지막으로 Preset 삭제
+        await db.Preset.destroy({
+            where: {
+                id: req.params.id,
+                userId: req.user.id
+            },
+            transaction: t
+        });
+
+        await t.commit();
         res.json({ message: 'Preset deleted successfully' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server Error' });
+        await t.rollback();
+        console.error('Error deleting preset:', err);
+        res.status(500).json({ 
+            message: 'Server Error',
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
 });
 

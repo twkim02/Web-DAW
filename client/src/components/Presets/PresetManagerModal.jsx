@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import useStore from '../../store/useStore';
 import SharePresetModal from './SharePresetModal';
+import { deletePreset as deletePresetAPI } from '../../api/presets';
 
 const PresetManagerModal = ({ onClose }) => {
-    const { presets, setPresets, user, deletePreset } = useStore();
+    const { presets, setPresets, user, deletePreset: deletePresetFromStore } = useStore();
     const [isLoading, setIsLoading] = useState(false);
     const [sharingPreset, setSharingPreset] = useState(null);
 
@@ -29,21 +30,12 @@ const PresetManagerModal = ({ onClose }) => {
         if (!window.confirm("Are you sure you want to delete this preset?")) return;
 
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3001/presets/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (res.ok) {
-                // Update Store
-                deletePreset(id);
-            } else {
-                alert("Failed to delete preset");
-            }
+            await deletePresetAPI(id);
+            // Update Store
+            deletePresetFromStore(id);
         } catch (err) {
-            console.error(err);
-            alert("Error deleting preset");
+            console.error('Failed to delete preset:', err);
+            alert("Failed to delete preset: " + (err.response?.data?.message || err.message));
         }
     };
 

@@ -32,12 +32,16 @@ const Community = () => {
     checkUser();
   }, [setUser]);
 
-  // Other Design (공개된 게시글들) 로드
+  // Other Design (공개된 게시글들) 로드 - 자기가 게시하지 않은 post만 표시
   useEffect(() => {
     const fetchOtherDesigns = async () => {
       try {
         const data = await getPosts({ page: 1, limit: 20, sort: 'created' });
-        setOtherDesigns(data.posts || []);
+        // 로그인한 사용자가 게시한 post는 제외
+        const filteredPosts = user 
+          ? (data.posts || []).filter(post => post.userId !== user.id)
+          : (data.posts || []);
+        setOtherDesigns(filteredPosts);
       } catch (err) {
         console.error('Failed to fetch other designs:', err);
         setError('게시글을 불러오는데 실패했습니다.');
@@ -47,9 +51,9 @@ const Community = () => {
     };
 
     fetchOtherDesigns();
-  }, []);
+  }, [user]);
 
-  // My Design (내 게시글들) 로드
+  // My Design (내가 게시한 post만) 로드
   useEffect(() => {
     const fetchMyDesigns = async () => {
       if (!user) {
@@ -58,10 +62,13 @@ const Community = () => {
       }
 
       try {
+        // 내가 게시한 post만 가져오기 (게시하지 않은 preset은 제외)
         const data = await getMyPosts({ page: 1, limit: 20 });
         setMyDesigns(data.posts || []);
       } catch (err) {
         console.error('Failed to fetch my designs:', err);
+        // 에러 발생 시 빈 배열로 설정
+        setMyDesigns([]);
       }
     };
 
@@ -201,9 +208,9 @@ const Community = () => {
 
         {/* Routes for detail and create pages */}
         <Routes>
-          <Route path="/:id" element={<PostDetail />} />
-          <Route path="/create" element={<PostCreate />} />
-          <Route path="/" element={
+          <Route path=":id" element={<PostDetail />} />
+          <Route path="create" element={<PostCreate />} />
+          <Route index element={
             <>
               {/* Other Design Section */}
               <section style={{ marginBottom: '50px' }}>
@@ -251,7 +258,15 @@ const Community = () => {
                 ) : (
                   <div>
                     {myDesigns.map(post => (
-                      <PostCard key={post.id} post={post} />
+                      <PostCard 
+                        key={post.id} 
+                        post={post} 
+                        showEditDelete={true}
+                        onDelete={(deletedPostId) => {
+                          // 삭제된 포스트를 목록에서 제거
+                          setMyDesigns(prev => prev.filter(p => p.id !== deletedPostId));
+                        }}
+                      />
                     ))}
                   </div>
                 )}

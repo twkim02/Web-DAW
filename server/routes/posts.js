@@ -170,17 +170,8 @@ router.post('/', isAuthenticated, async (req, res) => {
             return res.status(404).json({ message: 'Preset not found or you do not have permission' });
         }
 
-        // Check if post already exists for this preset (1:1 relationship)
-        const existingPost = await db.Post.findOne({
-            where: { presetId: presetId }
-        });
-
-        if (existingPost) {
-            return res.status(409).json({ 
-                message: 'A post already exists for this preset',
-                post: existingPost
-            });
-        }
+        // Check if post already exists for this preset (1:1 relationship) - REMOVED
+        // 하나의 preset에 여러 post가 존재할 수 있으므로 중복 체크 제거
 
         // Create new post
         const post = await db.Post.create({
@@ -286,8 +277,10 @@ router.post('/:id/like', isAuthenticated, async (req, res) => {
     }
 });
 
-// POST /api/posts/:id/download - Download/increment download count (authenticated)
-router.post('/:id/download', isAuthenticated, async (req, res) => {
+// POST /api/posts/:id/download - Download/increment download count (optional auth)
+// 비로그인 사용자도 공개된 post의 프리셋을 다운로드할 수 있음
+// 다운로드 카운트 증가는 로그인한 사용자에게만 적용
+router.post('/:id/download', async (req, res) => {
     try {
         const post = await db.Post.findOne({
             where: {
@@ -311,11 +304,13 @@ router.post('/:id/download', isAuthenticated, async (req, res) => {
             return res.status(404).json({ message: 'Post not found' });
         }
 
-        // Increment download count
-        post.downloadCount += 1;
-        await post.save();
+        // 로그인한 사용자에게만 다운로드 카운트 증가
+        if (req.isAuthenticated()) {
+            post.downloadCount += 1;
+            await post.save();
+        }
 
-        // Return post with full preset data for download
+        // Return post with full preset data for download (로그인 여부와 관계없이)
         res.json({
             success: true,
             downloadCount: post.downloadCount,
