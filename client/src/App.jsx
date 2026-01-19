@@ -8,11 +8,13 @@ import VirtualPiano from './components/Instruments/VirtualPiano'; // Import Virt
 import VirtualDrums from './components/Instruments/VirtualDrums'; // Import VirtualDrums
 import { getCurrentUser, loginURL, devLoginURL, logout } from './api/auth';
 import { getPresets, savePreset } from './api/presets';
+import { useUserPreferences } from './hooks/useUserPreferences';
 import LeftSidebar from './components/Layout/LeftSidebar';
 import RightSidebar from './components/Layout/RightSidebar';
 import BackgroundVisualizer from './components/Visualizer/BackgroundVisualizer';
 import CustomDropdown from './components/UI/CustomDropdown';
 import PresetManagerModal from './components/Presets/PresetManagerModal';
+import SettingsModal from './components/Settings/SettingsModal';
 import { THEMES } from './constants/themes';
 import './App.css';
 
@@ -89,6 +91,7 @@ function App() {
   const [showVisualizer, setShowVisualizer] = React.useState(true); // Default ON
   const [isHeaderVisible, setIsHeaderVisible] = React.useState(true); // Header Toggle State
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Mixer State selectors removed from App to prevent re-renders
   // They are now in AudioController
@@ -101,8 +104,11 @@ function App() {
       if (userData) {
         setUser(userData);
         fetchPresets();
+        // Load user preferences when user is logged in
+        loadPreferences();
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setUser]);
 
   const fetchPresets = async () => {
@@ -463,6 +469,15 @@ function App() {
                       💬 Community
                     </Link>
 
+                    {/* Settings Button */}
+                    <button
+                      onClick={() => setIsSettingsOpen(true)}
+                      className="glass-btn"
+                      style={{ minWidth: '100px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      ⚙️ Settings
+                    </button>
+
                     <div className="header-divider"></div>
 
                     {/* User Actions */}
@@ -660,6 +675,9 @@ function App() {
 
                 {/* Preset Manager Modal */}
                 {isPresetManagerOpen && <PresetManagerModal onClose={() => setIsPresetManagerOpen(false)} />}
+
+                {/* Settings Modal */}
+                {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />}
               </div>
 
             </main>

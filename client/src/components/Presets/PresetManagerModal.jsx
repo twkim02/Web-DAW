@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import useStore from '../../store/useStore';
+import SharePresetModal from './SharePresetModal';
 
 const PresetManagerModal = ({ onClose }) => {
     const { presets, setPresets, user, deletePreset } = useStore();
     const [isLoading, setIsLoading] = useState(false);
+    const [sharingPreset, setSharingPreset] = useState(null);
 
     // Initial fetch if needed (though App.jsx usually handles it)
     // We'll rely on store 'presets'
@@ -97,6 +99,15 @@ const PresetManagerModal = ({ onClose }) => {
                                         Load
                                     </button>
                                     <button
+                                        onClick={(e) => { e.stopPropagation(); setSharingPreset(preset); }}
+                                        style={{
+                                            background: '#2196F3', color: '#fff', border: 'none',
+                                            padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem'
+                                        }}
+                                    >
+                                        Share
+                                    </button>
+                                    <button
                                         onClick={(e) => handleDelete(preset.id, e)}
                                         style={{
                                             background: '#f44336', color: '#fff', border: 'none',
@@ -110,6 +121,19 @@ const PresetManagerModal = ({ onClose }) => {
                         ))
                     )}
                 </div>
+
+                {/* Share Preset Modal */}
+                {sharingPreset && (
+                    <SharePresetModal
+                        preset={sharingPreset}
+                        isOpen={!!sharingPreset}
+                        onClose={() => setSharingPreset(null)}
+                        onSuccess={() => {
+                            // 게시 성공 후 프리셋 목록 새로고침 (필요시)
+                            setSharingPreset(null);
+                        }}
+                    />
+                )}
 
             </div>
         </div>
