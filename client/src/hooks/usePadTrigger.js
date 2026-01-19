@@ -6,110 +6,172 @@ import { audioEngine } from '../audio/AudioEngine';
 import { instrumentManager } from '../audio/InstrumentManager';
 import * as Tone from 'tone';
 
+/**
+ * usePadTrigger Hook
+ * Handles all logic for triggering a pad (Audio + Visuals + State)
+ */
 const usePadTrigger = () => {
     const setPadActive = useStore((state) => state.setPadActive);
-    // We need access to mappings to know the mode
-    // Using getState() inside the callback to avoid re-creating callbacks on every store change
-    // or useStore with a selector if we want reactivity, but for an event handler getState is fine and more performant.
 
+    // --- Helper: Visual FX Logic ---
+    const triggerVisualFX = useCallback((centerId, effect, color) => {
+        if (!effect || effect === 'none' || effect === 'pulse' || effect === 'flash') return;
+
+        const row = Math.floor(centerId / 8);
+        const col = centerId % 8;
+        const DELAY_STEP = 60;
+        const LIGHT_DURATION = 200;
+        const sourceColor = color || '#00ffcc';
+
+        const lightUp = (ids, delay) => {
+            setTimeout(() => {
+                ids.forEach(id => {
+                    if (id >= 0 && id < 64) {
+                        useStore.getState().setVisualState(id, { color: sourceColor });
+                        setTimeout(() => {
+                            useStore.getState().setVisualState(id, null);
+                        }, LIGHT_DURATION);
+                    }
+                });
+            }, delay);
+        };
+
+        if (effect === 'cross') {
+            // Horizontal & Vertical
+            for (let i = 0; i < 8; i++) {
+                if (i !== row) lightUp([i * 8 + col], Math.abs(i - row) * DELAY_STEP * 0.5); // Col
+                if (i !== col) lightUp([row * 8 + i], Math.abs(i - col) * DELAY_STEP * 0.5); // Row
+            }
+        } else if (effect === 'ripple') {
+            // Square Ripple
+            const MAX_RADIUS = 10;
+            for (let r = 1; r <= MAX_RADIUS; r++) {
+                const ringPads = [];
+                for (let c = col - r; c <= col + r; c++) {
+                    if (c >= 0 && c < 8 && (row - r) >= 0) ringPads.push((row - r) * 8 + c);
+                    if (c >= 0 && c < 8 && (row + r) < 8) ringPads.push((row + r) * 8 + c);
+                }
+                for (let ro = row - r + 1; ro <= row + r - 1; ro++) {
+                    if (ro >= 0 && ro < 8 && (col - r) >= 0) ringPads.push(ro * 8 + (col - r));
+                    if (ro >= 0 && ro < 8 && (col + r) < 8) ringPads.push(ro * 8 + (col + r));
+                }
+                if (ringPads.length > 0) lightUp(ringPads, r * DELAY_STEP);
+            }
+        }
+    }, []);
+
+    // --- Main Trigger Function ---
     const triggerPad = useCallback((padId, eventType) => {
-        // eventType: 'down' | 'up'
         const state = useStore.getState();
         const mapping = state.padMappings[padId];
+
+        // 1. Validation
         if (!mapping) return;
+        const isHasSound = mapping.file || (mapping.type && mapping.type !== 'sample');
+        if (!isHasSound) return;
 
         const mode = mapping.mode || 'one-shot';
         const type = mapping.type || 'sample';
+        const visualEffect = mapping.visualEffect || 'none';
 
-        console.log(`[Pad ${padId}] ${eventType} (Mode: ${mode}, Type: ${type})`);
-
+        // 2. Down Event Logic
         if (eventType === 'down') {
+            console.log(`[Pad ${padId}] DOWN (Mode: ${mode}, Type: ${type})`);
+
+            // A. Trigger Visuals
+            triggerVisualFX(padId, visualEffect, mapping.color);
             sequencer.recordEvent(padId);
 
-            // Toggle Mode Special Case
-            if (mode === 'toggle') {
-                if (type === 'synth') {
-                    // Check visual active state as a proxy for synth playing
-                    if (state.activePads[padId]) {
-                        audioEngine.stopSynthNote(mapping.note || 'C4');
-                        setPadActive(padId, false);
-                    } else {
-                        audioEngine.startSynthNote(mapping.note || 'C4');
-                        setPadActive(padId, true);
-                    }
-                } else {
-                    // Sample Toggle
-                    const isPlaying = sampler.isPlaying(padId);
-                    if (isPlaying) {
-                        sampler.stop(padId);
-                        setPadActive(padId, false);
-                    } else {
-                        // Toggle usually implies Looping for samples
-                        sampler.play(padId, { loop: true });
-                        setPadActive(padId, true);
-                    }
-                }
-                return; // Exit for toggle down
-            }
-
-            // Non-Toggle Down Logic
-            setPadActive(padId, true);
-
-            // --- Scheduling Logic ---
-            const quantization = state.launchQuantization; // 'none', '1m', '4n', etc.
+            // B. Determine Start Time (Quantization)
+            const quantization = state.launchQuantization;
             let startTime = undefined;
-
             if (quantization && quantization !== 'none') {
                 if (Tone.Transport.state !== 'started') {
-                    // FEATURE: If Transport is stopped, play IMMEDIATELY (standard DAW behavior)
-                    // Instead of waiting for next subdivision (which might be 1 bar away).
-                    console.log('[Trigger] Transport Stopped -> Playing Immediately & Starting Transport');
                     Tone.Transport.start();
-                    startTime = undefined; // Play now
                 } else {
-                    // Transport Running -> Schedule for next subdivision
                     startTime = Tone.Transport.nextSubdivision(quantization);
-                    const transportTime = Tone.Transport.position;
-                    // console.log(`[Trigger] Scheduled for: ${startTime} (Current: ${transportTime})`);
                 }
             }
-            // ------------------------
 
-            if (['synth', 'piano', 'drums'].includes(type)) {
-                // Instrument Trigger (Note, Duration, Time)
+            // C. Audio & State Logic by Mode
+
+            // --- C-1: LATCH MODES (Loop / Toggle) ---
+            if (mode === 'loop' || mode === 'toggle') {
+                // Determine if we should start or stop
+                const isCurrentlyActive = state.activePads[padId];
+
+                if (isCurrentlyActive) {
+                    // STOP
+                    setPadActive(padId, false);
+                    if (type === 'synth' || type === 'piano' || type === 'drums') {
+                        audioEngine.stopSynthNote(mapping.note || 'C4'); // Note: PolySynths might need padId
+                    } else {
+                        sampler.stop(padId);
+                    }
+                } else {
+                    // START
+                    setPadActive(padId, true);
+                    if (type === 'synth' || type === 'piano' || type === 'drums') {
+                        audioEngine.startSynthNote(mapping.note || 'C4');
+                    } else {
+                        const shouldLoop = true; // Toggle acts as Loop
+                        sampler.play(padId, {
+                            loop: shouldLoop,
+                            startTime,
+                            onLoop: () => triggerVisualFX(padId, visualEffect, mapping.color),
+                            onEnded: () => setPadActive(padId, false) // Natural end
+                        });
+                    }
+                }
+                return;
+            }
+
+            // --- C-2: MOMENTARY MODES (One-Shot / Gate) ---
+
+            // One-Shot Protection: Don't re-trigger if already playing
+            if (mode === 'one-shot' && type === 'sample' && sampler.isPlaying(padId)) {
+                return;
+            }
+
+            setPadActive(padId, true);
+
+            if (type === 'synth' || type === 'piano' || type === 'drums') {
                 const note = mapping.note || 'C4';
-                // Pass startTime to instrumentManager? 
-                // InstrumentManager.trigger needs update? 
-                // Currently it uses `synth.triggerAttackRelease(note, duration)`.
-                // It defaults to 'now'.
-                // Let's assume for now instruments play immediately or we update InstrumentManager later.
-                // Focusing on Samples for this task.
+                // Gate/OneShot for instruments is handled by NoteOn/NoteOff generally
+                // But for OneShot instrument, we might need set duration?
+                // Currently InstrumentManager trigger uses duration '8n' by default if updated?
+                // Let's stick to simple trigger.
                 instrumentManager.trigger(padId, note, '8n', startTime);
             } else {
-                // Legacy Sample
-                // Pass startTime to Sampler
-                if (mode === 'gate') {
-                    sampler.play(padId, { loop: true, startTime });
-                } else {
-                    sampler.play(padId, { loop: false, startTime });
-                }
+                // Sample Playback
+                const isGate = (mode === 'gate');
+
+                sampler.play(padId, {
+                    loop: isGate, // Gate loops while held? Or plays once? Usually Gate = Play while held.
+                    // If Gate loops, pass onLoop. If Gate is just "hold to play" (no loop), it stops at end.
+                    // Assuming Gate = Loop while held for Samples.
+                    startTime,
+                    onLoop: isGate ? () => triggerVisualFX(padId, visualEffect, mapping.color) : undefined,
+                    onEnded: !isGate ? () => setPadActive(padId, false) : undefined
+                });
             }
 
-        } else if (eventType === 'up') {
-            // Up Logic
-            if (mode === 'toggle') return;
+        }
 
-            setPadActive(padId, false);
-
+        // 3. Up Event Logic
+        else if (eventType === 'up') {
+            // Only Gate mode responds to Up events
             if (mode === 'gate') {
-                if (['synth', 'piano'].includes(type)) {
+                setPadActive(padId, false);
+                if (type === 'synth' || type === 'piano' || type === 'drums') {
                     instrumentManager.stopNote(padId, mapping.note || 'C4');
                 } else {
                     sampler.stop(padId);
                 }
             }
         }
-    }, [setPadActive]);
+
+    }, [setPadActive, triggerVisualFX]);
 
     return { triggerPad };
 };

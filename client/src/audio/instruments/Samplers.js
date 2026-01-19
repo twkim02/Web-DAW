@@ -39,6 +39,30 @@ export const SAMPLER_PRESETS = {
             "C8": "C8.mp3"
         }
     },
+    'acoustic_guitar': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_guitar_nylon-mp3/",
+        urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'electric_guitar': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/electric_guitar_clean-mp3/",
+        urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'cello': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/cello-mp3/",
+        urls: { "C2": "C2.mp3", "E2": "E2.mp3", "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3" }
+    },
+    'flute': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/flute-mp3/",
+        urls: { "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3", "E5": "E5.mp3", "A5": "A5.mp3", "C6": "C6.mp3", "E6": "E6.mp3" }
+    },
+    'clarinet': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/clarinet-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3", "E5": "E5.mp3" }
+    },
+    'choir': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/choir_aahs-mp3/",
+        urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
     'grand_piano': { // Moving Grand Piano here too for centralization
         baseUrl: "https://tonejs.github.io/audio/salamander/",
         urls: {

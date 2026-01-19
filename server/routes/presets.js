@@ -48,8 +48,9 @@ router.get('/:id', isAuthenticated, async (req, res) => {
 
 // POST /presets - Create new preset
 router.post('/', isAuthenticated, async (req, res) => {
-    const { title, bpm, mappings } = req.body;
+    const { title, bpm, mappings, settings } = req.body;
     // mappings: Array of { keyChar, mode, volume, type, assetId }
+    // settings: JSON object { mixerLevels, effects, ... }
 
     const t = await db.sequelize.transaction();
 
@@ -57,6 +58,7 @@ router.post('/', isAuthenticated, async (req, res) => {
         const preset = await db.Preset.create({
             title: title,
             bpm: bpm,
+            settings: settings, // Save global settings
             userId: req.user.id
         }, { transaction: t });
 
@@ -79,6 +81,27 @@ router.post('/', isAuthenticated, async (req, res) => {
         await t.rollback();
         console.error(err);
         res.status(500).json({ message: 'Failed to save preset' });
+    }
+});
+
+// DELETE /presets/:id - Delete a preset
+router.delete('/:id', isAuthenticated, async (req, res) => {
+    try {
+        const result = await db.Preset.destroy({
+            where: {
+                id: req.params.id,
+                userId: req.user.id
+            }
+        });
+
+        if (result === 0) {
+            return res.status(404).json({ message: 'Preset not found or unauthorized' });
+        }
+
+        res.json({ message: 'Preset deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
     }
 });
 

@@ -7,51 +7,159 @@ import { audioEngine } from './AudioEngine';
 class Sequencer {
     constructor() {
         this.events = []; // Current recording events
-        this.isRecording = false;
-        this.tracks = new Map(); // Map<id, { part: Tone.Part, ... }>
+        this.activeSlotIndex = null; // 0-5
+        this.tracks = new Map(); // Map<string, { part: Tone.Part, ... }> Key: "slot-0", "slot-1" etc.
         this.trackCounter = 1;
     }
 
-    startRecording() {
-        this.isRecording = true;
-        this.events = [];
-        console.log('Recording started...');
-        useStore.getState().setIsRecording(true);
+    /**
+     * Main Interaction Method for Slot Buttons
+     * @param {number} slotIndex 0-5
+     */
+    toggleSlot(slotIndex) {
+        const state = useStore.getState();
+        const slotStatus = state.loopSlots[slotIndex]?.status || 'empty';
+
+        console.log(`[Sequencer] Toggle Slot ${slotIndex} (Status: ${slotStatus})`);
+
+        if (slotStatus === 'empty') {
+            // Case 1: Start Recording
+            this.recordToSlot(slotIndex);
+        } else if (slotStatus === 'recording') {
+            // Case 2: Stop Recording & Start Looping
+            this.stopRecording();
+        } else {
+            // Case 3: Playing/Stopped (Toggle Playback)
+            // User said: "Press sub button to replay loop".
+            // If playing, maybe Mute/Stop?
+            // If stopped, Play.
+            // Let's implement Mute Toggle for now, or Restart?
+            // "Rec stops... later sub button press -> loop repeats".
+            // Usually Loop Station button: Press = Play/Overdub (if supported) or Play/Stop.
+            // Let's do Play/Stop (Mute).
+            const trackId = `slot-${slotIndex}`;
+            this.toggleMute(trackId);
+
+            // Visual Update
+            const trackData = this.tracks.get(trackId);
+            const isMuted = trackData ? trackData.part.mute : true;
+            useStore.getState().setLoopSlotStatus(slotIndex, isMuted ? 'stopped' : 'playing');
+        }
+    }
+
+    recordToSlot(index) {
+        // Stop any other recording first
+        if (this.activeSlotIndex !== null) {
+            this.stopRecording();
+        }
+
+        console.log(`[Sequencer] Queue REC -> Slot ${index}`);
+        this.activeSlotIndex = index;
+        this.events = []; // Reset events
+
+        // Update UI
+        useStore.getState().setLoopSlotStatus(index, 'recording');
+        useStore.getState().setIsLoopRecording(true);
+
+        // Enter "ARMED" state: Waiting for first input
+        this.isWaitingForInput = true;
+        this.recordingStartTick = null;
+
+        // Ensure Transport is running for tick counting
+        if (Tone.Transport.state !== 'started') {
+            Tone.Transport.start();
+        }
     }
 
     stopRecording() {
-        if (!this.isRecording) return;
-        this.isRecording = false;
-        console.log('Recording stopped. Events:', this.events.length);
+        if (this.activeSlotIndex === null) return;
 
-        if (this.events.length > 0) {
-            this.createTrack(this.events);
+        // If we never received input, cancel recording
+        if (this.isWaitingForInput) {
+            console.log('[Sequencer] No input received. Cancelling recording.');
+            useStore.getState().setLoopSlotStatus(this.activeSlotIndex, 'empty');
+            this.activeSlotIndex = null;
+            this.isWaitingForInput = false;
+            useStore.getState().setIsLoopRecording(false);
+            return;
         }
 
-        useStore.getState().setIsRecording(false);
+        const slotIndex = this.activeSlotIndex;
+        console.log(`[Sequencer] STOP REC -> Slot ${slotIndex}`);
+
+        const recordingEndTick = Tone.Transport.ticks;
+        // Logic: Duration = End - Start
+        const durationTicks = recordingEndTick - this.recordingStartTick;
+
+        // Smart Length Calculation: Snap to NEAREST Bar
+        const TICKS_PER_BAR = 192 * 4; // 768 ticks
+        let loopBars = Math.round(durationTicks / TICKS_PER_BAR);
+
+        // Minimum 1 Bar
+        if (loopBars < 1) loopBars = 1;
+
+        const loopLengthTicks = loopBars * TICKS_PER_BAR;
+        const loopString = `${loopBars}m`;
+
+        console.log(`[Sequencer] Raw Duration: ${durationTicks}. Snapped to ${loopBars} bars (${loopLengthTicks} ticks).`);
+
+        if (this.events.length > 0) {
+            // Quantize and Normalize Events
+            const processedEvents = this.events.map(e => {
+                let relTick = e.rawTick - this.recordingStartTick;
+
+                // NO QUANTIZATION (Human Feel)
+                // Just keep relative tick
+                let quantized = relTick;
+
+                // 2. Wrap/Clamp to Loop Length
+                quantized = quantized % loopLengthTicks;
+
+                // Safety
+                if (quantized < 0) quantized += loopLengthTicks;
+
+                return {
+                    time: new Tone.Time(quantized, "i").toBarsBeatsSixteenths(),
+                    padId: e.padId
+                };
+            });
+
+            this.createTrack(processedEvents, loopString, slotIndex);
+        } else {
+            useStore.getState().setLoopSlotStatus(slotIndex, 'empty');
+        }
+
+        // Reset State
+        this.activeSlotIndex = null;
+        this.isWaitingForInput = false;
+        useStore.getState().setIsLoopRecording(false);
     }
 
     recordEvent(padId) {
-        if (!this.isRecording) return;
+        if (this.activeSlotIndex === null) return;
 
-        const ticks = Tone.Transport.ticks;
-        const QUANTIZE_GRID = 48; // 16th note
-        let quantizedTicks = Math.round(ticks / QUANTIZE_GRID) * QUANTIZE_GRID;
+        const currentTick = Tone.Transport.ticks;
 
-        const LOOP_LENGTH = 768; // 1 bar
-        if (quantizedTicks >= LOOP_LENGTH) quantizedTicks = 0;
+        // Auto-Start Logic
+        if (this.isWaitingForInput) {
+            console.log(`[Sequencer] Input Detected! Starting Recording at ${currentTick}`);
+            this.isWaitingForInput = false;
+            this.recordingStartTick = currentTick;
+            // The first event is effectively at 0 relative time, but we store raw tick.
+        }
 
-        const time = new Tone.Time(quantizedTicks, "i").toBarsBeatsSixteenths();
-
-        // Check for duplicate at same time to avoid flanging?
-        // simple push for now
-        this.events.push({ time, padId });
-        console.log(`Recorded Pad ${padId} at ${time}`);
+        this.events.push({ rawTick: currentTick, padId });
+        console.log(`[Sequencer] Captured Pad ${padId} (Slot ${this.activeSlotIndex})`);
     }
 
-    createTrack(events) {
-        const trackId = `track-${Date.now()}`;
-        const trackName = `Loop ${this.trackCounter++}`;
+    createTrack(events, loopLength, slotIndex) {
+        // Use fixed track ID for the slot to allow overwriting/managing
+        const trackId = `slot-${slotIndex}`;
+
+        // Dispose existing if any
+        if (this.tracks.has(trackId)) {
+            this.tracks.get(trackId).part.dispose();
+        }
 
         const part = new Tone.Part((time, event) => {
             // Visual trigger
@@ -59,25 +167,26 @@ class Sequencer {
             setTimeout(() => useStore.getState().setPadActive(event.padId, false), 100);
 
             // Audio trigger
-            sampler.play(event.padId);
+            const mapping = useStore.getState().padMappings[event.padId];
+            if (mapping) {
+                if (['synth', 'piano', 'drums'].includes(mapping.type)) {
+                    instrumentManager.trigger(event.padId, mapping.note || 'C4', '8n', time);
+                } else {
+                    sampler.play(event.padId, { startTime: time });
+                }
+            }
         }, events);
 
         part.loop = true;
-        part.loopEnd = '1m';
+        part.loopEnd = loopLength;
         part.start(0);
 
-        // Store internal reference
+        // Store
         this.tracks.set(trackId, { part, events });
 
-        // Update Global Store
-        useStore.getState().addTrack({
-            id: trackId,
-            name: trackName,
-            isMuted: false,
-            isSolo: false
-        });
-
-        console.log(`Created Track: ${trackName}`);
+        // Update UI
+        useStore.getState().setLoopSlotStatus(slotIndex, 'playing');
+        console.log(`[Sequencer] Created Loop in Slot ${slotIndex} (${loopLength})`);
     }
 
     toggleMute(trackId) {
@@ -87,12 +196,11 @@ class Sequencer {
             trackData.part.mute = isMuted;
             useStore.getState().updateTrack(trackId, { isMuted });
 
-            // If we are unmuting, we need to check if solo mode is active globally? 
-            // Simplified: Mute overrides everything usually.
-            // But if Solo is active on OTHER tracks, unmuting this shouldn't necessarily hear it?
-            // Let's stick to simple Mute/Solo logic:
-            // Mute = silence this.
-            // Solo = silence everyone else.
+            // If it's a Loop Slot, update UI status (Playing <-> Stopped)
+            if (trackId.startsWith('slot-')) {
+                const slotIndex = parseInt(trackId.replace('slot-', ''));
+                useStore.getState().setLoopSlotStatus(slotIndex, isMuted ? 'stopped' : 'playing');
+            }
 
             // If we have solos, we need to re-evaluate everyone's mute state.
             this.updateSoloState();
@@ -148,6 +256,13 @@ class Sequencer {
         }
     }
 
+    clearSlot(slotIndex) {
+        const trackId = `slot-${slotIndex}`;
+        this.deleteTrack(trackId);
+        useStore.getState().setLoopSlotStatus(slotIndex, 'empty');
+        console.log(`[Sequencer] Cleared Slot ${slotIndex}`);
+    }
+
     /**
      * Stop a specific track (Column 0-7)
      * In reality, tracks might not align 1:1 with columns if created dynamically.
@@ -157,6 +272,22 @@ class Sequencer {
      * Or if we have `useStore.tracks` as an array, we can index it.
      */
     stopTrack(colIndex) {
+        // 1. Loop Station Logic: If col is 0-5, Stop/Mute that slot
+        if (colIndex <= 5) {
+            const trackId = `slot-${colIndex}`;
+            if (this.tracks.has(trackId)) {
+                const trackData = this.tracks.get(trackId);
+                // "Stop" usually means Stop Playback & Reset
+                // For Loop Station in this UI, we treat "Stopped" as "Muted/Paused".
+                // Let's force Mute = true (Status = Stopped)
+                if (!trackData.part.mute) {
+                    this.toggleMute(trackId); // Use toggle logic to sync UI
+                }
+                console.log(`[Sequencer] Stopped Loop Slot ${colIndex}`);
+            }
+        }
+
+        // 2. Fallback: Stop active pads in this column (Legacy / One-Shots)
         // Find track by index in store
         const tracks = useStore.getState().tracks;
         if (tracks[colIndex]) {
@@ -167,14 +298,10 @@ class Sequencer {
                 console.log(`Stopped Track ${colIndex} (${trackId})`);
             }
         } else {
-            // Fallback: Stop all pads in this column?
-            // Since Phase 1 is just pads playing...
-            // Let's stop all active pads in this column (id % 8 === colIndex)
-            console.log(`Stopping Column ${colIndex}`);
+            // Stop active pads
             const activePads = useStore.getState().activePads;
             Object.keys(activePads).forEach(padId => {
                 if (parseInt(padId) % 8 === colIndex) {
-                    // Stop pad
                     import('./Sampler').then(({ sampler }) => sampler.stop(padId));
                     useStore.getState().setPadActive(padId, false);
                 }

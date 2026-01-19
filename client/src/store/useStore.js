@@ -5,13 +5,23 @@ const useStore = create((set) => ({
     bpm: 120,
     isPlaying: false,
     isMetronomeOn: false,
-    isRecording: false, // Global recording state
-    launchQuantization: '16n', // 'none', '1m', '4n', '8n', '16n'
+    isRecording: false, // Live Mode Video Recording
+    isLoopRecording: false, // Sequencer Loop Recording
+    launchQuantization: 'none', // 'none', '1m', '4n', '8n', '16n'
     setBpm: (bpm) => set({ bpm }),
     setIsPlaying: (isPlaying) => set({ isPlaying }),
     setIsMetronomeOn: (isOn) => set({ isMetronomeOn: isOn }),
     setIsRecording: (isRecording) => set({ isRecording }),
+    setIsLoopRecording: (isLoopRecording) => set({ isLoopRecording }),
     setLaunchQuantization: (val) => set({ launchQuantization: val }),
+
+    // Global FX State (Reverb, Delay)
+    // We already have 'effects' slice, but need to ensure it's loaded from presets.
+
+    // Preset Actions
+    deletePreset: (id) => set((state) => ({
+        presets: state.presets.filter(p => p.id !== id)
+    })),
 
     // Synth State
     synthParams: {
@@ -82,9 +92,15 @@ const useStore = create((set) => ({
     }),
 
     // Visual State for Pads (active or not)
-    activePads: {}, // { 0: true, 1: false ... }
+    activePads: {}, // { 0: true, 1: false ... } for logical playback
     setPadActive: (id, isActive) => set((state) => ({
         activePads: { ...state.activePads, [id]: isActive }
+    })),
+
+    // Visual FX State (Temporary colors/lighting)
+    visualStates: {}, // { 0: { color: '#f00' }, 1: null }
+    setVisualState: (id, stateData) => set((state) => ({
+        visualStates: { ...state.visualStates, [id]: stateData }
     })),
 
     // Pad Editing State
@@ -106,7 +122,23 @@ const useStore = create((set) => ({
     triggerLibraryRefresh: () => set({ lastLibraryUpdate: Date.now() }),
 
     // Loop/Track State
-    tracks: [], // { id, name, isMuted, isSolo }
+    // Slots: 0-5 (6 total)
+    loopSlots: Array(6).fill({ status: 'empty' }), // status: 'empty', 'recording', 'playing', 'stopped'
+    setLoopSlotStatus: (index, status) => set((state) => {
+        const newSlots = [...state.loopSlots];
+        newSlots[index] = { ...newSlots[index], status };
+        return { loopSlots: newSlots };
+    }),
+
+    // Instruction Modal
+    isInstructionOpen: false,
+    setIsInstructionOpen: (isOpen) => set({ isInstructionOpen: isOpen }),
+
+    // Mixer Selection Logic
+    selectedMixerTrack: 0, // 0-7
+    setSelectedMixerTrack: (index) => set({ selectedMixerTrack: index }),
+
+    tracks: [], // Legacy tracks (keep for compatibility if needed, but Slots will use internal Sequencer mapping)
     addTrack: (track) => set((state) => ({ tracks: [...state.tracks, track] })),
     removeTrack: (id) => set((state) => ({ tracks: state.tracks.filter(t => t.id !== id) })),
     updateTrack: (id, updates) => set((state) => ({
@@ -135,7 +167,7 @@ const useStore = create((set) => ({
     }),
 
     // Zoom UI State
-    isZoomed: true,
+    isZoomed: false,
     setIsZoomed: (isZoomed) => set({ isZoomed }),
 
     // Launchpad View Mode
@@ -146,11 +178,24 @@ const useStore = create((set) => ({
     currentThemeId: 'cosmic',
     setThemeId: (id) => set({ currentThemeId: id }),
 
+    // Custom Background State
+    customBackgroundImage: null,
+    setCustomBackgroundImage: (url) => set({ customBackgroundImage: url }),
+
+
     // --- Sidebar State ---
     isLeftSidebarOpen: true,
-    isRightSidebarOpen: true,
     toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
+
+    isRightSidebarOpen: false, // Default closed
+    setIsRightSidebarOpen: (isOpen) => set({ isRightSidebarOpen: isOpen }),
+    rightSidebarView: 'library', // 'library' | 'settings'
+    setRightSidebarView: (view) => set({ rightSidebarView: view }),
     toggleRightSidebar: () => set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen })),
+
+    // --- Live Mode State ---
+    isLiveMode: false,
+    toggleLiveMode: () => set((state) => ({ isLiveMode: !state.isLiveMode })),
 
     // Mixer State (8 tracks corresponding to 8 columns)
     mixerLevels: {

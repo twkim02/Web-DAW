@@ -23,6 +23,13 @@ const AudioController = () => {
         }
     }, [mixerLevels, trackStates]);
 
+    // --- Global FX Sync Effect ---
+    const effects = useStore((state) => state.effects);
+    useEffect(() => {
+        audioEngine.updateEffectParams('reverb', effects.reverb);
+        audioEngine.updateEffectParams('delay', effects.delay);
+    }, [effects]);
+
     // --- BPM Sync Effect ---
     useEffect(() => {
         audioEngine.setBpm(bpm);
@@ -33,6 +40,33 @@ const AudioController = () => {
     useEffect(() => {
         audioEngine.setMetronome(isMetronomeOn);
     }, [isMetronomeOn]);
+
+    // --- Pad Effect Sync (Real-time) ---
+    const editingPadId = useStore((state) => state.editingPadId);
+    const padMappings = useStore((state) => state.padMappings);
+
+    // Deep selection of the editing pad's effects to trigger update
+    // Handle both 'effects' (Array) and legacy 'effect' (Object)
+    const editingPad = editingPadId !== null ? padMappings[editingPadId] : null;
+    const activeEffectsArray = editingPad?.effects;
+    const activeLegacyEffect = editingPad?.effect;
+
+    useEffect(() => {
+        if (editingPadId !== null && editingPad) {
+            // Normalize: Ensure it's an array. Prioritize 'effects' array. Fallback to 'effect' object wrapped in array.
+            let effectsChain = [];
+            if (Array.isArray(activeEffectsArray)) {
+                effectsChain = activeEffectsArray;
+            } else if (activeLegacyEffect) {
+                effectsChain = [activeLegacyEffect];
+            }
+
+            // Apply Chain
+            import('../../audio/InstrumentManager').then(({ instrumentManager }) => {
+                instrumentManager.applyEffectChain(editingPadId, effectsChain);
+            });
+        }
+    }, [activeEffectsArray, activeLegacyEffect, editingPadId]);
 
     return null; // This component handles side effects only
 };

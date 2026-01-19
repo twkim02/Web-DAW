@@ -4,10 +4,15 @@ const upload = require('../middleware/upload');
 const db = require('../models');
 const fs = require('fs');
 
-// GET /upload - List all assets
+// GET /upload - List all assets (optional filter by category)
 router.get('/', async (req, res) => {
     try {
+        const { category } = req.query;
+        const whereClause = {};
+        if (category) whereClause.category = category;
+
         const assets = await db.Asset.findAll({
+            where: whereClause,
             order: [['createdAt', 'DESC']]
         });
         res.json(assets);
@@ -24,19 +29,18 @@ router.post('/', upload.single('file'), async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        if (!req.user) {
-            // For Phase 1/2 demo without strict login enforcement, we might mock a user or require login
-            // return res.status(401).json({ message: 'Unauthorized' });
-        }
+        // ... (auth check)
 
         const { originalname, filename, path: filePath, mimetype } = req.file;
+        const { category } = req.body; // 'sample', 'synth', 'instrument'
 
         const asset = await db.Asset.create({
             originalName: originalname,
             filename: filename,
             filePath: filePath,
             mimetype: mimetype,
-            userId: req.user ? req.user.id : null // Allow null for guest uploads if desired
+            category: category || 'sample',
+            userId: req.user ? req.user.id : null
         });
 
         res.json({

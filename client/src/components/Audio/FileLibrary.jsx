@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
+import client from '../../api/client';
 import useStore from '../../store/useStore';
 import { uploadFile } from '../../api/upload';
 
@@ -20,7 +20,7 @@ const FileLibrary = () => {
     const confirmRename = async (id) => {
         if (!renameValue.trim()) return;
         try {
-            await axios.put('http://localhost:3001/upload/rename', {
+            await client.put('/upload/rename', {
                 id,
                 newName: renameValue.trim()
             });
@@ -34,19 +34,25 @@ const FileLibrary = () => {
 
     const fileInputRef = useRef(null);
 
+    // Multi-File Upload Handler
     const handleFileUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
 
         try {
             setLoading(true);
-            console.log('[FileLibrary] Uploading file:', file.name);
-            await uploadFile(file);
-            console.log('[FileLibrary] Upload success, refreshing list...');
+            console.log(`[FileLibrary] Uploading ${files.length} file(s)...`);
+
+            // Parallel is fine for small batches
+            const uploadPromises = files.map(file => uploadFile(file, 'sample'));
+
+            await Promise.all(uploadPromises);
+
+            console.log('[FileLibrary] Batch upload success, refreshing list...');
             await fetchAssets();
         } catch (err) {
             console.error('[FileLibrary] Upload failed', err);
-            alert('Failed to upload file');
+            alert('Failed to upload one or more files');
         } finally {
             setLoading(false);
             if (fileInputRef.current) {
@@ -58,7 +64,8 @@ const FileLibrary = () => {
     const fetchAssets = async () => {
         setLoading(true);
         try {
-            const res = await axios.get('http://localhost:3001/upload');
+            // Fetch only samples
+            const res = await client.get('/upload?category=sample');
             if (Array.isArray(res.data)) {
                 setAssets(res.data);
             } else {
@@ -79,7 +86,7 @@ const FileLibrary = () => {
 
         try {
             setLoading(true);
-            await axios.post('http://localhost:3001/upload/delete', {
+            await client.post('/upload/delete', {
                 ids: Array.from(selectedIds)
             });
             setSelectedIds(new Set());
@@ -188,6 +195,7 @@ const FileLibrary = () => {
 
             <input
                 type="file"
+                multiple
                 ref={fileInputRef}
                 style={{ display: 'none' }}
                 accept="audio/*"
@@ -218,28 +226,37 @@ const FileLibrary = () => {
                                 padding: '8px',
                                 borderRadius: '4px',
                                 cursor: isSelectionMode ? 'pointer' : 'grab',
-                                fontSize: '0.75rem', /* Smaller font for grid */
+                                fontSize: '0.75rem',
                                 border: isSelected ? '1px solid #00ffcc' : '1px solid #333',
                                 transition: 'all 0.1s',
                                 display: 'flex',
-                                flexDirection: 'column', /* Vertical layout for grid item */
-                                gap: '4px',
-                                overflow: 'hidden'
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: '8px',
+                                overflow: 'hidden',
+                                height: '40px'
                             }}
                         >
-                            {/* Selection Checkbox */}
-                            {isSelectionMode && (
-                                <div style={{
-                                    width: '12px', height: '12px',
-                                    background: isSelected ? '#00ffcc' : 'transparent',
-                                    border: isSelected ? '1px solid #00ffcc' : '1px solid #666',
-                                    borderRadius: '2px',
-                                    marginBottom: '4px',
-                                }}></div>
-                            )}
+                            {/* Left Slot: Always present to prevent horizontal jump */}
+                            {/* Normal: Music Icon, Select: Checkbox */}
+                            <div style={{
+                                flexShrink: 0,
+                                width: '20px', height: '20px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: isSelectionMode ? (isSelected ? '#00ffcc' : 'transparent') : 'rgba(255,255,255,0.05)',
+                                border: isSelectionMode ? (isSelected ? '1px solid #00ffcc' : '1px solid #666') : 'none',
+                                borderRadius: isSelectionMode ? '3px' : '50%', // Circle for icon, Square for checkbox
+                                transition: 'all 0.2s'
+                            }}>
+                                {isSelectionMode ? (
+                                    isSelected && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold' }}>✓</span>
+                                ) : (
+                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>🎵</span>
+                                )}
+                            </div>
 
                             {/* Content */}
-                            <div style={{ width: '100%', overflow: 'hidden' }}>
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                                 {isRenaming ? (
                                     <div style={{ display: 'flex', gap: '2px' }}>
                                         <input
@@ -270,18 +287,21 @@ const FileLibrary = () => {
                                             {asset.originalName}
                                         </div>
 
-                                        {!isSelectionMode && (
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-                                                <span style={{ fontSize: '0.65rem', color: '#666' }}>
-                                                    {new Date(asset.createdAt).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
-                                                </span>
+                                        {/* Footer: Date always visible to prevent vertical jump */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                                            <span style={{ fontSize: '0.65rem', color: '#666' }}>
+                                                {new Date(asset.createdAt).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
+                                            </span>
+
+                                            {/* Rename only available in Normal Mode */}
+                                            {!isSelectionMode && (
                                                 <span
                                                     onClick={(e) => startRename(e, asset)}
                                                     style={{ cursor: 'pointer', fontSize: '0.7rem', color: '#444' }}
                                                     title="Rename"
                                                 >✎</span>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </>
                                 )}
                             </div>

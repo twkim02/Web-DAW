@@ -5,6 +5,7 @@ import useStore from '../store/useStore'; // Static import for Choke logic
 class Sampler {
     constructor() {
         this.players = new Map(); // Direct Map of Tone.Player instances
+        this.loopTimers = new Map(); // Map for loop intervals
         this.destination = Tone.getDestination(); // Default output
     }
 
@@ -64,11 +65,7 @@ class Sampler {
         });
     }
 
-    /**
-     * Play a sample
-     * @param {string} key - Identifier of the sample to play
-     * @param {object} options - Options like startTime, offset, duration, loop
-     */
+    // ... inside play method ...
     play(key, options = {}) {
         if (this.players.has(key)) {
             const player = this.players.get(key);
@@ -80,29 +77,85 @@ class Sampler {
             // 1. Get Choke Group for this pad
             const padMappings = useStore.getState().padMappings;
             const currentPadId = parseInt(key);
-
+            const currentColumn = currentPadId % 8;
             const currentMapping = padMappings[currentPadId];
-            if (currentMapping && currentMapping.chokeGroup) {
-                const group = currentMapping.chokeGroup;
+            const explicitGroup = currentMapping ? currentMapping.chokeGroup : null;
 
-                // 2. Find other playing pads in same group
-                this.players.forEach((otherPlayer, otherKey) => {
-                    if (otherKey !== key && otherPlayer.state === 'started') {
-                        const otherId = parseInt(otherKey);
-                        const otherMapping = padMappings[otherId];
-                        if (otherMapping && otherMapping.chokeGroup === group) {
-                            // console.log(`[Sampler] Choking Pad ${otherKey} (Group ${group})`);
-                            otherPlayer.stop();
-                        }
+            // 2. Find other playing pads
+            this.players.forEach((otherPlayer, otherKey) => {
+                if (otherKey !== key && otherPlayer.state === 'started') {
+                    const otherId = parseInt(otherKey);
+                    const otherMapping = padMappings[otherId];
+                    let shouldChoke = false;
+                    if (explicitGroup && otherMapping && otherMapping.chokeGroup === explicitGroup) {
+                        shouldChoke = true;
+                    } else if (otherId % 8 === currentColumn) {
+                        shouldChoke = true;
                     }
-                });
-            }
-            // -------------------------
+                    if (shouldChoke) {
+                        // Clear their loop timer too
+                        if (this.loopTimers.has(otherKey)) {
+                            clearInterval(this.loopTimers.get(otherKey));
+                            this.loopTimers.delete(otherKey);
+                        }
+                        otherPlayer.stop();
+                        useStore.getState().setPadActive(otherId, false);
+                    }
+                }
+            });
 
-            // Stop if already playing to allow retrigger
-            if (player.state === 'started') {
-                player.stop();
+            // Clean up existing timer for this key
+            if (this.loopTimers.has(key)) {
+                clearInterval(this.loopTimers.get(key));
+                this.loopTimers.delete(key);
             }
+
+            // Unconditionally stop previous playback
+            player.onstop = null;
+            player.stop();
+
+            // Setup Loop Timer if needed
+            if (options.loop && options.onLoop && player.buffer) {
+                const start = player.loopStart || 0;
+                const end = player.loopEnd || player.buffer.duration;
+                const duration = (end - start);
+
+                if (duration > 0) {
+                    // Interval usage: standard JS interval
+                    const timerId = setInterval(() => {
+                        // Only trigger if still playing
+                        if (player.state === 'started') {
+                            options.onLoop();
+                        } else {
+                            clearInterval(timerId); // safety
+                        }
+                    }, duration * 1000);
+                    this.loopTimers.set(key, timerId);
+                }
+            }
+
+            // Assign onstop callback
+            if (options.onEnded) {
+                player.onstop = () => {
+                    // Clear timer on stop
+                    if (this.loopTimers.has(key)) {
+                        clearInterval(this.loopTimers.get(key));
+                        this.loopTimers.delete(key);
+                    }
+                    options.onEnded();
+                    player.onstop = null;
+                };
+            } else {
+                player.onstop = () => {
+                    // Default cleanup even if no onEnded
+                    if (this.loopTimers.has(key)) {
+                        clearInterval(this.loopTimers.get(key));
+                        this.loopTimers.delete(key);
+                    }
+                    player.onstop = null;
+                };
+            }
+
             player.start(options.startTime, options.offset, options.duration);
         } else {
             console.warn(`Sample ${key} not found`);
@@ -116,12 +169,13 @@ class Sampler {
         return false;
     }
 
-    /**
-     * Stop a sample
-     * @param {string} key 
-     */
     stop(key) {
         if (this.players.has(key)) {
+            // Clear Timer
+            if (this.loopTimers.has(key)) {
+                clearInterval(this.loopTimers.get(key));
+                this.loopTimers.delete(key);
+            }
             const player = this.players.get(key);
             player.stop();
             player.loop = false;

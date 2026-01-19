@@ -1,10 +1,11 @@
 import React from 'react';
-import Pad from './Pad'; // Keep Pad for Session Mode
+import Pad from './Pad';
+import SubButton from './SubButton';
+import InstructionModal from './InstructionModal';
 import styles from './Grid.module.css';
 import useKeyboardMap from '../../hooks/useKeyboardMap';
 import useStore from '../../store/useStore';
 import { sequencer } from '../../audio/Sequencer';
-import SubButton from './SubButton';
 import { THEMES } from '../../constants/themes';
 
 // ... (FaderColumn component kept same) ...
@@ -72,7 +73,10 @@ const Grid = () => {
     const editingPadId = useStore((state) => state.editingPadId); // Restored missing selector
 
     // --- Button Logic ---
-    const topButtons = ['▲', '▼', '◀', '▶', 'Session', 'Note', 'Custom', 'Mixer'];
+    const loopSlots = useStore((state) => state.loopSlots);
+    const selectedMixerTrack = useStore((state) => state.selectedMixerTrack);
+    const setIsInstructionOpen = useStore((state) => state.setIsInstructionOpen);
+    const topButtons = ['Session', 'Mixer', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'];
 
     // Side Buttons depend on View Mode
     // If in Mixer Selection Mode, show Controls. Otherwise, show Scene Launch?
@@ -89,14 +93,27 @@ const Grid = () => {
     // Mixer Mode: Right side is Vol, Pan, Snd A, Snd B, Stop, Mute, Solo, Rec Arm.
     const sideButtons = (isSession || isNote)
         ? Array(8).fill('►')
-        : ['Vol', 'Pan', 'Snd A', 'Snd B', 'Stop', 'Mute', 'Solo', 'Rec'];
+        : ['Vol', 'Pan', 'Snd A', 'Snd B', 'Stop', 'Mute', 'Solo', 'Clear'];
 
-    // ESC to Zoom Out
+    // ESC to Zoom Out + Loop Logic
     React.useEffect(() => {
         const handleKeyDown = (e) => {
+            // Check for Blocking Modals
+            const state = useStore.getState();
+            if (state.previewMode.isOpen || state.playingPadId !== null) return;
+
             if (e.key === 'Escape' && editingPadId === null) {
-                // Only zoom out if no modal is open
                 setIsZoomed(false);
+            }
+
+            // Loop Station: 5-0 (as requested)
+            if (!editingPadId && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                const loopKeys = ['Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0'];
+                if (loopKeys.includes(e.code)) {
+                    const slotIndex = loopKeys.indexOf(e.code);
+                    e.preventDefault();
+                    sequencer.toggleSlot(slotIndex);
+                }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -104,20 +121,54 @@ const Grid = () => {
     }, [editingPadId, setIsZoomed]);
 
     const handleTopClick = (label) => {
-        switch (label) {
-            case '▲': moveBank(0, -1); setIsZoomed(true); break;
-            case '▼': moveBank(0, 1); setIsZoomed(true); break;
-            case '◀': moveBank(-1, 0); setIsZoomed(true); break;
-            case '▶': moveBank(1, 0); setIsZoomed(true); break;
-            case 'Session': setViewMode('SESSION'); break;
-            case 'Note': setViewMode('NOTE'); break;
-            // case 'Custom': setViewMode('CUSTOM'); break; 
-            case 'Mixer':
-                // Toggle Mixer Selection or Go to Volume?
-                setViewMode('MIXER_SELECTION');
-                break;
-            default: console.log('Top:', label);
+        if (label === 'Session') { setViewMode('SESSION'); return; }
+        if (label === 'Mixer') { setViewMode('MIXER_SELECTION'); return; }
+
+        if (label.startsWith('L')) {
+            // Loop Slot
+            const slotIndex = parseInt(label.replace('L', '')) - 1;
+            sequencer.toggleSlot(slotIndex);
         }
+    };
+
+    // Get Color for Top Buttons
+    const getTopButtonProps = (label) => {
+        if (label === 'Session' || label === 'Mixer') return {};
+
+        if (label.startsWith('L')) {
+            const slotIndex = parseInt(label.replace('L', '')) - 1;
+            const status = loopSlots[slotIndex]?.status || 'empty';
+
+            let style = {};
+            let isActive = false;
+
+            if (status === 'recording') {
+                style = {
+                    borderColor: '#ff4444',
+                    color: '#ff4444',
+                    backgroundColor: 'rgba(255, 68, 68, 0.2)',
+                    animation: 'recordingBgPulse 1s infinite'
+                };
+                isActive = true;
+            } else if (status === 'playing') {
+                style = {
+                    borderColor: '#00ff00',
+                    color: '#00ff00',
+                    backgroundColor: 'rgba(0, 255, 0, 0.2)',
+                    boxShadow: '0 0 10px rgba(0, 255, 0, 0.2)'
+                };
+                isActive = true;
+            } else if (status === 'stopped') {
+                style = {
+                    borderColor: '#ffcc00',
+                    color: '#ffcc00',
+                    opacity: 0.7
+                };
+            }
+
+            return { style, isActive };
+        }
+        return {};
     };
 
     const handleSideClick = (label, index) => {
@@ -136,7 +187,7 @@ const Grid = () => {
             case 'Solo': setViewMode('SOLO'); break;
             case 'Stop': setViewMode('STOP'); break; // Or Transport Stop?
             case 'Stop': setViewMode('STOP'); break;
-            case 'Rec': setViewMode('ARM'); break; // Mixer Rec = Record Arm
+            case 'Clear': setViewMode('CLEAR'); break; // Replaces Rec (Arm)
             default: console.log('Side:', label);
         }
     };
@@ -174,7 +225,15 @@ const Grid = () => {
             const color = viewMode === 'VOLUME' ? '#00ffcc' : viewMode === 'PAN' ? '#ffaa00' : '#cc00ff';
 
             return Array(8).fill(null).map((_, i) => (
-                <div key={i} className={styles.columnCell} style={{ border: '1px solid #333', padding: '2px' }}>
+                <div
+                    key={i}
+                    className={styles.columnCell}
+                    style={{
+                        border: i === selectedMixerTrack ? '2px solid #fff' : '1px solid #333',
+                        backgroundColor: i === selectedMixerTrack ? 'rgba(255,255,255,0.1)' : 'transparent',
+                        padding: '2px'
+                    }}
+                >
                     <FaderColumn
                         index={i}
                         type={type}
@@ -186,39 +245,68 @@ const Grid = () => {
             ));
         }
 
-        if (['MUTE', 'SOLO', 'ARM'].includes(viewMode)) {
-            // Render Toggle Switches
-            const typeMap = { 'MUTE': 'mute', 'SOLO': 'solo', 'ARM': 'arm' };
+        if (['MUTE', 'SOLO', 'ARM', 'CLEAR'].includes(viewMode)) {
+            // Render Toggle Switches (CLEAR reuses this logic partially or separate?)
+            const typeMap = { 'MUTE': 'mute', 'SOLO': 'solo', 'ARM': 'arm', 'CLEAR': 'clear' };
             const type = typeMap[viewMode];
             const data = trackStates[type] || Array(8).fill(false);
 
             return Array(64).fill(null).map((_, i) => {
                 // Whole column toggles track state
                 const col = i % 8;
+
+                // For CLEAR mode, we don't toggle state, we trigger action.
+                // But let's reuse loop to render pads.
+
                 const isActive = data[col];
                 let color = '#222';
+                let label = '';
 
-                // Colors based on standard Launchpad / DAW conventions
-                if (viewMode === 'MUTE') { color = isActive ? '#ffca00' : '#222'; } // Mute Active (Silent) = Yellow
-                if (viewMode === 'SOLO') { color = isActive ? '#00ccff' : '#222'; } // Solo Active = Blue
-                if (viewMode === 'ARM') { color = isActive ? '#ff0000' : '#222'; } // Arm Active = Red
+                if (viewMode === 'MUTE') { color = isActive ? '#ffca00' : '#222'; label = i >= 56 ? 'M' : ''; }
+                if (viewMode === 'SOLO') { color = isActive ? '#00ccff' : '#222'; label = i >= 56 ? 'S' : ''; }
+                if (viewMode === 'ARM') { color = isActive ? '#ff0000' : '#222'; label = i >= 56 ? 'R' : ''; }
+
+                if (viewMode === 'CLEAR') {
+                    // Only columns 0-5 are valid loop slots
+                    if (col <= 5) {
+                        const loopStatus = useStore.getState().loopSlots[col]?.status;
+                        const hasLoop = loopStatus && loopStatus !== 'empty';
+                        color = hasLoop ? '#ffffff' : '#444'; // White if erasable
+                        label = hasLoop && i >= 56 ? 'CLR' : '';
+                    } else {
+                        color = '#222'; // Empty columns
+                    }
+                }
 
                 return (
                     <div
                         key={i}
-                        onClick={() => toggleTrackState(type, col)}
+                        onClick={() => {
+                            if (viewMode === 'CLEAR') {
+                                if (col <= 5) sequencer.clearSlot(col);
+                            } else if (viewMode === 'MUTE') {
+                                if (col <= 5) sequencer.toggleMute(`slot-${col}`);
+                                toggleTrackState(type, col); // Keep UI synced
+                            } else if (viewMode === 'SOLO') {
+                                if (col <= 5) sequencer.toggleSolo(`slot-${col}`);
+                                toggleTrackState(type, col); // Keep UI synced
+                            } else {
+                                toggleTrackState(type, col);
+                            }
+                        }}
                         style={{
                             width: '100%', height: '100%',
                             backgroundColor: color,
                             border: '1px solid #444',
-                            opacity: isActive ? 1 : 0.3,
+                            opacity: (viewMode === 'CLEAR' && col <= 5) ? 0.8 : (isActive ? 1 : 0.3),
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             cursor: 'pointer',
-                            color: '#fff', fontSize: '10px'
+                            color: viewMode === 'CLEAR' ? '#000' : '#fff',
+                            fontSize: '10px',
+                            fontWeight: 'bold'
                         }}
                     >
-                        {/* Show label on bottom row */}
-                        {i >= 56 ? (viewMode === 'MUTE' ? 'M' : viewMode === 'SOLO' ? 'S' : 'R') : ''}
+                        {label}
                     </div>
                 );
             });
@@ -232,9 +320,9 @@ const Grid = () => {
                     <div
                         key={i}
                         onClick={() => {
-                            // Stop Track Logic (Visual for now, Audio Engine needed)
+                            // Stop Track Logic
                             console.log(`Stopping Track ${col}`);
-                            // sequencer.stopTrack(col); // TODO: implement
+                            sequencer.stopTrack(col);
                         }}
                         style={{
                             width: '100%', height: '100%',
@@ -267,35 +355,205 @@ const Grid = () => {
         cursor: isZoomed ? 'zoom-out' : 'zoom-in'
     };
 
+    // --- Media Recorder Ref ---
+    const mediaRecorderRef = React.useRef(null);
+    const chunksRef = React.useRef([]);
+
+    // Live Mode State
+    const isLiveMode = useStore((state) => state.isLiveMode);
+    const toggleLiveMode = useStore((state) => state.toggleLiveMode);
+    const setIsRecording = useStore((state) => state.setIsRecording);
+
+    // Recording Logic
+    // Recording Logic
+    const handleRecordToggle = async () => {
+        if (isRecording) {
+            // STOP RECORDING
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                mediaRecorderRef.current.stop();
+            }
+            // Exit Fullscreen
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(err => console.log('Exit Fullscreen Error:', err));
+            }
+        } else {
+            // START RECORDING
+            try {
+                // 1. Auto Fullscreen (User Gesture Required - we are in a click handler)
+                if (!document.fullscreenElement) {
+                    await document.documentElement.requestFullscreen().catch(err => console.log('Fullscreen Error:', err));
+                }
+
+                // Small delay to allow fullscreen transition to complete for better capture
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // 2. Get Screen Stream (Clean Web Capture)
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: 30, // Reduced from 60 to 30 to save resources
+                        displaySurface: 'browser',
+                    },
+                    audio: false,
+                    preferCurrentTab: true,
+                    selfBrowserSurface: 'include',
+                    systemAudio: 'exclude',
+                    surfaceSwitching: 'include',
+                    monitorTypeSurfaces: 'exclude'
+                });
+
+                // 3. Get Audio Stream from AudioEngine
+                const { audioEngine } = await import('../../audio/AudioEngine');
+                const audioStream = audioEngine.getAudioStream();
+
+                if (!audioStream) {
+                    alert('Audio Engine not ready. Try again.');
+                    setIsRecording(false);
+                    return;
+                }
+
+                // 4. Combine Streams
+                const combinedStream = new MediaStream([
+                    ...screenStream.getVideoTracks(),
+                    ...audioStream.getAudioTracks()
+                ]);
+
+                // 5. Start MediaRecorder
+                // Use slightly lower bitrate to prevent performance choking
+                const options = {
+                    mimeType: 'video/webm; codecs=vp9,opus',
+                    videoBitsPerSecond: 2500000, // Reduced to 2.5 Mbps
+                    audioBitsPerSecond: 128000 // 128 kbps (Good Quality Audio)
+                };
+
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    console.warn("VP9 not supported, falling back to default webm");
+                    delete options.mimeType;
+                }
+
+                const mediaRecorder = new MediaRecorder(combinedStream, options);
+                mediaRecorderRef.current = mediaRecorder;
+                chunksRef.current = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) chunksRef.current.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    // Create Blob using the actual MIME type recorded
+                    const mimeType = mediaRecorder.mimeType || 'video/webm';
+                    const blob = new Blob(chunksRef.current, { type: mimeType });
+
+                    // Determine file extension based on MIME type
+                    const fileExt = mimeType.includes('mp4') ? 'mp4' : 'webm';
+
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `Live_Set_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${fileExt}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+
+                    // Stop Tracks
+                    combinedStream.getTracks().forEach(track => track.stop());
+                    setIsRecording(false);
+                };
+
+                mediaRecorder.start();
+                setIsRecording(true);
+
+                // Handle user stopping screen share via browser UI
+                screenStream.getVideoTracks()[0].onended = () => {
+                    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+                };
+
+            } catch (err) {
+                console.error("Recording Error:", err);
+                setIsRecording(false);
+            }
+        }
+    };
+
+    // Use refs to access latest state in event listener without re-binding
+    const latestState = React.useRef({ isLiveMode, handleRecordToggle });
+    latestState.current = { isLiveMode, handleRecordToggle };
+
+    React.useEffect(() => {
+        const handleKeyDown = (e) => {
+            // Check for Blocking Modals
+            const state = useStore.getState();
+            if (state.previewMode.isOpen || state.playingPadId !== null) return;
+
+            const { isLiveMode, handleRecordToggle } = latestState.current;
+            // Support Enter and NumpadEnter
+            if (isLiveMode && (e.code === 'Enter' || e.code === 'NumpadEnter' || e.key === 'Enter')) {
+                e.preventDefault();
+                if (!e.repeat) {
+                    console.log("[Grid] Enter key detected in Live Mode");
+                    handleRecordToggle();
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []); // Empty dependency array = bind once
+    // No explicit return need for this specific hook since it handles cleanup internally via the return above.
+    // handleRecordToggle uses isRecording from store and refs. 
+    // Since handleRecordToggle is re-created on render if dependencies change? 
+    // Actually handleRecordToggle is defined inside component body, so it captures current scope.
+    // So we need to include it in dependency or use a ref for the handler?
+    // Safer to include handleRecordToggle in dependency list, but it triggers re-effect.
+    // Let's rely on standard Hook behavior.
+
     return (
         <div className={`${styles.wrapper} ${isZoomed ? styles.zoomed : ''}`} style={{ ...zoomStyle, ...gridStyle }}>
+            <InstructionModal />
             {/* 1. Top Row */}
             <div className={styles.topSection}>
                 {topButtons.map((label, i) => (
-                    <SubButton key={`top-${i}`} label={label} onClick={() => handleTopClick(label)} />
+                    <SubButton
+                        key={`top-${i}`}
+                        label={label}
+                        onClick={() => handleTopClick(label)}
+                        {...getTopButtonProps(label)}
+                    />
                 ))}
             </div>
 
             {/* 2. Top Right Corner */}
             <div className={styles.corner}>
-                {/* Temp Logo */}
-                <div style={{
-                    width: '100%', height: '100%',
-                    backgroundImage: `url('/assets/images/logo.png')`, // Mapping specific path? Or explicit URI?
-                    // User uploaded: uploaded_image_1768654310916.png
-                    // I should probably copy this to the public folder first? 
-                    // Or I can use a placeholder for now as "Temp Logo".
-                    // Wait, I cannot use the exact path from the brain to the browser directly usually unless served.
-                    // I will create a simple styled div that SAYS "LOGO" as a placeholder OR
-                    // I will Assume I should put a generic icon first.
-                    // User request: "임시 로고를 추가해" (Add a temp logo).
-                    // I'll make a nice text-based logo or use a generic emoji if I can't serve the file immediately.
-                    // Lets try to make a styled text logo "WEB DAW".
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    background: '#111', borderRadius: '4px', border: '1px solid #333'
-                }}>
-                    <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '10px' }}>WEB</span>
-                    <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}>DAW</span>
+                {/* Dynamic Logo / Record Button */}
+                <div
+                    onClick={!isLiveMode ? toggleLiveMode : handleRecordToggle}
+                    style={{
+                        width: '100%', height: '100%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: isRecording ? '#ffffff' : (isLiveMode ? '#ffffff' : '#111'),
+                        borderRadius: '4px',
+                        border: isRecording ? '2px solid #ff4444' : (isLiveMode ? '1px solid #ccc' : '1px solid #333'),
+                        cursor: 'pointer',
+                        overflow: 'hidden',
+                        animation: isRecording ? 'recordingBgPulse 1s infinite' : 'none',
+                        transition: 'all 0.3s ease'
+                    }}
+                    title={
+                        !isLiveMode ? "Click or Press SPACE for Live Mode" :
+                            (isRecording ? "Click or Press ENTER to Stop Recording" : "Click or Press ENTER to Record")
+                    }
+                >
+                    <img
+                        src="/assets/images/logo.png"
+                        alt="WEB DAW"
+                        style={{
+                            width: '80%', height: '80%', objectFit: 'contain',
+                            filter: isLiveMode ? 'none' : 'grayscale(100%) opacity(0.7)' // Optional: Dim logo when not active? 
+                            // User liked the original logo. Let's keep it simple.
+                            // Actually, let's just keep it standard.
+                        }}
+                    />
                 </div>
             </div>
 

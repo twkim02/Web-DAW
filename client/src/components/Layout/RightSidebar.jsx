@@ -1,66 +1,46 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styles from './RightSidebar.module.css';
-import EffectLibrary from '../Audio/EffectLibrary';
 import useStore from '../../store/useStore';
+import PadSettingsPanel from '../Audio/PadSettingsPanel';
 
 const RightSidebar = () => {
-    const toggleRight = useStore(state => state.toggleRightSidebar);
     const isOpen = useStore(state => state.isRightSidebarOpen);
+    const effects = useStore(state => state.effects);
+    const setEffectParams = useStore(state => state.setEffectParams);
+
+    // No local view state needed anymore
+    // const view = useStore(state => state.rightSidebarView);
+
 
     return (
         <aside className={styles.rightSidebar} style={{
-            position: 'absolute',
-            right: 0, top: 0, bottom: 0,
-            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            position: 'fixed', // Changed from absolute to fixed
+            top: 0,
+            right: 0,
+            height: '100vh', // Ensure full height
+            zIndex: 9999, // Max z-index
+            // ... (keep default styles)
             transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
-            overflow: 'visible', // Ensure handle is seen
-            zIndex: 200,
-            boxShadow: isOpen ? '-4px 0 20px rgba(0,0,0,0.3)' : 'none'
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: isOpen ? '-5px 0 15px rgba(0,0,0,0.5)' : 'none'
         }}>
-            {/* Side Toggle Handle */}
-            <div
-                onClick={toggleRight}
-                style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '-12px', // Stick out to left
-                    transform: 'translateY(-50%)',
-                    width: '12px', height: '60px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    borderTopLeftRadius: '4px',
-                    borderBottomLeftRadius: '4px',
-                    borderLeft: '1px solid rgba(255,255,255,0.2)',
-                    borderTop: '1px solid rgba(255,255,255,0.1)',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)',
-                    cursor: 'pointer',
-                    zIndex: 201,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'rgba(255,255,255,0.5)',
-                    fontSize: '10px',
-                    userSelect: 'none',
-                    backdropFilter: 'blur(5px)'
-                }}
-                title={isOpen ? "Collapse Sidebar" : "Open Sidebar"}
-                onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff'; }}
-                onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
-            >
-                {isOpen ? '▶' : '◀'}
-            </div>
+            {/* ... (Handle remains same) ... */}
 
             <div className={styles.sidebarContent}>
+
+                {/* No Tabs - Direct Content */}
+
                 <div className={styles.section}>
-                    {/* Reuse SidebarTitle logic or just inline for now to match LeftSidebar vibe if needed, but using module class is better */}
-                    {/* <div className={styles.sidebarTitle}>EFFECTS</div> */}
-                    <EffectLibrary />
+                    {isOpen && ( // Use internal check or just always render logic
+                        // If we want to show 'Settings' only when editingPadId is set.
+                        // But we removed the conditional in App.jsx.
+                        // We can import useStore hook to check editingPadId here implicitly because PadSettingsPanel checks it.
+                        // Let's modify PadSettingsPanel to render null if no id? It already does: returns "No Pad Selected".
+                        // So just render it.
+                        <PadSettingsPanel />
+                    )}
                 </div>
 
-                {/* Placeholder for future Master Bus / Limiter controls */}
-                <div className={styles.section} style={{ marginTop: 'auto', opacity: 0.5 }}>
-                    <div className={styles.sidebarTitle}>MASTER BUS</div>
-                    <div style={{ fontSize: '0.8rem', color: '#888', textAlign: 'center', padding: '10px' }}>
-                        Comp / Limiter (Coming Soon)
-                    </div>
-                </div>
             </div>
         </aside>
     );

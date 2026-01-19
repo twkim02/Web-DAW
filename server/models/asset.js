@@ -14,6 +14,10 @@ module.exports = (sequelize, DataTypes) => {
         },
         mimetype: {
             type: DataTypes.STRING
+        },
+        category: {
+            type: DataTypes.ENUM('sample', 'synth', 'instrument'),
+            defaultValue: 'sample'
         }
     }, {
         tableName: 'Assets',
