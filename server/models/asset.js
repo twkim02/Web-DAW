@@ -20,6 +20,11 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: false,
             allowNull: false,
             comment: '마이크 녹음 여부 (TRUE: 녹음 파일, FALSE: 업로드 파일)'
+        },
+        category: {
+            type: DataTypes.ENUM('sample', 'synth', 'instrument'),
+            defaultValue: 'sample',
+            comment: '파일 카테고리 (sample: 샘플 파일, synth: 신스 프리셋, instrument: 악기 프리셋)'
         }
     }, {
         tableName: 'Assets',

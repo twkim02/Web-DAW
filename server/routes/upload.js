@@ -4,10 +4,15 @@ const upload = require('../middleware/upload');
 const db = require('../models');
 const fs = require('fs');
 
-// GET /upload - List all assets
+// GET /upload - List all assets (optional filter by category)
 router.get('/', async (req, res) => {
     try {
+        const { category } = req.query;
+        const whereClause = {};
+        if (category) whereClause.category = category;
+
         const assets = await db.Asset.findAll({
+            where: whereClause,
             order: [['createdAt', 'DESC']]
         });
         res.json(assets);
@@ -24,13 +29,10 @@ router.post('/', upload.single('file'), async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        if (!req.user) {
-            // For Phase 1/2 demo without strict login enforcement, we might mock a user or require login
-            // return res.status(401).json({ message: 'Unauthorized' });
-        }
+        // ... (auth check)
 
-        const { originalname, filename, path: filePath, mimetype, size } = req.file;
-        const { isRecorded } = req.body; // Optional: 'true' or 'false' as string from form data
+        const { originalname, filename, path: filePath, mimetype } = req.file;
+        const { isRecorded, category } = req.body; // isRecorded: 'true'/'false' (string), category: 'sample'/'synth'/'instrument'
 
         const asset = await db.Asset.create({
             originalName: originalname,
@@ -38,6 +40,7 @@ router.post('/', upload.single('file'), async (req, res) => {
             filePath: filePath,
             mimetype: mimetype,
             isRecorded: isRecorded === 'true' || isRecorded === true || false, // Default to false for uploads
+            category: category || 'sample', // Default to 'sample' if not provided
             userId: req.user ? req.user.id : null // Allow null for guest uploads if desired
         });
 

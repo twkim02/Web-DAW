@@ -15,7 +15,26 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-    origin: 'http://localhost:5173', // Vite Frontend
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        // Allow localhost and local network IPs
+        const allowedOrigins = [
+            'http://localhost:5173',
+            'http://127.0.0.1:5173'
+        ];
+
+        // Allow 10.x.x.x, 192.168.x.x, 172.16-31.x.x (Private IPs) for dev access
+        const isLocalNetwork = /^http:\/\/(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|localhost)/.test(origin);
+
+        if (allowedOrigins.indexOf(origin) !== -1 || isLocalNetwork) {
+            callback(null, true);
+        } else {
+            console.warn('CORS Blocked Origin:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 app.use(express.json());
@@ -84,7 +103,7 @@ app.use('/api/user/preferences', userPreferencesRoutes);
 app.use('/api/posts', postRoutes);
 
 // Sync Database & Start Server
-db.sequelize.sync().then(() => {
+db.sequelize.sync({ alter: true }).then(() => {
     app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
     });

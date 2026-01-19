@@ -2,13 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { audioEngine } from '../../audio/AudioEngine';
 
-const SPACE_IMAGES = [
-    'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80', // Nebula
-    'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80', // Galaxy
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80', // Earth/Space
-    'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80', // Deep Space
-    'https://images.unsplash.com/photo-1506318137071-a8bcbf6dd043?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80'  // Purple Nebula
-];
+
 
 const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc' }) => {
     const mountRef = useRef(null);
@@ -47,41 +41,7 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc' }) =>
 
             // --- 2. Random Space Background (Only for Dynamic) ---
             if (themeType === 'dynamic') {
-                const textureLoader = new THREE.TextureLoader();
-                textureLoader.setCrossOrigin('anonymous');
-                const randomImage = SPACE_IMAGES[Math.floor(Math.random() * SPACE_IMAGES.length)];
-
-                const bgGeometry = new THREE.PlaneGeometry(120, 80);
-                const bgMaterial = new THREE.MeshBasicMaterial({
-                    color: 0x888888,
-                    transparent: true,
-                    opacity: 0,
-                });
-
-                textureLoader.load(
-                    randomImage,
-                    (texture) => {
-                        bgMaterial.map = texture;
-                        bgMaterial.needsUpdate = true;
-                        let opacity = 0;
-                        const fadeIn = setInterval(() => {
-                            opacity += 0.05;
-                            bgMaterial.opacity = opacity;
-                            if (opacity >= 0.6) clearInterval(fadeIn);
-                        }, 50);
-                    },
-                    undefined,
-                    (err) => {
-                        bgMaterial.color.setHex(0x222222);
-                        bgMaterial.opacity = 1;
-                    }
-                );
-
-                backgroundPlane = new THREE.Mesh(bgGeometry, bgMaterial);
-                backgroundPlane.position.z = -20;
-                scene.add(backgroundPlane);
-
-                // Stars
+                // Stars (particles)
                 const starGeo = new THREE.BufferGeometry();
                 const starPos = new Float32Array(STAR_COUNT * 3);
                 for (let i = 0; i < STAR_COUNT * 3; i++) {
@@ -91,6 +51,9 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc' }) =>
                 const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
                 stars = new THREE.Points(starGeo, starMat);
                 scene.add(stars);
+
+                // Add a subtle fog for depth
+                scene.fog = new THREE.FogExp2(0x000000, 0.02);
             }
 
             // --- 3. NCS Visualizer (Bars) ---

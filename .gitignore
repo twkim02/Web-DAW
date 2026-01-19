@@ -7,4 +7,9 @@ coverage
 /client/node_modules
 /server/node_modules
 /client/dist
+
+# Server Config
 server/.env
+
+# Server Uploads
+server/uploads/

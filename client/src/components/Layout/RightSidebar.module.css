@@ -1,56 +1,251 @@
 .rightSidebar {
   width: 300px;
-  min-width: 250px;
-  height: 100vh;
-  background: rgba(20, 20, 20, 0.95);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  /* Slightly wider for better control spacing */
+  height: 100%;
+  background: rgba(10, 10, 12, 0.85);
+  /* Darker, more contrast */
+  backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  backdrop-filter: blur(10px);
-  z-index: 200;
-  /* Ensure on top of Main */
+  z-index: 10000;
+  color: #eee;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 .sidebarContent {
-  padding: 20px;
   flex: 1;
+  overflow-y: auto;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 20px;
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.sidebarTitle {
-  color: #fff;
-  font-size: 1.1rem;
-  margin: 0;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* 스크롤바 스타일링 */
-.rightSidebar::-webkit-scrollbar {
+.sidebarContent::-webkit-scrollbar {
   width: 6px;
 }
 
-.rightSidebar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.rightSidebar::-webkit-scrollbar-thumb {
+.sidebarContent::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
 
-.rightSidebar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+/* Titles */
+.sidebarTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #888;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+}
+
+/* Glass Card for FX */
+.fxGroup {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.fxGroup:hover {
+  border-color: rgba(0, 255, 204, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+}
+
+.fxLabel {
+  font-size: 0.9rem;
+  color: #00ffcc;
+  margin-bottom: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Controls */
+.controlRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.paramLabel {
+  font-size: 0.7rem;
+  color: #888;
+  width: 50px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.valueDisplay {
+  font-size: 0.75rem;
+  color: #ddd;
+  width: 40px;
+  text-align: right;
+  font-feature-settings: "tnum";
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* Custom Range Slider */
+.slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #00ffcc;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+  border: 2px solid #1a1a1a;
+  transition: transform 0.1s ease, background 0.1s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+  background: #fff;
+}
+
+.slider:active::-webkit-slider-thumb {
+  transform: scale(1.1);
+  background: #00ffcc;
+}
+
+/* Custom Dropdown/Select */
+.glassSelect {
+  width: 100%;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #00ffcc;
+  border: 1px dashed rgba(0, 255, 204, 0.4);
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.glassSelect:hover {
+  background: rgba(0, 255, 204, 0.1);
+  border-color: #00ffcc;
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
+}
+
+.glassSelect option {
+  background: #1a1a1a;
+  color: #fff;
+  padding: 10px;
+}
+
+/* Input Fields */
+.glassInput {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.glassInput:focus {
+  border-color: #00ffcc;
+}
+
+/* Mode Buttons */
+.modeBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #888;
+  padding: 8px 0;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.modeBtn.active {
+  background: rgba(0, 255, 204, 0.2);
+  border-color: #00ffcc;
+  color: #00ffcc;
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+}
+
+.delBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 85, 85, 0.3);
+  color: #ff5555;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delBtn:hover {
+  background: rgba(255, 85, 85, 0.2);
+  border-color: #ff5555;
+}
+
+/* Color Palette Grid */
+.colorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  /* Responsive columns */
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.colorSwatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.colorSwatch:hover {
+  transform: scale(1.1);
+  border-color: #fff;
+}
+
+.colorSwatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 10px currentColor;
+  transform: scale(1.1);
 }

@@ -1,50 +1,100 @@
+/* Base Pad Style */
 .pad {
+  --pad-bg: rgba(34, 34, 34, 0.6);
+  --pad-glow: transparent;
+
   width: 100%;
   aspect-ratio: 1;
-  /* Keep square */
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgba(34, 34, 34, 0.6);
+  background-color: var(--pad-bg);
   border-radius: 4px;
   cursor: pointer;
   position: relative;
-  transition: all 0.1s ease;
+  transition: transform 0.1s ease, background-color 0.1s;
   overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
 }
 
 .pad:hover {
-  background-color: rgba(51, 51, 51, 0.8);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* --- STATES --- */
+
+/* 1. Assigned (Has Sound) */
+.assigned {
   border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.05);
 }
 
-.pad:active,
-.pad.active {
-  transform: scale(0.95);
-  box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+/* 2. Active (Playing / Pressed) - Uses Fill Color */
+.active {
+  /* Set specific colors via style prop: --pad-bg, --pad-glow */
+  border-color: #fff;
+  box-shadow: 0 0 15px var(--pad-glow), inset 0 0 10px var(--pad-glow);
+  transform: scale(0.98);
 }
 
-/* Key Label (Corner) */
+/* 3. Ghost Active (Ripple Pass-through) - Transparent Body, Colored Glow */
+.ghostActive {
+  background-color: transparent !important;
+  border-color: var(--pad-glow);
+  box-shadow: 0 0 10px var(--pad-glow), inset 0 0 10px var(--pad-glow);
+}
+
+
+/* --- ANIMATIONS --- */
+
+.pulse {
+  animation: pulseAnim 1s infinite ease-in-out;
+}
+
+.flash {
+  animation: flashAnim 0.15s infinite;
+}
+
+@keyframes pulseAnim {
+  0% {
+    filter: brightness(1);
+    box-shadow: 0 0 15px var(--pad-glow);
+  }
+
+  50% {
+    filter: brightness(0.8);
+    box-shadow: 0 0 5px var(--pad-glow);
+  }
+
+  100% {
+    filter: brightness(1);
+    box-shadow: 0 0 15px var(--pad-glow);
+  }
+}
+
+@keyframes flashAnim {
+
+  0%,
+  100% {
+    filter: brightness(2) contrast(1.2);
+    background-color: #fff;
+  }
+
+  50% {
+    filter: brightness(1);
+    background-color: var(--pad-bg);
+  }
+}
+
+
 .keyLabel {
   position: absolute;
   top: 4px;
   left: 4px;
   font-size: 0.7rem;
-  color: #666;
+  color: rgba(255, 255, 255, 0.4);
   pointer-events: none;
 }
 
-/* Assigned State (Loaded) */
-.assigned {
-  background-color: rgba(200, 200, 200, 0.15);
-  /* Subtle White */
-  border-color: rgba(255, 255, 255, 0.5);
-  /* Stronger Border */
-  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05);
-}
-
-.assigned:hover {
-  background-color: rgba(200, 200, 200, 0.3);
-  border-color: rgba(255, 255, 255, 0.8);
+.active .keyLabel {
+  color: #000;
+  font-weight: bold;
 }

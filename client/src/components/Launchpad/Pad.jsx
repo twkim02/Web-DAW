@@ -7,34 +7,32 @@ import { sampler } from '../../audio/Sampler';
 import { instrumentManager } from '../../audio/InstrumentManager';
 
 const Pad = React.memo(({ id, label }) => {
+    // 1. Store Logic
     const isActive = useStore((state) => !!state.activePads[id]);
     const updatePadMapping = useStore((state) => state.updatePadMapping);
     const setEditingPadId = useStore((state) => state.setEditingPadId);
     const setPlayingPadId = useStore((state) => state.setPlayingPadId);
     const { triggerPad } = usePadTrigger();
 
-    // Select mapping individually to avoid re-renders from full map changes? 
-    // Actually selecting `state.padMappings[id]` is good, but `useStore` needs to be optimized in the component body or via selector?
-    // In strict mode `useStore(state => state.padMappings[id])` might re-run if object reference changes.
-    // However, Zustand is good at this.
-    // The main issue is the `console.log` and parent re-renders.
-
-    // Let's rely on React.memo for props. But ID and Label are static.
-    // The internal state selection triggers re-renders. 
-    // We can use `useStore` with an equality function or just select specific field.
     const mapping = useStore(state => state.padMappings[id]);
+    const visualState = useStore(state => state.visualStates[id]); // { color: '#...' }
 
+    // 2. Logic & Event Handlers
     const handleMouseDown = (e) => {
         if (e.shiftKey) {
             e.preventDefault();
             console.log('Opening settings for Pad', id);
             setEditingPadId(id);
+            // Ensure sidebar open
+            useStore.getState().setRightSidebarView('settings');
+            if (!useStore.getState().isRightSidebarOpen) {
+                useStore.getState().toggleRightSidebar();
+            }
             return;
         }
         triggerPad(id, 'down');
     };
 
-    // Right Click to Open Virtual Instrument
     const handleContextMenu = (e) => {
         e.preventDefault();
         const m = useStore.getState().padMappings[id];
@@ -47,157 +45,116 @@ const Pad = React.memo(({ id, label }) => {
 
     const handleMouseUp = () => triggerPad(id, 'up');
     const handleMouseLeave = () => triggerPad(id, 'up');
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-    };
+    const handleDragOver = (e) => e.preventDefault();
 
     const handleDrop = async (e) => {
         e.preventDefault();
-
-        // 1. Handle Internal Drag (Sidebar Library)
         const jsonData = e.dataTransfer.getData('application/json');
+
+        // 1. Internal Drop
         if (jsonData) {
             try {
                 const data = JSON.parse(jsonData);
-                console.log('Drop Data:', data); // DEBUG LOG
-
-                // CASE A: Audio File or Recording
                 if ((data.type === 'asset' || data.type === 'recording') && data.asset) {
                     const { asset } = data;
-                    console.log('Dropped Asset/Rec:', asset.originalName);
-
                     const fileUrl = `http://localhost:3001/uploads/${encodeURIComponent(asset.filename)}`;
-
                     updatePadMapping(id, {
                         file: fileUrl,
                         assetId: asset.id,
                         originalName: asset.originalName,
-                        type: 'sample', // It's an audio sample
+                        type: 'sample',
                         name: null,
-                        mode: 'one-shot'
+                        mode: 'one-shot',
+                        color: '#00ffcc'
                     });
-
-                    sampler.loadSample(id, fileUrl).catch(err => console.error('Load failed:', err));
-                    return;
-                }
-
-                // CASE B: Synth Preset
-                if (data.type === 'synth' && data.preset) {
-                    const { preset } = data;
-                    console.log('Dropped Synth:', preset.name);
-
+                    sampler.loadSample(id, fileUrl).catch(console.error);
+                } else if (data.type === 'synth' && data.preset) {
                     updatePadMapping(id, {
                         type: 'synth',
-                        name: preset.name,
-                        mode: 'gate', // Synths usually gate
-                        note: 'C4',   // Default note
-                        synthPreset: preset.id // Save preset ID for engine to use?
-                    });
-
-                    // TODO: Tell AudioEngine to set params for this pad/synth if polyphonic per pad?
-                    // For now, usePadTrigger just triggers generic synth note.
-                    // Ideally we'd store oscillator type in mapping to change sound on trigger.
-                    updatePadMapping(id, {
-                        synthParams: { oscillator: { type: preset.osc } }
-                    });
-
-                    return;
-                }
-
-                // CASE C: Instrument
-                if (data.type === 'instrument' && data.instrument) {
-                    updatePadMapping(id, {
-                        type: 'synth', // Fallback to synth for now until Sampler has instrument support
-                        name: instrument.name,
-                        mode: 'one-shot',
-                        note: 'C3',
+                        name: data.preset.name,
+                        mode: 'gate',
+                        note: 'C4',
+                        synthPreset: data.preset.id,
                         color: '#ff99cc'
                     });
-                    return;
+                } else if (data.type === 'effect' && data.effect) {
+                    updatePadMapping(id, { effect: data.effect });
+                    instrumentManager.applyEffect(id, data.effect);
                 }
-
-                // CASE D: Effect
-                if (data.type === 'effect' && data.effect) {
-                    const { effect } = data;
-                    console.log('Dropped Effect:', effect.name);
-
-                    // Update State
-                    updatePadMapping(id, {
-                        effect: effect, // { type, params, name }
-                        // Maybe change color to indicate FX?
-                        // color: '#00ffcc' 
-                    });
-
-                    // Update Audio Engine (Immediate)
-                    // We need to access InstrumentManager directly here or via a hook.
-                    // Ideally we'd prefer a hook, but `instrumentManager` is imported directly.
-                    instrumentManager.applyEffect(id, effect);
-
-                    return;
-                }
-
-            } catch (err) {
-                console.error('JSON Parse Error', err);
-            }
+            } catch (err) { console.error(err); }
         }
 
-        // 2. Handle External File Drop (OS)
+        // 2. External Drop
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('audio/')) {
             try {
-                console.log('Uploading...', file.name);
                 const response = await uploadFile(file);
-                // response: { message, file: { id, filePath, ... } }
-
                 const fileUrl = `http://localhost:3001/uploads/${encodeURIComponent(response.file.filename)}`;
-
-                // OPTIMISTIC UPDATE
                 updatePadMapping(id, {
                     file: fileUrl,
                     assetId: response.file.id,
                     originalName: response.file.originalName,
-                    name: null
+                    type: 'sample',
+                    mode: 'one-shot',
+                    color: '#00ffcc'
                 });
-
-                // Load Audio (Async)
-                sampler.loadSample(id, fileUrl).catch(err => {
-                    console.error('Failed to load uploaded sample:', err);
-                });
-
-                console.log('Sample Uploaded & Loaded:', fileUrl);
-            } catch (err) {
-                console.error('Upload failed', err);
-                alert('Upload failed');
-            }
+                sampler.loadSample(id, fileUrl).catch(console.error);
+            } catch (err) { alert('Upload failed'); }
         }
     };
 
-    // Construct dynamic style
-    const padStyle = {};
-    const customColor = mapping?.color;
+    // 3. Rendering Logic (Style & Classes)
 
-    // Remove Debug Log
-    // console.log(`[Pad ${id}] Render. Mapping:`, mapping);
-
-    if (isActive) {
-        padStyle.backgroundColor = customColor || '#00ffcc'; // Default cyan if no color
-        padStyle.boxShadow = `0 0 15px ${customColor || '#00ffcc'}, 0 0 30px ${customColor || '#00ffcc'}`;
-    }
-
-    // Check if pad has content
-    // Default type is 'sample', so we must check if file exists if type is 'sample'.
-    // If type is NOT 'sample' (e.g. 'synth'), it is assigned.
+    // Status
+    const isLogicallyActive = isActive;
+    const isVisuallyActive = !!visualState;
     const isAssigned = mapping && (mapping.file || (mapping.type && mapping.type !== 'sample'));
+
+    // Colors
+    // If Playing: Fill = MappingColor. Glow = VisualState(e.g. Ripple) OR MappingColor.
+    // If Ghost: Fill = Transparent. Glow = VisualState.
+
+    // Default Colors
+    const defaultColor = '#00ffcc';
+    const assignedColor = mapping?.color || defaultColor;
+    const visualColor = visualState?.color || assignedColor;
+
+    // CSS Variables
+    let cssVars = {};
+    let classes = [styles.pad];
+
+    if (isLogicallyActive) {
+        classes.push(styles.active);
+
+        // Apply Mode-Specific Animations
+        const fx = mapping?.visualEffect;
+        if (fx === 'pulse') classes.push(styles.pulse);
+        if (fx === 'flash') classes.push(styles.flash);
+
+        // Variables
+        // Fix: Explicitly set background color logic here to prevent overriding issues.
+        // If Active: Fill = AssignedColor. Glow = VisualColor (if ripple) OR AssignedColor.
+        cssVars['--pad-bg'] = assignedColor;
+        cssVars['--pad-glow'] = isVisuallyActive ? visualColor : assignedColor;
+
+        // Force background opacity to ensure fill is visible
+        cssVars['backgroundColor'] = assignedColor;
+
+    } else if (isVisuallyActive) {
+        // Just a ripple passing through
+        classes.push(styles.ghostActive);
+        cssVars['--pad-glow'] = visualColor;
+        cssVars['--pad-bg'] = 'transparent';
+        cssVars['backgroundColor'] = 'transparent';
+    } else if (isAssigned) {
+        classes.push(styles.assigned);
+        // Assigned but idle: uses .pad default or .assigned overrides
+    }
 
     return (
         <button
-            className={`
-                ${styles.pad} 
-                ${isActive ? styles.active : ''} 
-                ${isAssigned && !isActive ? styles.assigned : ''}
-            `}
-            style={padStyle}
+            className={classes.join(' ')}
+            style={cssVars}
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
@@ -205,7 +162,6 @@ const Pad = React.memo(({ id, label }) => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            {/* Corner Key Label */}
             <span className={styles.keyLabel}>{label}</span>
         </button>
     );

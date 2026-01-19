@@ -16,7 +16,8 @@ class AudioEngine {
             }
 
             // Optimize Latency
-            Tone.context.lookAhead = 0.05; // Default is 0.1. Lowering for faster response.
+            Tone.context.lookAhead = 0.05; // Lower lookAhead (default 0.1) for faster scheduling
+            // Tone.context.latencyHint is mostly usually set at context creation, so lookAhead is the main knob here.
 
             // Initialize Synth
             this.synth = new Tone.PolySynth(Tone.Synth, {
@@ -149,19 +150,42 @@ class AudioEngine {
             Tone.Transport.bpm.value = 120;
 
             // Initialize Metronome
+            // Use a MembraneSynth for a heavier, more stylish "click" (kick-like)
+            this.metronomeSynth = new Tone.MembraneSynth({
+                pitchDecay: 0.008,
+                octaves: 2,
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+            this.metronomeSynth.volume.value = -10;
+
             this.metronomePart = new Tone.Loop((time) => {
-                const osc = new Tone.Oscillator().toDestination();
-                osc.frequency.value = 800; // High pitch
-                osc.volume.value = -10;
-                osc.start(time).stop(time + 0.05); // Short beep
+                // High click for bar start (if we tracked bars), but for now just 4/4 clicks.
+                // Let's make it a consistent heavy click.
+                // Frequency G2 is punchy.
+                this.metronomeSynth.triggerAttackRelease("C2", "32n", time);
             }, "4n").start(0);
 
             this.metronomePart.mute = true;
+
+            // --- Recording Support ---
+            // Create a MediaStreamDestination to capture audio output
+            this.recordingDest = Tone.context.createMediaStreamDestination();
+            this.masterBuss.connect(this.recordingDest);
+
+            // Console confirmation
+            console.log('[AudioEngine] Metronome & Recording initialized');
 
         } catch (error) {
             console.error('[AudioEngine] Error during init:', error);
             throw error;
         }
+    }
+
+    // Expose the audio stream for MediaRecorder
+    getAudioStream() {
+        if (!this.recordingDest) return null;
+        return this.recordingDest.stream;
     }
 
     // ... (rest of methods)
@@ -201,6 +225,22 @@ class AudioEngine {
         }
     }
 
+    updateEffectParams(type, params) {
+        if (!this.isInitialized) return;
+
+        if (type === 'reverb' && this.reverb) {
+            if (params.decay !== undefined) this.reverb.decay = params.decay;
+            if (params.preDelay !== undefined) this.reverb.preDelay = params.preDelay;
+            // wet/mix is usually handled by send amount, but if we want global return level?
+            // For now, assume fixed return level (Unity) and control via Send.
+        }
+
+        if (type === 'delay' && this.delay) {
+            if (params.time !== undefined) this.delay.delayTime.rampTo(params.time, 0.1);
+            if (params.feedback !== undefined) this.delay.feedback.rampTo(params.feedback, 0.1);
+        }
+    }
+
     getAudioData() {
         if (!this.analyser) return null;
         return this.analyser.getValue();
@@ -223,22 +263,23 @@ class AudioEngine {
     }
 
     setBpm(bpm) {
+        if (!this.isInitialized) return; // Prevent premature Transport access
         if (Tone.Transport && isFinite(bpm)) {
             Tone.Transport.bpm.value = bpm;
-            console.log(`[AudioEngine] BPM updated to ${bpm}`);
+            // console.log('[AudioEngine] BPM updated to', bpm);
         }
     }
 
     setMetronome(isOn) {
-        if (this.metronomePart) {
-            this.metronomePart.mute = !isOn;
-            console.log(`[AudioEngine] Metronome ${isOn ? 'ON' : 'OFF'}`);
+        if (!this.isInitialized || !this.metronomePart) return; // Prevent premature access
+        this.metronomePart.mute = !isOn;
+        // console.log('[AudioEngine] Metronome', isOn ? 'ON' : 'OFF');
 
-            // Ensure Transport is running if Metronome is ON? 
-            // Usually Metronome only clicks when Transport is running.
-            // We rely on Global Play/Stop for Transport.
-        }
+        // Ensure Transport is running if Metronome is ON? 
+        // Usually Metronome only clicks when Transport is running.
+        // We rely on Global Play/Stop for Transport.
     }
 }
+
 
 export const audioEngine = new AudioEngine();
