@@ -1,12 +1,13 @@
 .rightSidebar {
-  width: 300px;
+  width: 380px;
   /* Slightly wider for better control spacing */
   height: 100%;
-  background: rgba(10, 10, 12, 0.85);
-  /* Darker, more contrast */
-  backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+  background: rgba(12, 12, 16, 0.65);
+  /* More transparent, sophisticated dark tint */
+  backdrop-filter: blur(25px) saturate(180%);
+  /* Stronger blur + saturation for premium glass feel */
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   z-index: 10000;
@@ -181,6 +182,13 @@
 
 .glassInput:focus {
   border-color: #00ffcc;
+}
+
+/* Mode Buttons Container */
+.modeGroup {
+  display: flex;
+  gap: 6px;
+  width: 100%;
 }
 
 /* Mode Buttons */

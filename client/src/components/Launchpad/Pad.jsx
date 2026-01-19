@@ -105,13 +105,15 @@ const Pad = React.memo(({ id, label }) => {
 
     // 3. Rendering Logic (Style & Classes)
 
-    // Status
+    // State
     const isLogicallyActive = isActive;
+    const isReserved = useStore((state) => state.queuedPads.has(id));
     const isVisuallyActive = !!visualState;
     const isAssigned = mapping && (mapping.file || (mapping.type && mapping.type !== 'sample'));
 
     // Colors
     // If Playing: Fill = MappingColor. Glow = VisualState(e.g. Ripple) OR MappingColor.
+    // If Reserved: Blink Yellow/Green.
     // If Ghost: Fill = Transparent. Glow = VisualState.
 
     // Default Colors
@@ -123,21 +125,25 @@ const Pad = React.memo(({ id, label }) => {
     let cssVars = {};
     let classes = [styles.pad];
 
-    if (isLogicallyActive) {
-        classes.push(styles.active);
+    if (isReserved) {
+        // RESERVED STATE (Queue)
+        classes.push(styles.assigned); // Base shape
+        cssVars['--pad-bg'] = '#ffee00'; // Yellow for reserved
+        cssVars['--pad-glow'] = '#ffee00';
+        cssVars['backgroundColor'] = 'transparent'; // Outline? Or Dim?
+        cssVars['border'] = '2px dashed #ffee00';
+        cssVars['animation'] = 'pulse 1s infinite'; // Reuse pulse
+        // Or specific reserved animation
 
-        // Apply Mode-Specific Animations
+    } else if (isLogicallyActive) {
+        classes.push(styles.active);
+        // ... (existing active logic)
         const fx = mapping?.visualEffect;
         if (fx === 'pulse') classes.push(styles.pulse);
         if (fx === 'flash') classes.push(styles.flash);
 
-        // Variables
-        // Fix: Explicitly set background color logic here to prevent overriding issues.
-        // If Active: Fill = AssignedColor. Glow = VisualColor (if ripple) OR AssignedColor.
         cssVars['--pad-bg'] = assignedColor;
         cssVars['--pad-glow'] = isVisuallyActive ? visualColor : assignedColor;
-
-        // Force background opacity to ensure fill is visible
         cssVars['backgroundColor'] = assignedColor;
 
     } else if (isVisuallyActive) {
@@ -148,7 +154,6 @@ const Pad = React.memo(({ id, label }) => {
         cssVars['backgroundColor'] = 'transparent';
     } else if (isAssigned) {
         classes.push(styles.assigned);
-        // Assigned but idle: uses .pad default or .assigned overrides
     }
 
     return (

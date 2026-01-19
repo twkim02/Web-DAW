@@ -64,12 +64,14 @@ const InstructionModal = () => {
         {
             title: '🔊 Mixer Shortcuts',
             items: [
-                { key: 'Tab', desc: 'Select Mixer Mode' },
-                { key: '[  /  ]', desc: 'Cycle Mixer Modes (Vol -> Pan -> Send)' },
-                { key: '← / → Arrows', desc: 'Select Track (Column)' },
-                { key: '↑ / ↓ Arrows', desc: 'Adjust Level (Vol/Pan/Send)' },
-                { key: 'U, I, O, P', desc: 'Switch View: Vol, Pan, Send A, Send B' },
-                { key: 'M, K, L', desc: 'Mute, Solo, Loop Clear' },
+                { key: 'Tab', desc: 'Select / Toggle Mixer Mode' },
+                { key: '1 ~ 8', desc: 'Select Track (Column) directly' },
+                { key: '↑ / ↓ Arrows', desc: 'Adjust Volume / Parameter' },
+                { key: '[  /  ]', desc: 'Cycle Modes (Vol, Pan, Send, Mute...)' },
+                { key: 'M -> 1-8', desc: 'Mute Mode: Press M, then 1-8 to Toggle Track' },
+                { key: 'K -> 1-8', desc: 'Solo Mode: Press K, then 1-8 to Toggle Track' },
+                { key: 'Stop Mode -> 1-8', desc: 'Press Backspace, then 1-8 to Stop Track' },
+                { key: 'U, I, O, P', desc: 'Quick View: Vol, Pan, Send A, Send B' },
             ]
         }
     ];

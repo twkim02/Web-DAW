@@ -11,6 +11,9 @@ const storage = multer.diskStorage({
         cb(null, uploadPath);
     },
     filename: function (req, file, cb) {
+        // Fix for Korean/UTF-8 filenames in Multer
+        file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+
         // timestamp_originalName
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, uniqueSuffix + path.extname(file.originalname));

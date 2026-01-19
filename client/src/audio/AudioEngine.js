@@ -150,31 +150,73 @@ class AudioEngine {
             Tone.Transport.bpm.value = 120;
 
             // Initialize Metronome
-            // Use a MembraneSynth for a heavier, more stylish "click" (kick-like)
-            this.metronomeSynth = new Tone.MembraneSynth({
-                pitchDecay: 0.008,
-                octaves: 2,
+            // Use a Synth configured for a sharp "Woodblock" click
+            this.metronomeSynth = new Tone.Synth({
                 oscillator: { type: "sine" },
-                envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+                envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.05 }
             }).toDestination();
-            this.metronomeSynth.volume.value = -10;
+            this.metronomeSynth.volume.value = -5; // Slightly louder to be audible
 
+            // 1. Synced Metronome (for Playback/Recording)
             this.metronomePart = new Tone.Loop((time) => {
-                // High click for bar start (if we tracked bars), but for now just 4/4 clicks.
-                // Let's make it a consistent heavy click.
-                // Frequency G2 is punchy.
-                this.metronomeSynth.triggerAttackRelease("C2", "32n", time);
+                const position = Tone.Transport.position;
+                if (!position) return;
+                const parts = position.split(':');
+                if (parts.length < 2) return;
+                const beat = parts[1];
+                const isDownbeat = (beat === "0" || beat === 0);
+                const note = isDownbeat ? "C6" : "C5";
+                this.metronomeSynth.triggerAttackRelease(note, "32n", time);
             }, "4n").start(0);
-
             this.metronomePart.mute = true;
+
+            // 2. Idle Metronome Logic (Clock)
+            // Frequency = BPM / 60 (beats per second)
+            this.idleMetronome = new Tone.Clock((time) => {
+                // Determine downbeat by tracking ticks (approximate)
+                const beatCount = this.idleMetronome.ticks;
+                // Tone.Clock ticks are default 1 per callback? No, ticks based on frequency?
+                // Actually callback is called at frequency.
+                // We'll just toggle high/low based on simple count.
+                // Note: This won't be perfectly phase-aligned with "Transport 0:0:0" but good enough for idle check.
+
+                // Let's manually increment a counter
+                const count = (this.idleTickCount || 0);
+                const isDownbeat = (count % 4 === 0);
+                const note = isDownbeat ? "C6" : "C5";
+                this.metronomeSynth.triggerAttackRelease(note, "32n", time);
+
+                this.idleTickCount = count + 1;
+            }, Tone.Transport.bpm.value / 60);
+
+            // Event Listeners to toggle between Idle and Synced
+            Tone.Transport.on('start', () => {
+                this.idleMetronome.stop();
+            });
+
+            Tone.Transport.on('stop', () => {
+                if (this.isMetronomeOn) {
+                    this.idleTickCount = 0; // Reset "beat"
+                    this.idleMetronome.frequency.value = Tone.Transport.bpm.value / 60;
+                    this.idleMetronome.start();
+                }
+            });
+            Tone.Transport.on('pause', () => {
+                if (this.isMetronomeOn) {
+                    this.idleMetronome.frequency.value = Tone.Transport.bpm.value / 60;
+                    this.idleMetronome.start();
+                }
+            });
+
+            // Metronome State Tracker
+            this.isMetronomeOn = false;
 
             // --- Recording Support ---
             // Create a MediaStreamDestination to capture audio output
             this.recordingDest = Tone.context.createMediaStreamDestination();
             this.masterBuss.connect(this.recordingDest);
 
-            // Console confirmation
-            console.log('[AudioEngine] Metronome & Recording initialized');
+            console.log('[AudioEngine] Metronome (Idle+Synced) & Recording initialized');
 
         } catch (error) {
             console.error('[AudioEngine] Error during init:', error);
@@ -263,21 +305,34 @@ class AudioEngine {
     }
 
     setBpm(bpm) {
-        if (!this.isInitialized) return; // Prevent premature Transport access
+        if (!this.isInitialized) return;
         if (Tone.Transport && isFinite(bpm)) {
             Tone.Transport.bpm.value = bpm;
-            // console.log('[AudioEngine] BPM updated to', bpm);
+            // Update Idle Metronome frequency if it exists
+            if (this.idleMetronome) {
+                this.idleMetronome.frequency.value = bpm / 60;
+            }
         }
     }
 
     setMetronome(isOn) {
-        if (!this.isInitialized || !this.metronomePart) return; // Prevent premature access
-        this.metronomePart.mute = !isOn;
-        // console.log('[AudioEngine] Metronome', isOn ? 'ON' : 'OFF');
+        if (!this.isInitialized || !this.metronomePart) return;
 
-        // Ensure Transport is running if Metronome is ON? 
-        // Usually Metronome only clicks when Transport is running.
-        // We rely on Global Play/Stop for Transport.
+        this.isMetronomeOn = isOn;
+        this.metronomePart.mute = !isOn;
+
+        // Handle Idle Metronome (When Transport is STOPPED)
+        if (Tone.Transport.state !== 'started') {
+            if (isOn) {
+                this.idleTickCount = 0;
+                if (this.idleMetronome) {
+                    this.idleMetronome.frequency.value = Tone.Transport.bpm.value / 60;
+                    this.idleMetronome.start();
+                }
+            } else {
+                if (this.idleMetronome) this.idleMetronome.stop();
+            }
+        }
     }
 }
 

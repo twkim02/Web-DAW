@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING
         },
         category: {
-            type: DataTypes.ENUM('sample', 'synth', 'instrument'),
+            type: DataTypes.ENUM('sample', 'synth', 'instrument', 'background'),
             defaultValue: 'sample'
         }
     }, {

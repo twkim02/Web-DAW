@@ -111,6 +111,55 @@ const useStore = create((set) => ({
     playingPadId: null,
     setPlayingPadId: (id) => set({ playingPadId: id }),
 
+    // --- Pad Queueing (Reserved State) ---
+    // Queues per column: { 0: [padId, ...], 1: [] ... }
+    padQueues: Array(8).fill(null).map(() => []),
+    // Visual helper: Set of IDs that are queued
+    queuedPads: new Set(),
+
+    addToQueue: (padId) => set((state) => {
+        const col = padId % 8;
+        const newQueues = [...state.padQueues];
+        // Avoid duplicates in queue? User said "queue", implying multiples. FIFO.
+        // If already in queue, ignore? Or add again? Usually repeat is allowed.
+        newQueues[col] = [...newQueues[col], padId];
+
+        const newQueuedPads = new Set(state.queuedPads);
+        newQueuedPads.add(padId);
+
+        return { padQueues: newQueues, queuedPads: newQueuedPads };
+    }),
+
+    shiftQueue: (col) => set((state) => {
+        const newQueues = [...state.padQueues];
+        const queue = newQueues[col];
+        if (queue.length === 0) return {}; // No change
+
+        const [nextPadId, ...remaining] = queue;
+        newQueues[col] = remaining;
+
+        // Update visual set: Check if nextPadId is still in ANY queue (unlikely unique ID per queue entry, but ID is unique pad).
+        // Since ID is unique to pad, if it's no longer in queue, remove from set.
+        // Exception: If same pad queued twice? "queuedPads" just means "is strictly waiting".
+        // Rebuild Set from all queues is safest but expensive.
+        // Simpler: Just rebuild for this column? 
+        // Let's just Rebuild Set entirely to be safe and simple.
+        const newSet = new Set();
+        newQueues.forEach(q => q.forEach(id => newSet.add(id)));
+
+        return { padQueues: newQueues, queuedPads: newSet };
+    }),
+
+    clearQueue: (col) => set((state) => {
+        const newQueues = [...state.padQueues];
+        newQueues[col] = [];
+
+        const newSet = new Set();
+        newQueues.forEach(q => q.forEach(id => newSet.add(id)));
+
+        return { padQueues: newQueues, queuedPads: newSet };
+    }),
+
     // Preview Mode
     previewMode: { isOpen: false, type: null, preset: null },
     setPreviewMode: (isOpen, type = null, preset = null) => set({

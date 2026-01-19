@@ -10,11 +10,11 @@ const LeftSidebar = () => {
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'files': return <FileLibrary />;
-            case 'synth': return <SynthLibrary />;
-            case 'inst': return <InstrumentLibrary />;
-            case 'rec': return <RecordingLibrary />;
-            default: return <FileLibrary />;
+            case 'files': return <FileLibrary category="sample" />;
+            case 'synth': return <FileLibrary category="synth" />;
+            case 'inst': return <FileLibrary category="instrument" />;
+            case 'rec': return <FileLibrary category="recording" />;
+            default: return <FileLibrary category="sample" />;
         }
     };
 

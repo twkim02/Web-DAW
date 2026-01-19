@@ -164,22 +164,27 @@ select {
 
 .header-panel {
   position: absolute;
-  top: 50px;
+  top: 40px;
+  /* Moved up slightly */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 10px;
+  /* Reduced gap */
   align-items: center;
   z-index: 100;
   width: 90%;
-  max-width: 900px;
+  max-width: 850px;
+  /* Slightly narrower */
   background: rgba(10, 10, 10, 0.6);
   backdrop-filter: blur(20px);
-  padding: 15px 25px;
-  border-radius: 20px;
+  padding: 10px 20px;
+  /* Reduced padding */
+  border-radius: 16px;
+  /* Slightly smaller radius */
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   animation: fadeIn 0.3s ease-out;
 }
 
@@ -198,7 +203,8 @@ select {
 .header-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 15px;
+  gap: 12px;
+  /* Reduced gap */
   justify-content: center;
   align-items: center;
   width: 100%;
@@ -206,7 +212,8 @@ select {
 
 .header-divider {
   width: 1px;
-  height: 20px;
+  height: 16px;
+  /* Reduced height */
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -214,9 +221,11 @@ select {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.6);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
+  padding: 5px 12px;
+  /* Reduced padding */
+  border-radius: 16px;
+  font-size: 0.75rem;
+  /* Reduced font size */
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -252,26 +261,39 @@ select {
   align-items: center;
   gap: 8px;
   background: rgba(0, 0, 0, 0.2);
-  padding: 4px 12px;
-  border-radius: 20px;
+  padding: 3px 10px;
+  /* Reduced padding */
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .glass-label {
   color: rgba(255, 255, 255, 0.5);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  /* Reduced font size */
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
+/* Hide Spinners */
+.glass-input::-webkit-outer-spin-button,
+.glass-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .glass-input {
+  -moz-appearance: textfield;
+  /* Firefox */
   background: rgba(0, 0, 0, 0.3) !important;
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff !important;
-  width: 50px;
+  width: 45px;
+  /* Slightly narrower */
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  /* Reduced font size */
   font-weight: 600;
   outline: none;
   border-radius: 4px;
