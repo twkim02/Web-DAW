@@ -70,6 +70,13 @@ class Sampler {
         if (this.players.has(key)) {
             const player = this.players.get(key);
 
+            // Check if buffer is loaded before playing
+            // Tone.Player.buffer is null until the audio file is loaded
+            if (!player.buffer) {
+                console.warn(`[Sampler] Buffer not loaded for key: ${key}. Cannot play. Sample may still be loading.`);
+                return;
+            }
+
             // Handle Looping
             player.loop = !!options.loop;
 

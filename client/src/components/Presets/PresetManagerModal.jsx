@@ -1,30 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import useStore from '../../store/useStore';
 import styles from './PresetManagerModal.module.css';
+import SharePresetModal from './SharePresetModal';
+import { deletePreset as deletePresetAPI } from '../../api/presets';
 
 const PresetManagerModal = ({ onClose }) => {
-    const { presets, setPresets, user, deletePreset } = useStore();
+    const { presets, setPresets, user, deletePreset: deletePresetFromStore } = useStore();
     const [isLoading, setIsLoading] = useState(false);
+    const [sharingPreset, setSharingPreset] = useState(null);
 
     const handleDelete = async (id, e) => {
         e.stopPropagation();
         if (!window.confirm("Are you sure you want to delete this preset?")) return;
 
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3001/presets/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (res.ok) {
-                deletePreset(id);
-            } else {
-                alert("Failed to delete preset");
-            }
+            await deletePresetAPI(id);
+            // Update Store
+            deletePresetFromStore(id);
         } catch (err) {
-            console.error(err);
-            alert("Error deleting preset");
+            console.error('Failed to delete preset:', err);
+            alert("Failed to delete preset: " + (err.response?.data?.message || err.message));
         }
     };
 
@@ -61,6 +56,15 @@ const PresetManagerModal = ({ onClose }) => {
                                         Load
                                     </button>
                                     <button
+                                        onClick={(e) => { e.stopPropagation(); setSharingPreset(preset); }}
+                                        style={{
+                                            background: '#2196F3', color: '#fff', border: 'none',
+                                            padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem'
+                                        }}
+                                    >
+                                        Share
+                                    </button>
+                                    <button
                                         onClick={(e) => handleDelete(preset.id, e)}
                                         className={styles.deleteBtn}
                                     >
@@ -72,6 +76,19 @@ const PresetManagerModal = ({ onClose }) => {
                     )}
                 </div>
             </div>
+
+            {/* Share Preset Modal */}
+            {sharingPreset && (
+                <SharePresetModal
+                    preset={sharingPreset}
+                    isOpen={!!sharingPreset}
+                    onClose={() => setSharingPreset(null)}
+                    onSuccess={() => {
+                        // 게시 성공 후 프리셋 목록 새로고침 (필요시)
+                        setSharingPreset(null);
+                    }}
+                />
+            )}
         </div>
     );
 };

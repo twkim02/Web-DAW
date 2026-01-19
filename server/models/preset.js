@@ -33,9 +33,9 @@ module.exports = (sequelize, DataTypes) => {
     Preset.associate = function (models) {
         Preset.belongsTo(models.User, { foreignKey: 'userId' });
         Preset.hasMany(models.KeyMapping, { foreignKey: 'presetId' });
-        Preset.hasOne(models.Post, { 
+        Preset.hasMany(models.Post, { 
             foreignKey: 'presetId',
-            onDelete: 'RESTRICT' // 프리셋이 게시글에 연결되어 있으면 삭제 불가
+            onDelete: 'CASCADE' // 프리셋 삭제 시 연결된 게시글도 함께 삭제
         });
     };
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Grid from './components/Launchpad/Grid';
 import useStore from './store/useStore';
 import { audioEngine } from './audio/AudioEngine';
@@ -6,12 +7,14 @@ import { instrumentManager } from './audio/InstrumentManager'; // Import Instrum
 import VirtualPiano from './components/Instruments/VirtualPiano'; // Import VirtualPiano
 import VirtualDrums from './components/Instruments/VirtualDrums'; // Import VirtualDrums
 import { getCurrentUser, loginURL, devLoginURL, logout } from './api/auth';
-import { getPresets, savePreset } from './api/presets';
+import { getPresets, savePreset, getPreset } from './api/presets';
+import { useUserPreferences } from './hooks/useUserPreferences';
 import LeftSidebar from './components/Layout/LeftSidebar';
 import RightSidebar from './components/Layout/RightSidebar';
 import BackgroundVisualizer from './components/Visualizer/BackgroundVisualizer';
 import CustomDropdown from './components/UI/CustomDropdown';
 import PresetManagerModal from './components/Presets/PresetManagerModal';
+import SettingsModal from './components/Settings/SettingsModal';
 import { THEMES } from './constants/themes';
 import './App.css';
 
@@ -59,6 +62,7 @@ function App() {
   const setAudioContextReady = useStore((state) => state.setAudioContextReady);
   const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
+  const setPresets = useStore((state) => state.setPresets);
   const padMappings = useStore((state) => state.padMappings);
   const bpm = useStore((state) => state.bpm);
   const setBpm = useStore((state) => state.setBpm);
@@ -91,6 +95,10 @@ function App() {
 
   const [isHeaderVisible, setIsHeaderVisible] = React.useState(true); // Header Toggle State
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // User Preferences Hook
+  const { preferences, loadPreferences } = useUserPreferences();
 
   // Mixer State selectors removed from App to prevent re-renders
   // They are now in AudioController
@@ -103,9 +111,130 @@ function App() {
       if (userData) {
         setUser(userData);
         fetchPresets();
+        // Load user preferences when user is logged in
+        loadPreferences();
       }
     });
-  }, [setUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setUser, loadPreferences]);
+
+  // Check if we should skip START page and auto-initialize audio context
+  useEffect(() => {
+    const skipStartPage = localStorage.getItem('skipStartPage');
+    if (skipStartPage === 'true') {
+      localStorage.removeItem('skipStartPage');
+
+      // Auto-initialize audio context
+      const initAudio = async () => {
+        try {
+          await import('tone').then(t => t.start());
+          await audioEngine.init();
+          setAudioContextReady(true);
+        } catch (err) {
+          console.error('Failed to initialize audio context:', err);
+        }
+      };
+
+      initAudio();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setAudioContextReady]);
+
+  // Check for post ID or preset ID from community page (load after START button is clicked)
+  useEffect(() => {
+    const checkAndLoadPreset = async () => {
+      const postId = localStorage.getItem('loadPostId');
+      const presetId = localStorage.getItem('loadPresetId');
+
+      if (isAudioContextReady) {
+        if (postId) {
+          // Post ID가 있으면 downloadPost API로 프리셋 데이터 가져오기
+          localStorage.removeItem('loadPostId');
+          setTimeout(async () => {
+            try {
+              const { downloadPost } = await import('./api/posts');
+              const { getPresets, savePreset } = await import('./api/presets');
+              const result = await downloadPost(parseInt(postId));
+
+              if (result.post && result.post.Preset) {
+                const originalPreset = result.post.Preset;
+
+                // 로그인한 사용자인 경우, 해당 preset이 본인 계정에 있는지 확인
+                const user = useStore.getState().user;
+                if (user) {
+                  try {
+                    const myPresets = await getPresets();
+                    // 본인 계정의 presets 목록에서 원본 presetId와 동일한 preset이 있는지 확인
+                    const existingPreset = myPresets.find(p => p.id === originalPreset.id);
+
+                    if (!existingPreset) {
+                      // 본인 계정에 해당 preset이 없으면 복사본 생성
+                      console.log('Creating copy of preset:', originalPreset.id);
+
+                      // KeyMappings를 savePreset 형식으로 변환
+                      const mappings = (originalPreset.KeyMappings || []).map(m => ({
+                        keyChar: m.keyChar,
+                        mode: m.mode,
+                        volume: m.volume,
+                        type: m.type || null,
+                        note: m.note || null,
+                        assetId: m.assetId || null,
+                        synthSettings: m.synthSettings || null
+                      }));
+
+                      // 새 preset 생성
+                      const newPreset = await savePreset({
+                        title: originalPreset.title,
+                        bpm: originalPreset.bpm,
+                        masterVolume: originalPreset.masterVolume,
+                        isQuantized: originalPreset.isQuantized,
+                        settings: originalPreset.settings,
+                        mappings: mappings
+                      });
+
+                      console.log('Created new preset:', newPreset.id);
+
+                      // 새로 생성된 preset의 전체 데이터 가져오기 (KeyMappings 포함)
+                      const { getPreset } = await import('./api/presets');
+                      const fullNewPreset = await getPreset(newPreset.id);
+
+                      // 새로 생성된 preset으로 로드
+                      loadPresetFromData(fullNewPreset);
+
+                      // presets 목록 새로고침
+                      fetchPresets();
+                    } else {
+                      // 이미 본인 계정에 있으면 기존 preset으로 로드
+                      loadPresetFromData(originalPreset);
+                    }
+                  } catch (err) {
+                    console.error('Failed to check or copy preset:', err);
+                    // 에러 발생 시 원본 프리셋으로 로드 시도
+                    loadPresetFromData(originalPreset);
+                  }
+                } else {
+                  // 로그인하지 않은 경우 원본 프리셋으로 로드
+                  loadPresetFromData(originalPreset);
+                }
+              }
+            } catch (err) {
+              console.error('Failed to load preset from post:', err);
+              alert('프리셋을 불러오는데 실패했습니다.');
+            }
+          }, 500);
+        } else if (presetId) {
+          // Preset ID가 있으면 직접 로드 (자신의 프리셋)
+          localStorage.removeItem('loadPresetId');
+          setTimeout(() => {
+            loadPresetData(parseInt(presetId));
+          }, 500);
+        }
+      }
+    };
+
+    checkAndLoadPreset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAudioContextReady]);
 
   const fetchPresets = async () => {
     try {
@@ -116,18 +245,11 @@ function App() {
     }
   };
 
-  const loadPresetData = async (presetId) => {
-    if (!presetId) return;
+  // 프리셋 데이터를 직접 로드하는 함수 (Post에서 가져온 데이터 또는 API로 가져온 데이터)
+  const loadPresetFromData = (preset) => {
+    if (!preset) return;
 
     try {
-      const token = localStorage.getItem('token');
-      // Fetch full preset data securely
-      const res = await fetch(`http://localhost:3001/presets/${presetId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch preset');
-
-      const preset = await res.json();
       console.log('Loaded preset:', preset);
 
       // 1. Load BPM
@@ -179,7 +301,20 @@ function App() {
         // Refresh Library UI
         useStore.getState().triggerLibraryRefresh();
       }
-      alert(`Loaded: ${preset.title}`);
+      alert(`Loaded: ${preset.title || 'Preset'}`);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load preset');
+    }
+  };
+
+  const loadPresetData = async (presetId) => {
+    if (!presetId) return;
+
+    try {
+      // API 함수 사용 (세션 기반 인증 자동 처리) - 자신의 프리셋만 가능
+      const preset = await getPreset(presetId);
+      loadPresetFromData(preset);
     } catch (e) {
       console.error(e);
       alert('Failed to load preset');
@@ -193,21 +328,9 @@ function App() {
     return () => window.removeEventListener('loadPreset', handleLoadEvent);
   }, []); // Empty dependency array ok here, or depend on store if needed for refreshes
 
-  const handleStart = async () => {
-    try {
-      // 1. Explicitly start Tone.js context
-      await import('tone').then(t => t.start());
-
-      // 2. Initialize Audio Engine (synths, etc.)
-      await audioEngine.init();
-
-      // 3. Update State
-      setAudioContextReady(true);
-
-    } catch (e) {
-      console.error('[App] Start Error:', e);
-      alert('Error starting Audio Engine: ' + (e.message || e));
-    }
+  const handleStart = () => {
+    // Community 페이지로 이동
+    window.location.href = '/community';
   };
 
   // Spacebar to Toggle Live Mode
@@ -234,12 +357,22 @@ function App() {
   }, [toggleLiveMode]);
 
   const handleLogin = () => {
+    // Google 로그인
     window.location.href = loginURL;
   };
 
   const handleLogout = async () => {
-    await logout();
-    setUser(null);
+    try {
+      await logout();
+      setUser(null);
+      // 페이지 새로고침하여 상태 초기화
+      window.location.reload();
+    } catch (err) {
+      console.error('Logout failed:', err);
+      // 에러가 발생해도 사용자 상태는 초기화
+      setUser(null);
+      window.location.reload();
+    }
   };
 
   const handleSave = async () => {
@@ -422,6 +555,15 @@ function App() {
                         📂 Presets
                       </button>
 
+                      {/* Community Link (Added from new-community) */}
+                      <Link
+                        to="/community"
+                        className="glass-btn"
+                        style={{ borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', textDecoration: 'none', color: 'inherit' }}
+                      >
+                        💬 Community
+                      </Link>
+
                       <div className="header-divider"></div>
 
                       {/* User Actions */}
@@ -440,8 +582,9 @@ function App() {
                     </div>
 
                   </div>
-                </div>
-              )}
+                </div >
+              )
+              }
 
               {/* (Duplicate Header Block Removed) */}
 
@@ -451,9 +594,12 @@ function App() {
 
                 {/* Preset Manager Modal */}
                 {isPresetManagerOpen && <PresetManagerModal onClose={() => setIsPresetManagerOpen(false)} />}
+
+                {/* Settings Modal */}
+                {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />}
               </div>
 
-            </main>
+            </main >
 
             {/* 3. Right Sidebar (Absolute overlay) - Hidden in Live Mode */}
             {/* 3. Right Sidebar (Absolute overlay) - Hidden in Live Mode via CSS in component if needed, but for now allow it */}
@@ -463,44 +609,50 @@ function App() {
 
 
             {/* Virtual Piano */}
-            {playingPadId !== null && (
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
-                <VirtualPiano
-                  padId={playingPadId}
-                  instrumentManager={instrumentManager}
-                  onClose={() => useStore.getState().setPlayingPadId(null)}
-                />
-              </div>
-            )}
+            {
+              playingPadId !== null && (
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
+                  <VirtualPiano
+                    padId={playingPadId}
+                    instrumentManager={instrumentManager}
+                    onClose={() => useStore.getState().setPlayingPadId(null)}
+                  />
+                </div>
+              )
+            }
 
             {/* Preview Mode Piano/Drums */}
-            {previewMode.isOpen && previewMode.type !== 'drums' && (
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
-                <VirtualPiano
-                  previewMode={true}
-                  type={previewMode.type}
-                  preset={previewMode.preset}
-                  instrumentManager={instrumentManager}
-                  onClose={() => useStore.getState().setPreviewMode(false)}
-                />
-              </div>
-            )}
+            {
+              previewMode.isOpen && previewMode.type !== 'drums' && (
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
+                  <VirtualPiano
+                    previewMode={true}
+                    type={previewMode.type}
+                    preset={previewMode.preset}
+                    instrumentManager={instrumentManager}
+                    onClose={() => useStore.getState().setPreviewMode(false)}
+                  />
+                </div>
+              )
+            }
 
-            {previewMode.isOpen && previewMode.type === 'drums' && (
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
-                <VirtualDrums
-                  previewMode={true}
-                  type={previewMode.type}
-                  preset={previewMode.preset}
-                  instrumentManager={instrumentManager}
-                  onClose={() => useStore.getState().setPreviewMode(false)}
-                />
-              </div>
-            )}
-          </div>
+            {
+              previewMode.isOpen && previewMode.type === 'drums' && (
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1000 }}>
+                  <VirtualDrums
+                    previewMode={true}
+                    type={previewMode.type}
+                    preset={previewMode.preset}
+                    instrumentManager={instrumentManager}
+                    onClose={() => useStore.getState().setPreviewMode(false)}
+                  />
+                </div>
+              )
+            }
+          </div >
         )}
-      </ErrorBoundary>
-    </div>
+      </ErrorBoundary >
+    </div >
   );
 }
 

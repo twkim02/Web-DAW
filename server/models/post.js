@@ -40,10 +40,10 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'CASCADE'
         });
         
-        // Preset과 1:1 관계 (공유 대상 프리셋, 프리셋 삭제 시 제한)
+        // Preset과 N:1 관계 (하나의 프리셋에 여러 게시글 가능, 프리셋 삭제 시 연쇄 삭제)
         Post.belongsTo(models.Preset, { 
             foreignKey: 'presetId',
-            onDelete: 'RESTRICT' // 프리셋이 게시글에 연결되어 있으면 삭제 불가
+            onDelete: 'CASCADE' // 프리셋 삭제 시 연결된 게시글도 함께 삭제
         });
     };
 
