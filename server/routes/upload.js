@@ -29,13 +29,15 @@ router.post('/', upload.single('file'), async (req, res) => {
             // return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        const { originalname, filename, path: filePath, mimetype } = req.file;
+        const { originalname, filename, path: filePath, mimetype, size } = req.file;
+        const { isRecorded } = req.body; // Optional: 'true' or 'false' as string from form data
 
         const asset = await db.Asset.create({
             originalName: originalname,
             filename: filename,
             filePath: filePath,
             mimetype: mimetype,
+            isRecorded: isRecorded === 'true' || isRecorded === true || false, // Default to false for uploads
             userId: req.user ? req.user.id : null // Allow null for guest uploads if desired
         });
 

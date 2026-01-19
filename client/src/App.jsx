@@ -127,7 +127,11 @@ function App() {
               volume: mapping.volume,
               file: fileUrl,
               assetId: mapping.Asset ? mapping.Asset.id : null,
-              originalName: mapping.Asset ? mapping.Asset.originalName : null
+              originalName: mapping.Asset ? mapping.Asset.originalName : null,
+              // 향후 확장: 새 필드 지원 가능
+              // type: mapping.type,
+              // note: mapping.note,
+              // synthSettings: mapping.synthSettings ? JSON.parse(mapping.synthSettings) : null
             };
 
             useStore.getState().updatePadMapping(padId, newMapping);
@@ -176,11 +180,22 @@ function App() {
       keyChar: String(p.id),
       mode: p.mode,
       volume: p.volume,
-      assetId: p.assetId
+      assetId: p.assetId,
+      // 향후 확장: type, note, synthSettings 필드 지원 가능
+      // type: p.type,
+      // note: p.note,
+      // synthSettings: p.type === 'synth' ? { oscillator: {...}, envelope: {...} } : null
     }));
 
     try {
-      await savePreset({ title, bpm, mappings });
+      // 향후 확장: masterVolume, isQuantized 필드 지원 가능
+      await savePreset({ 
+        title, 
+        bpm, 
+        // masterVolume: 0.7, // 프리셋별 마스터 볼륨
+        // isQuantized: true, // 프리셋별 퀀타이즈 설정
+        mappings 
+      });
       alert('Saved!');
       fetchPresets();
     } catch (e) {

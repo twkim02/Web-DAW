@@ -7,6 +7,18 @@ module.exports = (sequelize, DataTypes) => {
         bpm: {
             type: DataTypes.INTEGER,
             defaultValue: 120
+        },
+        masterVolume: {
+            type: DataTypes.FLOAT,
+            defaultValue: 0.7,
+            allowNull: false,
+            comment: '전체 마스터 볼륨 (0.0 ~ 1.0)'
+        },
+        isQuantized: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: true,
+            allowNull: false,
+            comment: '퀀타이즈 활성화 여부'
         }
     }, {
         tableName: 'Presets',

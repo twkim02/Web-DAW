@@ -48,15 +48,17 @@ router.get('/:id', isAuthenticated, async (req, res) => {
 
 // POST /presets - Create new preset
 router.post('/', isAuthenticated, async (req, res) => {
-    const { title, bpm, mappings } = req.body;
-    // mappings: Array of { keyChar, mode, volume, type, assetId }
+    const { title, bpm, masterVolume, isQuantized, mappings } = req.body;
+    // mappings: Array of { keyChar, mode, volume, type, assetId, synthSettings }
 
     const t = await db.sequelize.transaction();
 
     try {
         const preset = await db.Preset.create({
             title: title,
-            bpm: bpm,
+            bpm: bpm || 120,
+            masterVolume: masterVolume !== undefined ? masterVolume : 0.7,
+            isQuantized: isQuantized !== undefined ? isQuantized : true,
             userId: req.user.id
         }, { transaction: t });
 
@@ -67,7 +69,9 @@ router.post('/', isAuthenticated, async (req, res) => {
                 mode: m.mode,
                 volume: m.volume,
                 type: m.type,
-                assetId: m.assetId // Optional if file linked
+                note: m.note || null,
+                assetId: m.assetId || null, // Optional if file linked
+                synthSettings: m.synthSettings || null // Optional if type=synth
             }));
 
             await db.KeyMapping.bulkCreate(mappingData, { transaction: t });

@@ -14,6 +14,12 @@ module.exports = (sequelize, DataTypes) => {
         },
         mimetype: {
             type: DataTypes.STRING
+        },
+        isRecorded: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            allowNull: false,
+            comment: '마이크 녹음 여부 (TRUE: 녹음 파일, FALSE: 업로드 파일)'
         }
     }, {
         tableName: 'Assets',
