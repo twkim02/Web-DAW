@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Grid from './components/Launchpad/Grid';
 import useStore from './store/useStore';
 import { audioEngine } from './audio/AudioEngine';
@@ -452,6 +453,15 @@ function App() {
                     >
                       📂 Presets
                     </button>
+
+                    {/* Community Link */}
+                    <Link
+                      to="/community"
+                      className="glass-btn"
+                      style={{ minWidth: '120px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}
+                    >
+                      💬 Community
+                    </Link>
 
                     <div className="header-divider"></div>
 
