@@ -8,7 +8,7 @@ module.exports = {
         host: process.env.DB_HOST || '127.0.0.1',
         port: process.env.DB_PORT || 3306,
         dialect: process.env.DB_DIALECT || 'mysql',
-        storage: process.env.DB_STORAGE || './database.sqlite', // For SQLite
+        storage: process.env.DB_STORAGE, // For SQLite
         logging: process.env.DB_LOGGING === 'true' ? console.log : false
     },
     production: {

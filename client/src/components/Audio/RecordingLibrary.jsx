@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { uploadFile } from '../../api/upload';
+import useStore from '../../store/useStore';
 import client from '../../api/client';
 import SampleEditor from './SampleEditor';
 import styles from './FileLibrary.module.css';
@@ -25,9 +26,11 @@ const RecordingLibrary = () => {
         }
     };
 
+    const lastLibraryUpdate = useStore(state => state.lastLibraryUpdate);
+
     React.useEffect(() => {
         fetchRecordings();
-    }, []);
+    }, [lastLibraryUpdate]);
 
     const handleFileUpload = async (e) => {
         const files = Array.from(e.target.files);

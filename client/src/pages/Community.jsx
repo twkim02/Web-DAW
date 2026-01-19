@@ -1,279 +1,324 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
+import styles from './Community.module.css';
 import useStore from '../store/useStore';
 import { getPosts, getMyPosts } from '../api/posts';
-import { getCurrentUser, loginURL, devLoginURL, logout } from '../api/auth';
+import { getCurrentUser, getLoginURL, getDevLoginURL, logout } from '../api/auth';
 import { audioEngine } from '../audio/AudioEngine';
 import PostDetail from '../components/Community/PostDetail';
 import PostCreate from '../components/Community/PostCreate';
 import PostCard from '../components/Community/PostCard';
+import Skeleton from '../components/UI/Skeleton';
+import { useToast } from '../components/UI/ToastContext';
 
-/**
- * 게시판 메인 페이지 (재구성)
- */
+const PostCardSkeleton = () => (
+  <div className={styles.card} style={{ pointerEvents: 'none' }}>
+    <div style={{ height: '140px', marginBottom: '12px' }}>
+      <Skeleton width="100%" height="100%" borderRadius="8px" />
+    </div>
+    <div style={{ padding: '0 4px' }}>
+      <Skeleton width="60%" height="20px" borderRadius="4px" style={{ marginBottom: '8px' }} />
+      <Skeleton width="40%" height="16px" borderRadius="4px" style={{ marginBottom: '16px' }} />
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <Skeleton width="30%" height="32px" borderRadius="16px" />
+        <Skeleton width="30%" height="32px" borderRadius="16px" />
+      </div>
+    </div>
+  </div>
+);
+
 const Community = () => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryTag = searchParams.get('tag');
   const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
   const setAudioContextReady = useStore((state) => state.setAudioContextReady);
+
+  // Tabs: 'discover' | 'library'
+  const [activeTab, setActiveTab] = useState('discover');
+
+  // Filters & Search State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterTag, setFilterTag] = useState(queryTag || '');
+  const [sortBy, setSortBy] = useState('created'); // 'created' or 'popular'
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 12;
+
+  // Data State
   const [otherDesigns, setOtherDesigns] = useState([]);
   const [myDesigns, setMyDesigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 사용자 정보 로드 (로그인 후 리다이렉트 시 사용)
+  // Sync filterTag with query param
+  useEffect(() => {
+    if (queryTag) {
+      setFilterTag(queryTag);
+      setActiveTab('discover'); // Switch to discover if tag is present
+    }
+  }, [queryTag]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // User Load
   useEffect(() => {
     const checkUser = async () => {
       const userData = await getCurrentUser();
-      if (userData) {
-        setUser(userData);
-      }
+      if (userData) setUser(userData);
     };
     checkUser();
   }, [setUser]);
 
-  // Other Design (공개된 게시글들) 로드 - 자기가 게시하지 않은 post만 표시
+  // Fetch Other Designs (Discover)
   useEffect(() => {
+    if (activeTab !== 'discover') return;
+
     const fetchOtherDesigns = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const data = await getPosts({ page: 1, limit: 20, sort: 'created' });
-        // 로그인한 사용자가 게시한 post는 제외
-        const filteredPosts = user 
+        const params = {
+          page: page,
+          limit: LIMIT,
+          sort: sortBy,
+          search: debouncedSearch,
+          tag: filterTag
+        };
+        const data = await getPosts(params);
+        // exclude own posts? optional. keeping logic same for now.
+        const filteredPosts = user
           ? (data.posts || []).filter(post => post.userId !== user.id)
           : (data.posts || []);
+
         setOtherDesigns(filteredPosts);
+        setTotalPages(data.totalPages || 1);
       } catch (err) {
         console.error('Failed to fetch other designs:', err);
-        setError('게시글을 불러오는데 실패했습니다.');
+        setError('Failed to load posts.');
       } finally {
         setLoading(false);
       }
     };
-
     fetchOtherDesigns();
-  }, [user]);
+  }, [user, sortBy, debouncedSearch, page, filterTag, activeTab]);
 
-  // My Design (내가 게시한 post만) 로드
+  // Fetch My Designs (Library)
   useEffect(() => {
-    const fetchMyDesigns = async () => {
-      if (!user) {
-        setMyDesigns([]);
-        return;
-      }
+    if (activeTab !== 'library' || !user) return;
 
+    const fetchMyDesigns = async () => {
       try {
-        // 내가 게시한 post만 가져오기 (게시하지 않은 preset은 제외)
         const data = await getMyPosts({ page: 1, limit: 20 });
         setMyDesigns(data.posts || []);
       } catch (err) {
         console.error('Failed to fetch my designs:', err);
-        // 에러 발생 시 빈 배열로 설정
         setMyDesigns([]);
       }
     };
-
     fetchMyDesigns();
-  }, [user]);
+  }, [user, activeTab]);
 
-  const handleGoogleLogin = () => {
-    window.location.href = loginURL;
-  };
-
-  const handleDevLogin = () => {
-    window.location.href = devLoginURL;
-  };
+  const handleGoogleLogin = () => window.location.href = getLoginURL(window.location.pathname);
+  const handleDevLogin = () => window.location.href = getDevLoginURL(window.location.pathname);
 
   const handleLogout = async () => {
     try {
       await logout();
       setUser(null);
-      // 페이지 새로고침하여 상태 초기화
-      window.location.reload();
+      window.location.href = '/'; // Reload/Redirect
     } catch (err) {
-      console.error('Logout failed:', err);
-      // 에러가 발생해도 사용자 상태는 초기화하고 새로고침
+      addToast('Logout failed, but session cleared', 'warning');
       setUser(null);
-      window.location.reload();
+      window.location.href = '/';
     }
   };
 
   const handleNewProject = async () => {
-    // 오디오 컨텍스트 초기화
     try {
-      // Tone.js context 시작
       await import('tone').then(t => t.start());
-      
-      // Audio Engine 초기화
       await audioEngine.init();
-      
-      // 상태 업데이트
       setAudioContextReady(true);
-      
-      // 메인 페이지로 이동
-      navigate('/');
+      navigate('/workspace');
     } catch (e) {
       console.error('[Community] Failed to initialize audio:', e);
-      // 오디오 초기화 실패해도 메인 페이지로 이동
-      navigate('/');
+      navigate('/workspace');
     }
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#0a0a0a', 
-      color: '#fff',
-      padding: '20px'
-    }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '30px',
-          paddingBottom: '20px',
-          borderBottom: '1px solid #333'
-        }}>
-          <h1 style={{ margin: 0 }}>💬 Community</h1>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            {!user ? (
-              <>
-                <button
-                  onClick={handleGoogleLogin}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '5px',
-                    border: 'none',
-                    backgroundColor: '#4285F4',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontSize: '1rem'
-                  }}
-                >
-                  🔐 Google 로그인
-                </button>
-                <button
-                  onClick={handleDevLogin}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '5px',
-                    border: '1px solid #444',
-                    backgroundColor: '#2a2a2a',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontSize: '1rem'
-                  }}
-                >
-                  Dev 로그인
-                </button>
-              </>
-            ) : (
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <span style={{ marginRight: '10px', color: '#aaa' }}>
-                  👤 {user.nickname || user.username}
+    <div className={styles.container}>
+      {/* Sidebar Navigation (Optional or just Header based) - Sticking to Header for now based on previous requests */}
+
+      <div className={styles.inner}>
+        {/* Header Hero Area */}
+        <div className={styles.heroHeader}>
+          <div className={styles.topBar}>
+            <div className={styles.logoGroup}>
+              <h1 onClick={() => navigate('/')} className={styles.logo} title="Go to Home">Web-DAW</h1>
+              <span className={styles.divider}>/</span>
+              <h1 className={styles.pageTitle}>Community</h1>
+            </div>
+            <div className={styles.authGroup}>
+              {!user ? (
+                <>
+                  <button onClick={handleGoogleLogin} className={`${styles.btn} ${styles.btnLogin}`}>Sign In</button>
+                  {process.env.NODE_ENV === 'development' && <button onClick={handleDevLogin} className={`${styles.btn} ${styles.btnDev}`}>Dev</button>}
+                </>
+              ) : (
+                <div className={styles.userInfo}>
+                  <div className={styles.avatar} style={{ backgroundImage: user.avatarUrl ? `url(${user.avatarUrl})` : 'none' }}></div>
+                  <span className={styles.userName}>{user.nickname}</span>
+                  <button onClick={handleLogout} className={styles.btnLogoutText}>Logout</button>
+                </div>
+              )}
+              <button onClick={handleNewProject} className={`${styles.btn} ${styles.btnPrimary}`}>+ Create</button>
+            </div>
+          </div>
+
+          <div className={styles.heroContent}>
+            <h2 className={styles.heroTitle}>Discover Sounds</h2>
+            <p className={styles.heroSubtitle}>Explore thousands of beats, loops, and presets created by the community.</p>
+
+            <div className={styles.searchBarWrapper}>
+              <input
+                type="text"
+                placeholder="Search tracks, tags, or artists..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  if (activeTab === 'library') setActiveTab('discover');
+                  setPage(1);
+                }}
+                className={styles.heroSearchInput}
+              />
+            </div>
+
+            {/* Tags Row */}
+            {filterTag && (
+              <div className={styles.activeTagsRow}>
+                <span className={styles.activeTagBadge}>
+                  #{filterTag}
+                  <button onClick={() => { setFilterTag(''); setSearchParams({}); }} className={styles.closeTagBtn}>×</button>
                 </span>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '5px',
-                    border: 'none',
-                    backgroundColor: '#f44336',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  로그아웃
-                </button>
               </div>
             )}
-            <button
-              onClick={handleNewProject}
-              style={{
-                padding: '10px 20px',
-                borderRadius: '5px',
-                border: 'none',
-                backgroundColor: '#2196F3',
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              ✨ 새로 만들기
-            </button>
           </div>
         </div>
 
-        {/* Routes for detail and create pages */}
-        <Routes>
-          <Route path=":id" element={<PostDetail />} />
-          <Route path="create" element={<PostCreate />} />
-          <Route index element={
-            <>
-              {/* Other Design Section */}
-              <section style={{ marginBottom: '50px' }}>
-                <h2 style={{ marginBottom: '20px', fontSize: '1.5rem' }}>Other Design</h2>
-                {loading ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
-                    로딩 중...
-                  </div>
-                ) : error ? (
-                  <div style={{ padding: '20px', color: '#f44336' }}>
-                    {error}
-                  </div>
-                ) : otherDesigns.length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
-                    공개된 프리셋이 없습니다.
-                  </div>
-                ) : (
-                  <div>
-                    {otherDesigns.map(post => (
-                      <PostCard key={post.id} post={post} />
-                    ))}
-                  </div>
-                )}
-              </section>
+        {/* Tab Navigation */}
+        <div className={styles.tabNav}>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'discover' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('discover')}
+          >
+            Discover
+          </button>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'library' ? styles.activeTab : ''}`}
+            onClick={() => {
+              if (!user) return addToast('Please login to view your library', 'info');
+              setActiveTab('library');
+            }}
+          >
+            My Library
+          </button>
 
-              {/* My Design Section */}
-              <section>
-                <h2 style={{ marginBottom: '20px', fontSize: '1.5rem' }}>My Design</h2>
-                {!user ? (
-                  <div style={{ 
-                    padding: '40px', 
-                    textAlign: 'center', 
-                    backgroundColor: '#1a1a1a',
-                    borderRadius: '10px',
-                    border: '1px solid #333'
-                  }}>
-                    <p style={{ color: '#888', fontSize: '1.1rem', margin: 0 }}>
-                      로그인을 하면 본인이 만든 프리셋을 볼 수 있습니다.
-                    </p>
-                  </div>
-                ) : myDesigns.length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
-                    아직 만든 프리셋이 없습니다.
-                  </div>
-                ) : (
-                  <div>
-                    {myDesigns.map(post => (
-                      <PostCard 
-                        key={post.id} 
-                        post={post} 
-                        showEditDelete={true}
-                        onDelete={(deletedPostId) => {
-                          // 삭제된 포스트를 목록에서 제거
-                          setMyDesigns(prev => prev.filter(p => p.id !== deletedPostId));
-                        }}
-                      />
-                    ))}
-                  </div>
+          {/* Sort Control (Only visible in Discover) */}
+          {activeTab === 'discover' && (
+            <div className={styles.sortControl}>
+              <div className={styles.sortControl}>
+                <button
+                  className={`${styles.sortBtn} ${sortBy === 'created' ? styles.activeSort : ''}`}
+                  onClick={() => { setSortBy('created'); setPage(1); }}
+                >
+                  Newest
+                </button>
+                <div className={styles.sortDivider}></div>
+                <button
+                  className={`${styles.sortBtn} ${sortBy === 'popular' ? styles.activeSort : ''}`}
+                  onClick={() => { setSortBy('popular'); setPage(1); }}
+                >
+                  Popular
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Content Area */}
+        <div className={styles.contentArea}>
+          <Routes>
+            <Route path=":id" element={<PostDetail />} />
+            <Route path="create" element={<PostCreate />} />
+            <Route index element={
+              <>
+                {activeTab === 'discover' && (
+                  <>
+                    {loading ? (
+                      <div className={styles.grid}>
+                        {Array.from({ length: 8 }).map((_, i) => (
+                          <PostCardSkeleton key={i} />
+                        ))}
+                      </div>
+                    ) : error ? (
+                      <div className={styles.errorState}>{error}</div>
+                    ) : otherDesigns.length === 0 ? (
+                      <div className={styles.emptyState}>No results found. Try a different search term.</div>
+                    ) : (
+                      <div className={styles.grid}>
+                        {otherDesigns.map(post => <PostCard key={post.id} post={post} />)}
+                      </div>
+                    )}
+
+                    {totalPages > 1 && (
+                      <div className={styles.pagination}>
+                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className={styles.pageBtn}>Previous</button>
+                        <span className={styles.pageInfo}>{page} / {totalPages}</span>
+                        <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className={styles.pageBtn}>Next</button>
+                      </div>
+                    )}
+                  </>
                 )}
-              </section>
-            </>
-          } />
-        </Routes>
+
+                {activeTab === 'library' && (
+                  <>
+                    {!user ? (
+                      <div className={styles.loginPrompt}>Please info to view your library.</div>
+                    ) : myDesigns.length === 0 ? (
+                      <div className={styles.emptyState}>
+                        You haven't created anything yet. <br />
+                        <span className={styles.linkText} onClick={handleNewProject}>Start your first project</span>
+                      </div>
+                    ) : (
+                      <div className={styles.grid}>
+                        {myDesigns.map(post => (
+                          <PostCard
+                            key={post.id}
+                            post={post}
+                            showEditDelete={true}
+                            onDelete={(id) => setMyDesigns(prev => prev.filter(p => p.id !== id))}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            } />
+          </Routes>
+        </div>
       </div>
     </div>
   );

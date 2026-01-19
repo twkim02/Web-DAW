@@ -72,7 +72,8 @@ class Sampler {
 
             // Check if buffer is loaded before playing
             // Tone.Player.buffer is null until the audio file is loaded
-            if (!player.buffer) {
+            // Check if buffer is loaded before playing
+            if (!player.loaded) {
                 console.warn(`[Sampler] Buffer not loaded for key: ${key}. Cannot play. Sample may still be loading.`);
                 return;
             }

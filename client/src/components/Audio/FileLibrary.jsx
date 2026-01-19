@@ -124,10 +124,24 @@ const FileLibrary = ({ category = 'sample' }) => {
         setLoading(true);
         try {
             // Fetch by selected category
-            // If category is 'all' (not impl yet), remove param.
             const res = await client.get(`/upload?category=${category}`);
             if (Array.isArray(res.data)) {
-                setAssets(res.data);
+                // Prepend baseURL to make URLs absolute for AudioEngine
+                const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+                const mappedAssets = res.data.map(asset => {
+                    let finalUrl = asset.url || asset.filePath;
+                    if (finalUrl && !finalUrl.startsWith('http')) {
+                        finalUrl = `${baseURL}${finalUrl}`;
+                    }
+                    return {
+                        ...asset,
+                        url: finalUrl
+                    };
+                });
+                // If the backend returns 'url' (virtual), use it.
+                // Our backend now returns { ...asset, url: '/uploads/filename' }
+
+                setAssets(mappedAssets);
             } else {
                 setAssets([]);
             }
@@ -456,8 +470,7 @@ const FileLibrary = ({ category = 'sample' }) => {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    const url = `http://localhost:3001/uploads/${asset.filename}`;
-                                                    setEditingAsset({ url, name: asset.originalName, id: asset.id });
+                                                    setEditingAsset({ url: asset.url, name: asset.originalName, id: asset.id });
                                                 }}
                                                 style={{
                                                     background: 'transparent', border: 'none', cursor: 'pointer',

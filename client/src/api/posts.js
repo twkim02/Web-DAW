@@ -134,7 +134,69 @@ export const downloadPost = async (id) => {
 };
 
 /**
- * 게시글 공개/비공개 전환
+ * 게시글 포크 (프리셋 복사)
+ * @param {number} id - 게시글 ID
+ * @returns {Promise<Object>} { success: true, newPresetId: number }
+ */
+export const forkPost = async (id) => {
+    try {
+        const response = await client.post(`/api/posts/${id}/fork`);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to fork post:', error);
+        throw error;
+    }
+};
+
+/**
+ * 댓글 목록 조회
+ * @param {number} postId - 게시글 ID
+ * @returns {Promise<Array>} 댓글 목록
+ */
+export const getComments = async (postId) => {
+    try {
+        const response = await client.get(`/api/posts/${postId}/comments`);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to get comments:', error);
+        throw error;
+    }
+};
+
+/**
+ * 댓글 작성
+ * @param {number} postId - 게시글 ID
+ * @param {string} content - 댓글 내용
+ * @returns {Promise<Object>} 생성된 댓글 객체
+ */
+export const addComment = async (postId, content) => {
+    try {
+        const response = await client.post(`/api/posts/${postId}/comments`, { content });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to add comment:', error);
+        throw error;
+    }
+};
+
+/**
+ * 댓글 삭제
+ * @param {number} postId - 게시글 ID (URL 구성용)
+ * @param {number} commentId - 댓글 ID
+ * @returns {Promise<Object>} { message: 'Comment deleted' }
+ */
+export const deleteComment = async (postId, commentId) => {
+    try {
+        const response = await client.delete(`/api/posts/${postId}/comments/${commentId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to delete comment:', error);
+        throw error;
+    }
+};
+
+/**
+ * 게시글 공개 여부 토글
  * @param {number} id - 게시글 ID
  * @returns {Promise<Object>} { success: true, isPublished: boolean, message: string }
  */
@@ -143,7 +205,9 @@ export const togglePublish = async (id) => {
         const response = await client.post(`/api/posts/${id}/publish`);
         return response.data;
     } catch (error) {
-        console.error('Failed to toggle publish:', error);
+        console.error('Failed to toggle publish status:', error);
         throw error;
     }
 };
+
+

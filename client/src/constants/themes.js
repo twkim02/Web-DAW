@@ -3,7 +3,7 @@ export const THEMES = [
         id: 'cosmic',
         name: 'Cosmic (Default)',
         type: 'dynamic',
-        visualizerMode: 'default',
+        visualizerMode: 'particles',
         background: 'radial-gradient(circle at center, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', // Fallback
         primaryColor: '#00ffcc', // Cyan
         secondaryColor: '#cc00ff', // Purple

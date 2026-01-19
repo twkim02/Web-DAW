@@ -14,7 +14,8 @@ router.get('/google', (req, res, next) => {
             message: 'Google OAuth is not configured. Please use Dev Login or set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.'
         });
     }
-    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+    const state = req.query.state ? req.query.state : undefined;
+    passport.authenticate('google', { scope: ['profile', 'email'], state: state })(req, res, next);
 });
 
 // GET /auth/google/callback
@@ -28,9 +29,12 @@ router.get('/google/callback',
         passport.authenticate('google', { failureRedirect: '/' })(req, res, next);
     },
     (req, res) => {
-        // Successful authentication, redirect frontend.
-        // In dev, usually redirect to client URL.
-        res.redirect('http://localhost:5173/');
+        // Successful authentication
+        // Google Strategy should preserve 'state' in req.query.state if configured,
+        // but often it matches the request query params.
+        const returnTo = req.query.state ? decodeURIComponent(req.query.state) : '/';
+        const clientBase = 'http://localhost:5173';
+        res.redirect(`${clientBase}${returnTo}`);
     }
 );
 
@@ -48,8 +52,9 @@ router.get('/dev_login', async (req, res) => {
 
         req.login(user, (err) => {
             if (err) return res.status(500).json({ error: err });
-            // Community 페이지로 리다이렉트
-            res.redirect('http://localhost:5173/community');
+
+            const returnTo = req.query.returnTo ? decodeURIComponent(req.query.returnTo) : '/community';
+            res.redirect(`http://localhost:5173${returnTo}`);
         });
     } catch (err) {
         console.error(err);

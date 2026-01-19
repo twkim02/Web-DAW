@@ -93,7 +93,7 @@ router.post('/', isAuthenticated, async (req, res) => {
 // DELETE /presets/:id - Delete a preset
 router.delete('/:id', isAuthenticated, async (req, res) => {
     const t = await db.sequelize.transaction();
-    
+
     try {
         // 먼저 preset이 존재하고 사용자 소유인지 확인
         const preset = await db.Preset.findOne({
@@ -109,13 +109,25 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
             return res.status(404).json({ message: 'Preset not found or unauthorized' });
         }
 
-        // 연결된 Post들을 먼저 삭제 (CASCADE 대신 명시적 삭제)
-        await db.Post.destroy({
-            where: {
-                presetId: req.params.id
-            },
+        // 연결된 Post들을 찾아서 ID 확보
+        const posts = await db.Post.findAll({
+            where: { presetId: req.params.id },
+            attributes: ['id'],
             transaction: t
         });
+
+        const postIds = posts.map(p => p.id);
+
+        if (postIds.length > 0) {
+            // 1. Post에 달린 Comment 삭제 (Cascade 수동 처리) -> Post를 삭제하지 않으므로 필요 없음
+            // 하지만, 혹시 모르니 Post 자체를 update
+
+            // 2. Post 업데이트: presetId = null (Snapshot 사용)
+            await db.Post.update({ presetId: null }, {
+                where: { id: postIds },
+                transaction: t
+            });
+        }
 
         // 연결된 KeyMapping들을 삭제
         await db.KeyMapping.destroy({
@@ -139,7 +151,7 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
     } catch (err) {
         await t.rollback();
         console.error('Error deleting preset:', err);
-        res.status(500).json({ 
+        res.status(500).json({
             message: 'Server Error',
             error: process.env.NODE_ENV === 'development' ? err.message : undefined
         });

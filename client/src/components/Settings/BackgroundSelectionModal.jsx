@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import ReactDOM from 'react-dom';
+import client from '../../api/client';
 import useStore from '../../store/useStore';
+import { useUserPreferences } from '../../hooks/useUserPreferences';
 import { THEMES } from '../../constants/themes';
 import styles from './BackgroundSelectionModal.module.css';
 
@@ -15,13 +17,15 @@ const BackgroundSelectionModal = ({ onClose }) => {
     const visualizerMode = useStore((state) => state.visualizerMode);
     const setVisualizerMode = useStore((state) => state.setVisualizerMode);
 
+    const { savePreferences } = useUserPreferences();
+
+    // Create Ref for file input
     const fileInputRef = useRef(null);
 
     const handleThemeSelect = (themeId) => {
         setThemeId(themeId);
-        // Use requested behavior: Do NOT clear custom BG when selecting a theme.
-        // The custom BG should overlay/persist. User can manually remove it.
-        // setCustomBackgroundImage(null); 
+        // Persist
+        savePreferences({ currentThemeId: themeId });
     };
 
     const handleFileUpload = async (e) => {
@@ -32,19 +36,44 @@ const BackgroundSelectionModal = ({ onClose }) => {
             formData.append('category', 'background');
 
             try {
-                // Assuming same backend logic as App.jsx
-                const response = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
+                // Use client base URL
+                const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+
+                // Use client for upload to handle auth/cookies if needed, or keeping fetch but fix URL
+                const response = await fetch(`${baseURL}/upload`, {
+                    method: 'POST',
+                    body: formData,
+                });
                 const data = await response.json();
+
                 if (data.file) {
-                    const timestamp = Date.now();
-                    setCustomBackgroundImage(`http://localhost:3001/uploads/${data.file.filename}?t=${timestamp}`);
+                    let fileUrl = data.file.url;
+
+                    // If relative URL (local), prepend base URL
+                    if (fileUrl && !fileUrl.startsWith('http')) {
+                        fileUrl = `${baseURL}${fileUrl}`;
+                    }
+
+                    // Add timestamp to prevent caching issues for local files if replaced
+                    if (!fileUrl.includes('?')) {
+                        const timestamp = Date.now();
+                        fileUrl = `${fileUrl}?t=${timestamp}`;
+                    }
+
+                    setCustomBackgroundImage(fileUrl);
+                    savePreferences({ customBackgroundImage: fileUrl });
                 }
             } catch (err) {
                 alert('Upload Failed');
                 console.error(err);
             }
-            e.target.value = '';
         }
+        e.target.value = '';
+    };
+
+    const handleRemoveCustomBg = () => {
+        setCustomBackgroundImage(null);
+        savePreferences({ customBackgroundImage: null });
     };
 
     const modalContent = (
@@ -81,7 +110,11 @@ const BackgroundSelectionModal = ({ onClose }) => {
                                 ].map(mode => (
                                     <button
                                         key={mode.id}
-                                        className={`${styles.modeBtn} ${visualizerMode === mode.id ? styles.selected : ''}`}
+                                        className={`${styles.modeBtn} ${(visualizerMode === mode.id) ||
+                                                (!visualizerMode && mode.id === 'default' && (!THEMES.find(t => t.id === currentThemeId)?.visualizerMode || THEMES.find(t => t.id === currentThemeId)?.visualizerMode === 'default')) ||
+                                                (!visualizerMode && mode.id === THEMES.find(t => t.id === currentThemeId)?.visualizerMode)
+                                                ? styles.selected : ''
+                                            }`}
                                         onClick={() => setVisualizerMode(mode.id)}
                                     >
                                         {mode.name}
@@ -106,7 +139,7 @@ const BackgroundSelectionModal = ({ onClose }) => {
                             {customBackgroundImage && (
                                 <button
                                     className={styles.clearBtn}
-                                    onClick={() => setCustomBackgroundImage(null)}
+                                    onClick={handleRemoveCustomBg}
                                 >
                                     Remove Custom BG
                                 </button>

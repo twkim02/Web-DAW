@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { getUserPreferences, updateUserPreferences } from '../api/userPreferences';
 
 /**
@@ -13,7 +13,7 @@ export const useUserPreferences = () => {
     /**
      * 설정 로드
      */
-    const loadPreferences = async () => {
+    const loadPreferences = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -32,13 +32,13 @@ export const useUserPreferences = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     /**
      * 설정 저장
      * @param {Object} data - 저장할 설정 데이터
      */
-    const savePreferences = async (data) => {
+    const savePreferences = useCallback(async (data) => {
         setLoading(true);
         setError(null);
         try {
@@ -52,7 +52,7 @@ export const useUserPreferences = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     return {
         preferences,

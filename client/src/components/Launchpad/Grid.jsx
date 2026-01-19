@@ -206,7 +206,6 @@ const Grid = () => {
             case 'Snd B': setViewMode('SEND_B'); break;
             case 'Mute': setViewMode('MUTE'); break;
             case 'Solo': setViewMode('SOLO'); break;
-            case 'Stop': setViewMode('STOP'); break; // Or Transport Stop?
             case 'Stop': setViewMode('STOP'); break;
             case 'Clear': setViewMode('CLEAR'); break; // Replaces Rec (Arm)
             default: console.log('Side:', label);
@@ -512,7 +511,7 @@ const Grid = () => {
             if (isLiveMode && (e.code === 'Enter' || e.code === 'NumpadEnter' || e.key === 'Enter')) {
                 e.preventDefault();
                 if (!e.repeat) {
-                    console.log("[Grid] Enter key detected in Live Mode");
+                    // console.log("[Grid] Enter key detected in Live Mode");
                     handleRecordToggle();
                 }
             }

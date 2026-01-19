@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const upload = require('../middleware/upload');
+const { upload, deleteFromS3 } = require('../config/s3');
 const db = require('../models');
 const fs = require('fs');
+const path = require('path');
 
 // GET /upload - List all assets (optional filter by category)
 router.get('/', async (req, res) => {
@@ -29,24 +30,34 @@ router.post('/', upload.single('file'), async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        // ... (auth check)
+        // Multer-S3 adds 'location' and 'key' to req.file
+        // Local multer adds 'path' and 'filename'
+        const isS3 = !!req.file.location;
+        const filename = req.file.key ? path.basename(req.file.key) : req.file.filename;
+        const filePath = req.file.location || req.file.path;
 
-        const { originalname, filename, path: filePath, mimetype } = req.file;
-        const { isRecorded, category } = req.body; // isRecorded: 'true'/'false' (string), category: 'sample'/'synth'/'instrument'
+        const { originalname, mimetype } = req.file;
+        const { isRecorded, category } = req.body;
 
         const asset = await db.Asset.create({
             originalName: originalname,
-            filename: filename,
-            filePath: filePath,
+            filename: filename, // Start using key as filename for consistency or keep meaningful name
+            filePath: filePath, // This will be S3 URL for S3 files
             mimetype: mimetype,
-            isRecorded: isRecorded === 'true' || isRecorded === true || false, // Default to false for uploads
-            category: category || 'sample', // Default to 'sample' if not provided
-            userId: req.user ? req.user.id : null // Allow null for guest uploads if desired
+            isRecorded: isRecorded === 'true' || isRecorded === true || false,
+            category: category || 'sample',
+            userId: req.user ? req.user.id : null,
+            isPublic: true,
+            storageType: isS3 ? 's3' : 'local',
+            s3Key: isS3 ? req.file.key : null
         });
 
         res.json({
             message: 'File uploaded successfully',
-            file: asset
+            file: {
+                ...asset.toJSON(),
+                url: asset.url // Use virtual getter
+            }
         });
     } catch (err) {
         console.error(err);
@@ -70,11 +81,25 @@ router.post('/delete', async (req, res) => {
         });
 
         // Delete files
-        assets.forEach(asset => {
-            if (asset.filePath) {
+        for (const asset of assets) {
+            if (asset.storageType === 's3' && asset.s3Key) {
+                try {
+                    await deleteFromS3(asset.s3Key);
+                } catch (e) {
+                    console.error(`Failed to delete S3 object: ${asset.s3Key}`, e);
+                }
+            } else if (asset.filePath && asset.storageType !== 's3') {
+                // Local file deletion
                 fs.unlink(asset.filePath, (err) => {
                     if (err) console.error(`Failed to delete file: ${asset.filePath}`, err);
                 });
+            }
+        }
+
+        // Pre-step: Nullify assetId in KeyMappings that reference these assets
+        await db.KeyMapping.update({ assetId: null }, {
+            where: {
+                assetId: ids
             }
         });
 

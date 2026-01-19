@@ -100,10 +100,16 @@ app.use('/auth', authRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/presets', presetRoutes);
 app.use('/api/user/preferences', userPreferencesRoutes);
+app.use('/api/user/preferences', userPreferencesRoutes);
 app.use('/api/posts', postRoutes);
+// Mount comments router - Note: We need to handle this carefully.
+// Best practice: Use mergeParams in comments.js and mount it.
+// Option A: app.use('/api/posts/:postId/comments', commentRoutes)
+const commentRoutes = require('./routes/comments');
+app.use('/api/posts/:postId/comments', commentRoutes);
 
 // Sync Database & Start Server
-db.sequelize.sync({ alter: true }).then(() => {
+db.sequelize.sync().then(() => {
     app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
     });

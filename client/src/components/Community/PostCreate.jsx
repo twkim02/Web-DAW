@@ -15,8 +15,10 @@ const PostCreate = () => {
         presetId: '',
         title: '',
         description: '',
-        isPublished: true
+        isPublished: true,
+        tags: []
     });
+    const [tagInput, setTagInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -43,6 +45,31 @@ const PostCreate = () => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
+    const handleAddTag = () => {
+        const tag = tagInput.trim();
+        if (tag && !formData.tags.includes(tag)) {
+            setFormData(prev => ({
+                ...prev,
+                tags: [...prev.tags, tag]
+            }));
+            setTagInput('');
+        }
+    };
+
+    const handleRemoveTag = (tagToRemove) => {
+        setFormData(prev => ({
+            ...prev,
+            tags: prev.tags.filter(t => t !== tagToRemove)
+        }));
+    };
+
+    const handleTagKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddTag();
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -64,7 +91,8 @@ const PostCreate = () => {
                 presetId: parseInt(formData.presetId),
                 title: formData.title.trim(),
                 description: formData.description.trim() || null,
-                isPublished: formData.isPublished
+                isPublished: formData.isPublished,
+                tags: formData.tags
             });
             alert('게시글이 생성되었습니다!');
             navigate(`/community/${post.id}`);
@@ -185,6 +213,74 @@ const PostCreate = () => {
                                 fontFamily: 'inherit'
                             }}
                         />
+                    </div>
+
+                    {/* Tags */}
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '5px' }}>
+                            태그 (선택사항)
+                        </label>
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                            <input
+                                type="text"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={handleTagKeyDown}
+                                placeholder="태그 입력 후 Enter"
+                                style={{
+                                    flex: 1,
+                                    padding: '8px',
+                                    borderRadius: '5px',
+                                    border: '1px solid #444',
+                                    backgroundColor: '#2a2a2a',
+                                    color: '#fff',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleAddTag}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '5px',
+                                    border: '1px solid #444',
+                                    backgroundColor: '#333',
+                                    color: '#fff',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                추가
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {formData.tags.map((tag, index) => (
+                                <span key={index} style={{
+                                    padding: '5px 10px',
+                                    backgroundColor: '#333',
+                                    borderRadius: '15px',
+                                    fontSize: '0.9rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}>
+                                    #{tag}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveTag(tag)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#aaa',
+                                            cursor: 'pointer',
+                                            padding: 0,
+                                            fontSize: '0.8rem'
+                                        }}
+                                    >
+                                        ✕
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Published */}

@@ -1,11 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import styles from './PostCard.module.css';
 import useStore from '../../store/useStore';
 import { deletePost } from '../../api/posts';
 
-/**
- * 게시글 카드 컴포넌트 (MVP)
- */
 const PostCard = ({ post, showEditDelete = false, onDelete }) => {
     const navigate = useNavigate();
     const user = useStore((state) => state.user);
@@ -15,20 +13,13 @@ const PostCard = ({ post, showEditDelete = false, onDelete }) => {
     };
 
     const handleApplyPreset = async (e) => {
-        e.stopPropagation(); // PostCard 클릭 이벤트 방지
-        
+        e.stopPropagation();
         const postId = post.id;
-        if (!postId) {
-            alert('게시글 정보를 찾을 수 없습니다.');
-            return;
-        }
+        if (!postId) return alert('Post not found');
 
-        // Post ID를 저장하여 downloadPost API로 프리셋 데이터 가져오기
         localStorage.setItem('loadPostId', postId.toString());
         localStorage.setItem('skipStartPage', 'true');
-
-        // 메인 페이지로 이동 (START 페이지 생략, App.jsx에서 자동으로 초기화)
-        window.location.href = '/';
+        window.location.href = '/'; // Go to DAW
     };
 
     const handleDetail = (e) => {
@@ -38,96 +29,59 @@ const PostCard = ({ post, showEditDelete = false, onDelete }) => {
 
     const handleDelete = async (e) => {
         e.stopPropagation();
-        if (!window.confirm('정말 삭제하시겠습니까?')) return;
+        if (!window.confirm('Are you sure you want to delete this?')) return;
 
         try {
             await deletePost(post.id);
-            alert('게시글이 삭제되었습니다.');
             if (onDelete) {
                 onDelete(post.id);
             } else {
-                // 페이지 새로고침
                 window.location.reload();
             }
         } catch (err) {
             console.error('Failed to delete post:', err);
-            alert('삭제에 실패했습니다: ' + (err.response?.data?.message || err.message));
+            alert('Delete failed');
         }
     };
 
     return (
-        <div
-            onClick={handleClick}
-            style={{
-                border: '1px solid #444',
-                borderRadius: '8px',
-                padding: '15px',
-                marginBottom: '15px',
-                backgroundColor: '#1a1a1a',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#222'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
-        >
-            <h3 style={{ marginTop: 0, marginBottom: '10px', color: '#fff' }}>
-                {post.title}
-            </h3>
-            {post.description && (
-                <p style={{ color: '#aaa', marginBottom: '10px', fontSize: '0.9rem' }}>
-                    {post.description.length > 100 
-                        ? post.description.substring(0, 100) + '...' 
-                        : post.description}
-                </p>
-            )}
-            <div style={{ display: 'flex', gap: '15px', fontSize: '0.85rem', color: '#888', alignItems: 'center', flexWrap: 'wrap' }}>
-                <span>👤 {post.User?.nickname || 'Unknown'}</span>
-                <span>❤️ {post.likeCount || 0}</span>
-                <span>⬇️ {post.downloadCount || 0}</span>
-                <span>📅 {new Date(post.createdAt).toLocaleDateString()}</span>
-                <div style={{ display: 'flex', gap: '5px', marginLeft: 'auto' }}>
-                    <button
-                        onClick={handleApplyPreset}
-                        style={{
-                            padding: '6px 12px',
-                            borderRadius: '5px',
-                            border: 'none',
-                            backgroundColor: '#4CAF50',
-                            color: '#fff',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem'
-                        }}
-                    >
-                        ✨ 적용
+        <div className={styles.card} onClick={handleClick}>
+            <h3 className={styles.title}>{post.title}</h3>
+
+            <p className={styles.description}>
+                {post.description || 'No description provided.'}
+            </p>
+
+            <div className={styles.footer}>
+                <div className={styles.stats}>
+                    <span className={styles.author}>
+                        {post.User?.nickname || 'Unknown'}
+                    </span>
+                    <div className={styles.meta}>
+                        <span>❤️ {post.likeCount || 0}</span>
+                        <span>⬇️ {post.downloadCount || 0}</span>
+                    </div>
+                </div>
+
+                <div className={styles.actions}>
+                    <button onClick={handleApplyPreset} className={`${styles.btn} ${styles.btnApply}`}>
+                        Load
                     </button>
-                    <button
-                        onClick={handleDetail}
-                        style={{
-                            padding: '6px 12px',
-                            borderRadius: '5px',
-                            border: 'none',
-                            backgroundColor: '#2196F3',
-                            color: '#fff',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem'
-                        }}
-                    >
-                        📝 상세
-                    </button>
+                    {/* Detail button is redundant given whole card is clickable, but keeping for clarity if needed. 
+                        Actually, let's remove it for cleaner UI, user accepts card click. 
+                        Wait, let's keep it minimal if requested. 
+                        I'll keep specific action buttons but maybe hide Detail? 
+                        Let's keep it for now as "View". 
+                    */}
+                    {!showEditDelete && (
+                        <button onClick={handleDetail} className={`${styles.btn} ${styles.btnDetail}`}>
+                            View
+                        </button>
+                    )}
+
                     {showEditDelete && user && user.id === post.userId && (
-                        <button
-                            onClick={handleDelete}
-                            style={{
-                                padding: '6px 12px',
-                                borderRadius: '5px',
-                                border: 'none',
-                                backgroundColor: '#f44336',
-                                color: '#fff',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem'
-                            }}
-                        >
-                            🗑️ 삭제
+                        <button onClick={handleDelete} className={`${styles.btn} ${styles.btnDelete}`}>
+                            Delete
                         </button>
                     )}
                 </div>

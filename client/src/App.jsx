@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import client from './api/client';
 import Grid from './components/Launchpad/Grid';
 import useStore from './store/useStore';
 import { audioEngine } from './audio/AudioEngine';
@@ -11,9 +12,10 @@ import { getPresets, savePreset, getPreset } from './api/presets';
 import { useUserPreferences } from './hooks/useUserPreferences';
 import LeftSidebar from './components/Layout/LeftSidebar';
 import RightSidebar from './components/Layout/RightSidebar';
-import BackgroundVisualizer from './components/Visualizer/BackgroundVisualizer';
+import Visualizer3D from './components/Visualizer/Visualizer3D';
 import CustomDropdown from './components/UI/CustomDropdown';
 import PresetManagerModal from './components/Presets/PresetManagerModal';
+import TransportControls from './components/Transport/TransportControls'; // Import TransportControl
 import SettingsModal from './components/Settings/SettingsModal';
 import { THEMES } from './constants/themes';
 import './App.css';
@@ -93,12 +95,31 @@ function App() {
   const showVisualizer = useStore(state => state.showVisualizer);
   const visualizerMode = useStore(state => state.visualizerMode);
 
+  // Store Setters for Preferences
+  const setThemeId = useStore((state) => state.setThemeId);
+  const setCustomBackgroundImage = useStore((state) => state.setCustomBackgroundImage);
+  const setVisualizerMode = useStore((state) => state.setVisualizerMode);
+  const setShowVisualizer = useStore((state) => state.setShowVisualizer);
+
   const [isHeaderVisible, setIsHeaderVisible] = React.useState(true); // Header Toggle State
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // User Preferences Hook
   const { preferences, loadPreferences } = useUserPreferences();
+
+  // Sync Preferences to Store
+  useEffect(() => {
+    if (preferences) {
+      if (preferences.currentThemeId) setThemeId(preferences.currentThemeId);
+      if (preferences.customBackgroundImage !== undefined) setCustomBackgroundImage(preferences.customBackgroundImage);
+      if (preferences.visualizerMode) setVisualizerMode(preferences.visualizerMode);
+      // Explicitly check for boolean or existence. If your API returns 'showVisualizer', handle it. 
+      // Assuming preferences might contain it if saved previously, specifically for future proofing or if added to DB.
+      // If not currently in DB schema, this is safe to keep or omit. Added for completeness based on plan.
+      if (preferences.showVisualizer !== undefined) setShowVisualizer(preferences.showVisualizer);
+    }
+  }, [preferences, setThemeId, setCustomBackgroundImage, setVisualizerMode, setShowVisualizer]);
 
   // Mixer State selectors removed from App to prevent re-renders
   // They are now in AudioController
@@ -153,68 +174,25 @@ function App() {
           setTimeout(async () => {
             try {
               const { downloadPost } = await import('./api/posts');
-              const { getPresets, savePreset } = await import('./api/presets');
+              const { getPresets } = await import('./api/presets');
               const result = await downloadPost(parseInt(postId));
 
-              if (result.post && result.post.Preset) {
+              // 1. Result Check
+              if (result && result.post) {
                 const originalPreset = result.post.Preset;
-
-                // 로그인한 사용자인 경우, 해당 preset이 본인 계정에 있는지 확인
+                const snapshotData = result.post.presetData;
                 const user = useStore.getState().user;
-                if (user) {
-                  try {
-                    const myPresets = await getPresets();
-                    // 본인 계정의 presets 목록에서 원본 presetId와 동일한 preset이 있는지 확인
-                    const existingPreset = myPresets.find(p => p.id === originalPreset.id);
 
-                    if (!existingPreset) {
-                      // 본인 계정에 해당 preset이 없으면 복사본 생성
-                      console.log('Creating copy of preset:', originalPreset.id);
-
-                      // KeyMappings를 savePreset 형식으로 변환
-                      const mappings = (originalPreset.KeyMappings || []).map(m => ({
-                        keyChar: m.keyChar,
-                        mode: m.mode,
-                        volume: m.volume,
-                        type: m.type || null,
-                        note: m.note || null,
-                        assetId: m.assetId || null,
-                        synthSettings: m.synthSettings || null
-                      }));
-
-                      // 새 preset 생성
-                      const newPreset = await savePreset({
-                        title: originalPreset.title,
-                        bpm: originalPreset.bpm,
-                        masterVolume: originalPreset.masterVolume,
-                        isQuantized: originalPreset.isQuantized,
-                        settings: originalPreset.settings,
-                        mappings: mappings
-                      });
-
-                      console.log('Created new preset:', newPreset.id);
-
-                      // 새로 생성된 preset의 전체 데이터 가져오기 (KeyMappings 포함)
-                      const { getPreset } = await import('./api/presets');
-                      const fullNewPreset = await getPreset(newPreset.id);
-
-                      // 새로 생성된 preset으로 로드
-                      loadPresetFromData(fullNewPreset);
-
-                      // presets 목록 새로고침
-                      fetchPresets();
-                    } else {
-                      // 이미 본인 계정에 있으면 기존 preset으로 로드
-                      loadPresetFromData(originalPreset);
-                    }
-                  } catch (err) {
-                    console.error('Failed to check or copy preset:', err);
-                    // 에러 발생 시 원본 프리셋으로 로드 시도
-                    loadPresetFromData(originalPreset);
-                  }
+                // 2. Original Preset Logic (if exists)
+                if (originalPreset) {
+                  // Simplified: Just load the data. 
+                  await loadPresetFromData(originalPreset);
+                }
+                // 3. Snapshot Logic (Fallback)
+                else if (snapshotData) {
+                  await loadPresetFromData(snapshotData);
                 } else {
-                  // 로그인하지 않은 경우 원본 프리셋으로 로드
-                  loadPresetFromData(originalPreset);
+                  alert('프리셋 정보를 찾을 수 없습니다. (삭제됨)');
                 }
               }
             } catch (err) {
@@ -246,12 +224,10 @@ function App() {
   };
 
   // 프리셋 데이터를 직접 로드하는 함수 (Post에서 가져온 데이터 또는 API로 가져온 데이터)
-  const loadPresetFromData = (preset) => {
+  const loadPresetFromData = async (preset) => {
     if (!preset) return;
 
     try {
-      console.log('Loaded preset:', preset);
-
       // 1. Load BPM
       if (preset.bpm) setBpm(preset.bpm);
 
@@ -271,14 +247,32 @@ function App() {
         // Clear existing mappings first (optional, or just overwrite)
         for (let i = 0; i < 64; i++) useStore.getState().resetPad(i);
 
-        preset.KeyMappings.forEach(mapping => {
+        for (const mapping of preset.KeyMappings) {
           const padId = parseInt(mapping.keyChar); // Assuming keyChar stored the ID
 
           if (!isNaN(padId)) {
             let fileUrl = null;
             if (mapping.Asset) {
-              fileUrl = `http://localhost:3001/uploads/${mapping.Asset.filename}`;
-              import('./audio/Sampler').then(mod => mod.sampler.loadSample(padId, fileUrl));
+              const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+              let assetPath = mapping.Asset.url || `/uploads/${mapping.Asset.filename}`;
+              if (assetPath && assetPath.trim().match(/^https?:\/\//)) {
+                fileUrl = assetPath;
+              } else {
+                // Ensure assetPath starts with / if local
+                if (assetPath && !assetPath.startsWith('/') && !assetPath.startsWith('http')) {
+                  assetPath = '/' + assetPath;
+                }
+
+                // Double check we aren't appending to an existing HTTP
+                if (assetPath.startsWith('http')) {
+                  fileUrl = assetPath;
+                } else {
+                  fileUrl = `${baseURL}${assetPath}`;
+                }
+              }
+
+              const SamplerMod = await import('./audio/Sampler');
+              SamplerMod.sampler.loadSample(padId, fileUrl);
             }
 
             const newMapping = {
@@ -297,7 +291,7 @@ function App() {
 
             useStore.getState().updatePadMapping(padId, newMapping);
           }
-        });
+        }
         // Refresh Library UI
         useStore.getState().triggerLibraryRefresh();
       }
@@ -314,7 +308,7 @@ function App() {
     try {
       // API 함수 사용 (세션 기반 인증 자동 처리) - 자신의 프리셋만 가능
       const preset = await getPreset(presetId);
-      loadPresetFromData(preset);
+      await loadPresetFromData(preset);
     } catch (e) {
       console.error(e);
       alert('Failed to load preset');
@@ -328,9 +322,14 @@ function App() {
     return () => window.removeEventListener('loadPreset', handleLoadEvent);
   }, []); // Empty dependency array ok here, or depend on store if needed for refreshes
 
-  const handleStart = () => {
-    // Community 페이지로 이동
-    window.location.href = '/community';
+  const handleStart = async () => {
+    try {
+      await import('tone').then(t => t.start());
+      await audioEngine.init();
+      setAudioContextReady(true);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Spacebar to Toggle Live Mode
@@ -455,13 +454,6 @@ function App() {
               zIndex: 10
             }}>
               {/* ... content */}
-              {/* Dynamic Theme Visualizer (Moved to Grid.jsx for layering) */}
-              {/* Left here only for static wallpaper support if needed? 
-                  BackgroundVisualizer contains ThreeVisualizer + Logic. 
-                  Now Grid handles ThreeVisualizer directly. 
-                  App should handle just the WALLPAPER (Static).
-              */}
-
               {/* Custom Background Layer (zIndex: 0) */}
               {customBackgroundImage && (
                 <div style={{
@@ -482,6 +474,15 @@ function App() {
                 }} />
               )}
 
+              {/* 3D Visualizer (Dynamic) - Enabled for all themes if showVisualizer is true */}
+              {useStore.getState().showVisualizer !== false && (
+                <Visualizer3D
+                  primaryColor={currentTheme.primaryColor}
+                  hasCustomBackground={!!customBackgroundImage}
+                  mode={visualizerMode || currentTheme.visualizerMode || 'default'}
+                />
+              )}
+
               {/* --- HEADER TOGGLE BUTTON (Hidden in Live Mode) --- */}
               {!isLiveMode && (
                 <button
@@ -500,41 +501,28 @@ function App() {
                   {/* Single Consolidated Row */}
                   <div className="header-row" style={{ justifyContent: 'space-between', width: '100%' }}>
 
-                    {/* Left Group: Tempo & Metro */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      {/* BPM Control */}
-                      <div className="glass-input-group" style={{ gap: '0' }}>
-                        <label className="glass-label" style={{ marginRight: '8px' }}>BPM</label>
-                        <button
-                          onClick={() => setBpm(Math.max(20, bpm - 1))}
-                          className="glass-btn"
-                          style={{ padding: '2px 8px', borderRadius: '4px 0 0 4px', borderRight: 'none', background: 'var(--glass-bg-medium)' }}
-                        >-</button>
-                        <input
-                          type="number"
-                          value={bpm}
-                          onChange={(e) => setBpm(parseInt(e.target.value) || 120)}
-                          className="glass-input"
-                          style={{ borderRadius: '0', width: '40px', borderLeft: 'none', borderRight: 'none', textAlign: 'center' }}
-                        />
-                        <button
-                          onClick={() => setBpm(Math.min(300, bpm + 1))}
-                          className="glass-btn"
-                          style={{ padding: '2px 8px', borderRadius: '0 4px 4px 0', borderLeft: 'none', background: 'var(--glass-bg-medium)' }}
-                        >+</button>
-                      </div>
-
-                      {/* Metronome */}
-                      <button onClick={() => setIsMetronomeOn(!isMetronomeOn)}
-                        className={`glass-btn ${isMetronomeOn ? 'active-metro' : ''}`}
-                        style={{ minWidth: '70px' }}
-                      >
-                        METRO
-                      </button>
-                    </div>
+                    {/* Left Group: Transport Controls */}
+                    <TransportControls />
 
                     {/* Right Group: Tools & User */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+                      {/* Home */}
+                      <Link
+                        to="/"
+                        className="glass-btn"
+                        style={{ borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', textDecoration: 'none', color: 'inherit' }}
+                      >
+                        🏠 Home
+                      </Link>
+
+                      <button
+                        onClick={() => setIsPresetManagerOpen(true)}
+                        className="glass-btn"
+                        style={{ borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', textDecoration: 'none', color: 'inherit' }}
+                      >
+                        📂 Library
+                      </button>
 
                       {/* Help */}
                       <button
@@ -545,25 +533,6 @@ function App() {
                       >
                         ❔ Help
                       </button>
-
-                      {/* Presets */}
-                      <button
-                        onClick={() => setIsPresetManagerOpen(true)}
-                        className="glass-btn"
-                        style={{ borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px' }}
-                      >
-                        📂 Presets
-                      </button>
-
-                      {/* Community Link (Added from new-community) */}
-                      <Link
-                        to="/community"
-                        className="glass-btn"
-                        style={{ borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', textDecoration: 'none', color: 'inherit' }}
-                      >
-                        💬 Community
-                      </Link>
-
                       <div className="header-divider"></div>
 
                       {/* User Actions */}

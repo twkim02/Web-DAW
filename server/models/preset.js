@@ -17,13 +17,24 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.FLOAT,
             defaultValue: 0.7,
             allowNull: false,
-            comment: '전체 마스터 볼륨 (0.0 ~ 1.0) - settings에 포함될 수도 있으나 별도 필드로 유지'
+            comment: '전체 마스터 볼륨 (0.0 ~ 1.0)'
         },
         isQuantized: {
             type: DataTypes.BOOLEAN,
             defaultValue: true,
             allowNull: false,
-            comment: '퀀타이즈 활성화 여부 - settings에 포함될 수도 있으나 별도 필드로 유지'
+            comment: '퀀타이즈 활성화 여부'
+        },
+        parentPresetId: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            comment: '포크된 경우 원본 프리셋 ID (NULL이면 원본)'
+        },
+        isPublic: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            allowNull: false,
+            comment: '공개 여부 (Draft vs Published)'
         }
     }, {
         tableName: 'Presets',
@@ -33,9 +44,13 @@ module.exports = (sequelize, DataTypes) => {
     Preset.associate = function (models) {
         Preset.belongsTo(models.User, { foreignKey: 'userId' });
         Preset.hasMany(models.KeyMapping, { foreignKey: 'presetId' });
-        Preset.hasMany(models.Post, { 
+        Preset.hasMany(models.Post, {
             foreignKey: 'presetId',
             onDelete: 'CASCADE' // 프리셋 삭제 시 연결된 게시글도 함께 삭제
+        });
+        Preset.belongsTo(models.Preset, {
+            as: 'ParentPreset',
+            foreignKey: 'parentPresetId'
         });
     };
 

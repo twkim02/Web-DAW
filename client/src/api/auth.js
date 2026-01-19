@@ -21,5 +21,21 @@ export const logout = async () => {
     await client.get('/auth/logout');
 };
 
-export const loginURL = 'http://localhost:3001/auth/google';
-export const devLoginURL = 'http://localhost:3001/auth/dev_login';
+const baseURL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3001'
+    : `http://${window.location.hostname}:3001`;
+
+
+export const getLoginURL = (returnTo = '/') => {
+    const encodedState = encodeURIComponent(returnTo);
+    return `${baseURL}/auth/google?state=${encodedState}`;
+};
+
+export const getDevLoginURL = (returnTo = '/') => {
+    const encodedReturn = encodeURIComponent(returnTo);
+    return `${baseURL}/auth/dev_login?returnTo=${encodedReturn}`;
+};
+
+// Compat exports for legacy code
+export const loginURL = getLoginURL();
+export const devLoginURL = getDevLoginURL();

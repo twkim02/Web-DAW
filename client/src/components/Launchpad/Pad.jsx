@@ -1,10 +1,12 @@
 import React from 'react';
 import styles from './Pad.module.css';
+import client from '../../api/client';
 import useStore from '../../store/useStore';
 import usePadTrigger from '../../hooks/usePadTrigger';
 import { uploadFile } from '../../api/upload';
 import { sampler } from '../../audio/Sampler';
 import { instrumentManager } from '../../audio/InstrumentManager';
+import { useToast } from '../UI/ToastContext';
 
 const Pad = React.memo(({ id, label }) => {
     // 1. Store Logic
@@ -13,6 +15,7 @@ const Pad = React.memo(({ id, label }) => {
     const setEditingPadId = useStore((state) => state.setEditingPadId);
     const setPlayingPadId = useStore((state) => state.setPlayingPadId);
     const { triggerPad } = usePadTrigger();
+    const { addToast } = useToast();
 
     const mapping = useStore(state => state.padMappings[id]);
     const visualState = useStore(state => state.visualStates[id]); // { color: '#...' }
@@ -57,7 +60,14 @@ const Pad = React.memo(({ id, label }) => {
                 const data = JSON.parse(jsonData);
                 if ((data.type === 'asset' || data.type === 'recording') && data.asset) {
                     const { asset } = data;
-                    const fileUrl = `http://localhost:3001/uploads/${encodeURIComponent(asset.filename)}`;
+                    // Use provided URL (from FileLibrary) or construct it
+                    // FileLibrary now ensures asset.url includes baseURL, but we fallback safely
+                    let fileUrl = asset.url;
+                    if (!fileUrl) {
+                        const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+                        fileUrl = `${baseURL}/uploads/${encodeURIComponent(asset.filename)}`;
+                    }
+
                     updatePadMapping(id, {
                         file: fileUrl,
                         assetId: asset.id,
@@ -89,7 +99,10 @@ const Pad = React.memo(({ id, label }) => {
         if (file && file.type.startsWith('audio/')) {
             try {
                 const response = await uploadFile(file);
-                const fileUrl = `http://localhost:3001/uploads/${encodeURIComponent(response.file.filename)}`;
+                const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+                // response.file.url is relative (/uploads/filename)
+                const fileUrl = response.file.url ? `${baseURL}${response.file.url}` : `${baseURL}/uploads/${encodeURIComponent(response.file.filename)}`;
+
                 updatePadMapping(id, {
                     file: fileUrl,
                     assetId: response.file.id,
@@ -99,7 +112,8 @@ const Pad = React.memo(({ id, label }) => {
                     color: '#00ffcc'
                 });
                 sampler.loadSample(id, fileUrl).catch(console.error);
-            } catch (err) { alert('Upload failed'); }
+                addToast('Sample uploaded successfully!', 'success');
+            } catch (err) { addToast('Upload failed', 'error'); }
         }
     };
 

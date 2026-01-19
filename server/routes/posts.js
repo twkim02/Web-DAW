@@ -33,7 +33,52 @@ router.get('/', async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const sort = req.query.sort || 'created'; // 'created' or 'popular'
+        const search = req.query.search || '';
+        const tag = req.query.tag || '';
+        const genre = req.query.genre || '';
         const offset = (page - 1) * limit;
+
+        // Build where clause
+        const whereClause = {
+            isPublished: true
+        };
+
+        if (search) {
+            // Check title or description
+            // For MySQL, LIKE is case-insensitive usually. For standard generic, use Op.like
+            whereClause[Op.or] = [
+                { title: { [Op.like]: `%${search}%` } },
+                { description: { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        if (genre) {
+            whereClause.genre = genre;
+        }
+
+        // Tag filtering needs JSON handling. 
+        // Simple string search in JSON array string for SQLite/MySQL specific
+        if (tag) {
+            // For JSON column 'tags', we can try standard string check if JSON functions tricky cross-db
+            // Or use Op.contains in Postgres/MySQL (if dialect specific)
+            // Simple fallback: check if tag is in the array. 
+            // Note: SQLite JSON support in Sequelize might vary. 
+            // Let's assume standard 'contains' logic is managed or string match for simplicity first
+            // but `tags` is defined as JSON. 
+
+            // Check if dialect is mysql or sqlite
+            const isMysql = db.sequelize.options.dialect === 'mysql';
+            if (isMysql) {
+                whereClause.tags = db.sequelize.literal(`JSON_CONTAINS(tags, '"${tag}"')`);
+            } else {
+                // SQLite fallback using LIKE operator
+                // tags are stored as JSON strings: ["tag1", "tag2"]
+                // We search for "tag" inside the string
+                whereClause.tags = {
+                    [Op.like]: `%"${tag}"%`
+                };
+            }
+        }
 
         // Build order clause
         let order;
@@ -45,13 +90,11 @@ router.get('/', async (req, res) => {
 
         // Find all published posts
         const { count, rows: posts } = await db.Post.findAndCountAll({
-            where: {
-                isPublished: true
-            },
+            where: whereClause,
             include: [
                 {
                     model: db.User,
-                    attributes: ['id', 'nickname', 'email']
+                    attributes: ['id', 'nickname', 'email', 'avatarUrl']
                 },
                 {
                     model: db.Preset,
@@ -151,7 +194,7 @@ router.get('/user/my-posts', isAuthenticated, async (req, res) => {
 // POST /api/posts - Create new post (authenticated)
 router.post('/', isAuthenticated, async (req, res) => {
     try {
-        const { presetId, title, description, isPublished } = req.body;
+        const { presetId, title, description, isPublished, tags, genre } = req.body;
 
         // Validate input
         if (!presetId || !title) {
@@ -163,17 +206,23 @@ router.post('/', isAuthenticated, async (req, res) => {
             where: {
                 id: presetId,
                 userId: req.user.id
-            }
+            },
+            include: [
+                {
+                    model: db.KeyMapping,
+                    include: [db.Asset]
+                }
+            ]
         });
 
         if (!preset) {
             return res.status(404).json({ message: 'Preset not found or you do not have permission' });
         }
 
-        // Check if post already exists for this preset (1:1 relationship) - REMOVED
-        // 하나의 preset에 여러 post가 존재할 수 있으므로 중복 체크 제거
+        // Snapshot the preset data
+        const presetSnapshot = preset.toJSON();
 
-        // Create new post
+        // Create new post with snapshot
         const post = await db.Post.create({
             userId: req.user.id,
             presetId: presetId,
@@ -181,7 +230,10 @@ router.post('/', isAuthenticated, async (req, res) => {
             description: description || null,
             isPublished: isPublished !== undefined ? isPublished : true,
             likeCount: 0,
-            downloadCount: 0
+            downloadCount: 0,
+            tags: tags || [], // Save tags
+            genre: genre || null,
+            presetData: presetSnapshot // Save snapshot
         });
 
         // Load with associations for response
@@ -319,6 +371,90 @@ router.post('/:id/download', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Failed to download post' });
+    }
+});
+
+// POST /api/posts/:id/fork - Fork a post's preset to my library (authenticated)
+router.post('/:id/fork', isAuthenticated, async (req, res) => {
+    const t = await db.sequelize.transaction();
+    try {
+        const post = await db.Post.findOne({
+            where: {
+                id: req.params.id,
+                isPublished: true
+            },
+            include: [
+                {
+                    model: db.Preset,
+                    include: [db.KeyMapping]
+                }
+            ]
+        });
+
+        if (!post) {
+            await t.rollback();
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        // Determine source data: Active Preset or Snapshot
+        let sourceData = null;
+        if (post.Preset) {
+            sourceData = post.Preset.toJSON();
+        } else if (post.presetData) {
+            sourceData = post.presetData;
+            // Ensure it has the structure we expect (it should, as it's a direct toJSON copy)
+        }
+
+        if (!sourceData) {
+            await t.rollback();
+            return res.status(404).json({ message: 'Preset data not found (Original deleted and no snapshot available)' });
+        }
+
+        // 1. Create a deep copy of the Preset
+        const forkedPreset = await db.Preset.create({
+            title: `Remix of ${sourceData.title || post.title}`,
+            bpm: sourceData.bpm,
+            settings: sourceData.settings,
+            masterVolume: sourceData.masterVolume,
+            isQuantized: sourceData.isQuantized,
+            userId: req.user.id,
+            parentPresetId: sourceData.id || null, // Might be null if from snapshot and ID is irrelevant
+            isPublic: false // Default to private
+        }, { transaction: t });
+
+        // 2. Adjust KeyMappings
+        // sourceData.KeyMappings should exist in both live object and snapshot
+        if (sourceData.KeyMappings && sourceData.KeyMappings.length > 0) {
+            const mappingData = sourceData.KeyMappings.map(m => ({
+                presetId: forkedPreset.id,
+                keyChar: m.keyChar,
+                mode: m.mode,
+                volume: m.volume,
+                type: m.type,
+                note: m.note,
+                assetId: m.assetId, // Keep reference to same asset
+                synthSettings: m.synthSettings
+            }));
+
+            await db.KeyMapping.bulkCreate(mappingData, { transaction: t });
+        }
+
+        // Increment download count on the original post
+        post.downloadCount += 1;
+        await post.save({ transaction: t });
+
+        await t.commit();
+
+        res.json({
+            success: true,
+            message: 'Forked successfully',
+            newPresetId: forkedPreset.id
+        });
+
+    } catch (err) {
+        await t.rollback();
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fork preset' });
     }
 });
 
