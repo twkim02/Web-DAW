@@ -8,5 +8,8 @@ coverage
 /server/node_modules
 /client/dist
 
+# Server Config
+server/.env
+
 # Server Uploads
-server/uploads/34db24fcebd1e5d4a9
+server/uploads/
