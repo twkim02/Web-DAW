@@ -405,6 +405,7 @@ function App() {
                           const file = e.target.files[0];
                           const formData = new FormData();
                           formData.append('file', file);
+                          formData.append('category', 'background'); // Prevent showing in FileLibrary
                           try {
                             const response = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
                             const data = await response.json();
@@ -573,6 +574,7 @@ function App() {
                           const file = e.target.files[0];
                           const formData = new FormData();
                           formData.append('file', file);
+                          formData.append('category', 'background'); // Prevent showing in FileLibrary
                           try {
                             const response = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
                             const data = await response.json();
