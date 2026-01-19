@@ -217,9 +217,9 @@ Web-DAW/
 - **`models/`**: Sequelize ORM 데이터베이스 모델
   - `index.js`: 모델 초기화 및 모델 간 연관관계(Associations) 정의
   - `user.js`: 사용자 모델 (Google OAuth 연동)
-  - `preset.js`: 프리셋 모델 (사용자가 저장한 패드 구성, `masterVolume`, `isQuantized` 필드 포함)
+  - `preset.js`: 프리셋 모델 (사용자가 저장한 패드 구성, `settings` JSON, `masterVolume`, `isQuantized` 필드 포함)
   - `keyMapping.js`: 키 매핑 모델 (각 패드에 할당된 샘플/모드/볼륨, `synthSettings` JSON 필드 포함)
-  - `asset.js`: 업로드된 파일(에셋) 메타데이터 모델 (`isRecorded` 필드 포함)
+  - `asset.js`: 업로드된 파일(에셋) 메타데이터 모델 (`isRecorded`, `category` 필드 포함)
   - `userPreference.js`: 사용자 설정 모델 (latencyMs, visualizerMode, defaultMasterVolume)
   - `post.js`: 게시글 모델 (프리셋 공유 기능, likeCount, downloadCount 포함)
 

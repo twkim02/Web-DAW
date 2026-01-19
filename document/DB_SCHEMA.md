@@ -64,14 +64,16 @@ Table Assets {
   file_path varchar(500) [not null, note: "파일 저장 경로 또는 URL (예: '/uploads/xxx.mp3', Sequelize: filePath)"]
   mimetype varchar(100) [null, note: "파일 MIME 타입 (예: 'audio/mpeg', 'audio/wav')"]
   is_recorded boolean [default: false, not null, note: '마이크 녹음 여부 (TRUE: 녹음 파일, FALSE: 업로드 파일, Sequelize: isRecorded)']
+  category enum('sample', 'synth', 'instrument') [default: 'sample', not null, note: '파일 카테고리 (sample: 샘플 파일, synth: 신스 프리셋, instrument: 악기 프리셋, Sequelize: category)']
   created_at datetime [default: `CURRENT_TIMESTAMP`, not null, note: 'Sequelize: createdAt']
   updated_at datetime [default: `CURRENT_TIMESTAMP`, not null, note: 'ON UPDATE CURRENT_TIMESTAMP, Sequelize: updatedAt']
   
-  Note: '사용자가 업로드한 파일이나 웹 마이크로 녹음한 파일의 정보를 관리\n\n향후 확장 필드 (선택적):\n- file_size (BIGINT): 파일 크기 (단위: 바이트)'
+  Note: '사용자가 업로드한 파일이나 웹 마이크로 녹음한 파일의 정보를 관리\n\n- is_recorded: 녹음 파일과 업로드 파일을 구분\n- category: 파일을 카테고리별로 분류하여 관리 (프론트엔드에서 필터링에 사용)\n\n향후 확장 필드 (선택적):\n- file_size (BIGINT): 파일 크기 (단위: 바이트)'
   
   Indexes {
     user_id
     filename [unique]
+    category
     created_at
   }
 }
@@ -85,12 +87,13 @@ Table Presets {
   user_id int [not null, note: '소유자 외래키 (Sequelize: userId)']
   title varchar(255) [default: 'Untitled', not null, note: '프리셋 제목']
   bpm int [default: 120, not null, note: '프로젝트 템포 (Beats Per Minute)']
+  settings json [null, note: '프리셋별 전역 설정 JSON (믹서 레벨, 이펙트, 퀀타이즈, 테마 등, Sequelize: settings)']
   master_volume float [default: 0.7, not null, note: '전체 마스터 볼륨 (0.0 ~ 1.0, Sequelize: masterVolume)']
   is_quantized boolean [default: true, not null, note: '퀀타이즈 활성화 여부 (Sequelize: isQuantized)']
   created_at datetime [default: `CURRENT_TIMESTAMP`, not null, note: 'Sequelize: createdAt']
   updated_at datetime [default: `CURRENT_TIMESTAMP`, not null, note: 'ON UPDATE CURRENT_TIMESTAMP, Sequelize: updatedAt']
   
-  Note: '프리셋마다 반영되는 런치패드의 전역 설정을 저장합니다.'
+  Note: '프리셋마다 반영되는 런치패드의 전역 설정을 저장합니다.\n\n- settings: 전역 설정을 JSON으로 저장 (mixerLevels, effects, launchQuantization, currentThemeId, customBackgroundImage 등)\n- master_volume, is_quantized: 별도 필드로도 유지 (settings에 포함될 수도 있으나 호환성을 위해 별도 필드 유지)'
   
   Indexes {
     user_id

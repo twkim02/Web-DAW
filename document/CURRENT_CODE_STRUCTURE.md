@@ -47,9 +47,42 @@ UserPreferences와 Posts 모델은 최근 구현 완료되었습니다.
 
 **코드 예시**:
 ```javascript
+const Preset = sequelize.define('Preset', {
+    title: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    bpm: {
+        type: DataTypes.INTEGER,
+        defaultValue: 120
+    },
+    settings: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        comment: '프리셋별 전역 설정 (믹서 레벨, 이펙트, 퀀타이즈, 테마 등)'
+    },
+    masterVolume: {
+        type: DataTypes.FLOAT,
+        defaultValue: 0.7,
+        allowNull: false
+    },
+    isQuantized: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        allowNull: false
+    }
+}, {
+    tableName: 'Presets',
+    underscored: true
+});
+
 Preset.associate = function (models) {
     Preset.belongsTo(models.User, { foreignKey: 'userId' });
     Preset.hasMany(models.KeyMapping, { foreignKey: 'presetId' });
+    Preset.hasOne(models.Post, { 
+        foreignKey: 'presetId',
+        onDelete: 'RESTRICT'
+    });
 };
 ```
 
@@ -171,6 +204,7 @@ const User = sequelize.define('User', {
 | `filePath` | STRING | NOT NULL | - | 파일 저장 경로 |
 | `mimetype` | STRING | NULL 허용 | - | MIME 타입 (예: 'audio/mpeg') |
 | `isRecorded` | BOOLEAN | NOT NULL | `false` | 마이크 녹음 여부 (Phase 4 추가) |
+| `category` | ENUM | NOT NULL | `'sample'` | 파일 카테고리 ('sample', 'synth', 'instrument') |
 | `userId` | INTEGER | FK (Users.id), NULL 허용 | - | 소유자 (외래키, 게스트 업로드 시 NULL) |
 | `createdAt` | DATETIME | - | 현재 시간 | 생성일시 (Sequelize 자동) |
 | `updatedAt` | DATETIME | - | 현재 시간 | 수정일시 (Sequelize 자동) |
@@ -196,6 +230,16 @@ const Asset = sequelize.define('Asset', {
     },
     mimetype: {
         type: DataTypes.STRING
+    },
+    isRecorded: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false
+    },
+    category: {
+        type: DataTypes.ENUM('sample', 'synth', 'instrument'),
+        defaultValue: 'sample',
+        allowNull: false
     }
 }, {
     tableName: 'Assets',
@@ -369,13 +413,25 @@ const Post = sequelize.define('Post', {
   {
     "title": "New Preset",
     "bpm": 120,
+    "settings": {
+      "mixerLevels": {},
+      "trackStates": {},
+      "effects": {},
+      "launchQuantization": "none",
+      "currentThemeId": "cosmic",
+      "customBackgroundImage": null
+    },
+    "masterVolume": 0.7,
+    "isQuantized": true,
     "mappings": [
       {
         "keyChar": "0",
         "mode": "one-shot",
         "volume": 0.7,
         "type": "sample",
-        "assetId": 1
+        "note": null,
+        "assetId": 1,
+        "synthSettings": null
       }
     ]
   }
@@ -392,13 +448,18 @@ const Post = sequelize.define('Post', {
 
 #### GET `/upload`
 - **인증**: 불필요 (향후 인증 추가 가능)
-- **기능**: 모든 에셋 목록 조회
+- **기능**: 모든 에셋 목록 조회 (카테고리 필터링 가능)
+- **Query Parameters**: `category` (선택사항: 'sample', 'synth', 'instrument')
 - **응답**: Asset 배열 (최신순 정렬)
 
 #### POST `/upload`
 - **인증**: 선택적 (게스트 업로드 허용 가능)
 - **기능**: 파일 업로드
 - **요청**: `multipart/form-data`, 필드명: `file`
+- **요청 본문 필드**:
+  - `file`: 업로드할 파일 (필수)
+  - `isRecorded`: 'true' 또는 'false' (선택사항, 기본값: false)
+  - `category`: 'sample', 'synth', 'instrument' (선택사항, 기본값: 'sample')
 - **응답**:
   ```json
   {
@@ -409,6 +470,8 @@ const Post = sequelize.define('Post', {
       "filename": "1234567890-kick.mp3",
       "filePath": "/uploads/1234567890-kick.mp3",
       "mimetype": "audio/mpeg",
+      "isRecorded": false,
+      "category": "sample",
       "userId": 1
     }
   }
@@ -834,6 +897,12 @@ Asset.associate = function (models) {
 1. ✅ **Presets**: `masterVolume`, `isQuantized` 필드 추가
 2. ✅ **KeyMappings**: `synthSettings` (JSON) 필드 추가
 3. ✅ **Assets**: `isRecorded` 필드 추가
+
+### ✅ Conflict 해결 후 추가된 필드 (2024-01-XX)
+
+**충돌 해결 과정에서 추가/통합된 필드**:
+1. ✅ **Presets**: `settings` (JSON) 필드 추가 - 전역 설정 저장 (믹서 레벨, 이펙트, 테마 등)
+2. ✅ **Assets**: `category` (ENUM) 필드 추가 - 파일 카테고리 분류 ('sample', 'synth', 'instrument')
 
 **결정 사항**:
 - 코드베이스의 실제 구현을 기준으로 DB Schema 문서가 수정됨
