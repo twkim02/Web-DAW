@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
         const { category, presetId } = req.query;
         const userId = req.user ? req.user.id : null;
         const whereClause = {};
-        
+
         if (category) whereClause.category = category;
 
         let allowedAssetIds = [];
@@ -47,7 +47,7 @@ router.get('/', async (req, res) => {
             whereClause.id = { [Op.in]: allowedAssetIds };
         } else {
             // 로그인 상태: 본인이 만든 preset의 asset + 로드한 preset의 asset + 본인이 업로드한 asset
-            
+
             // 1. 본인이 만든 preset의 asset
             const myPresets = await db.Preset.findAll({
                 where: { userId: userId },
@@ -181,37 +181,47 @@ router.post('/delete', async (req, res) => {
             }
         });
 
-        // Delete files
-        for (const asset of assets) {
-            if (asset.storageType === 's3' && asset.s3Key) {
-                try {
-                    await deleteFromS3(asset.s3Key);
-                } catch (e) {
-                    console.error(`Failed to delete S3 object: ${asset.s3Key}`, e);
+        // Transaction for DB operations
+        const t = await db.sequelize.transaction();
+
+        try {
+            // Pre-step: Nullify assetId in KeyMappings that reference these assets
+            await db.KeyMapping.update({ assetId: null }, {
+                where: {
+                    assetId: ids
+                },
+                transaction: t
+            });
+
+            // Delete DB Records
+            await db.Asset.destroy({
+                where: {
+                    id: ids
+                },
+                transaction: t
+            });
+
+            await t.commit();
+
+            // Operations successful, now delete physical files
+            // (We do this AFTER commit to avoid deleting files if DB fails, 
+            // though ghosts are better than missing files with records)
+            for (const asset of assets) {
+                if (asset.storageType === 's3' && asset.s3Key) {
+                    deleteFromS3(asset.s3Key).catch(e => console.error(`Failed to delete S3 object: ${asset.s3Key}`, e));
+                } else if (asset.filePath && asset.storageType !== 's3') {
+                    fs.unlink(asset.filePath, (err) => {
+                        if (err && err.code !== 'ENOENT') console.error(`Failed to delete file: ${asset.filePath}`, err);
+                    });
                 }
-            } else if (asset.filePath && asset.storageType !== 's3') {
-                // Local file deletion
-                fs.unlink(asset.filePath, (err) => {
-                    if (err) console.error(`Failed to delete file: ${asset.filePath}`, err);
-                });
             }
+
+            res.json({ message: 'Assets deleted successfully' });
+
+        } catch (dbErr) {
+            await t.rollback();
+            throw dbErr;
         }
-
-        // Pre-step: Nullify assetId in KeyMappings that reference these assets
-        await db.KeyMapping.update({ assetId: null }, {
-            where: {
-                assetId: ids
-            }
-        });
-
-        // Delete DB Records
-        await db.Asset.destroy({
-            where: {
-                id: ids
-            }
-        });
-
-        res.json({ message: 'Assets deleted successfully' });
 
     } catch (err) {
         console.error(err);

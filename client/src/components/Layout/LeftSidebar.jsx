@@ -56,7 +56,35 @@ const LeftSidebar = () => {
                 transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth ease
                 transform: isOpen ? 'translateX(0)' : 'translateX(-100%)'
             }}>
-                {/* Side Toggle Handle Removed per user request */}
+                {/* Side Toggle Handle */}
+                <button
+                    onClick={toggleLeft}
+                    style={{
+                        position: 'absolute',
+                        top: '50%',
+                        right: '-24px',
+                        width: '24px',
+                        height: '60px',
+                        transform: 'translateY(-50%)',
+                        background: 'var(--glass-bg-strong)',
+                        backdropFilter: 'blur(10px)',
+                        border: 'var(--glass-border-light)',
+                        borderLeft: 'none',
+                        borderRadius: '0 8px 8px 0',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--color-text-primary)',
+                        zIndex: 201,
+                        outline: 'none',
+                        boxShadow: '4px 0 10px rgba(0,0,0,0.1)'
+                    }}
+                    title={isOpen ? "Close Sidebar" : "Open Sidebar"}
+                >
+                    {isOpen ? '‹' : '›'}
+                </button>
+
                 {/* Tab Bar */}
                 <div style={{
                     display: 'flex',

@@ -83,7 +83,7 @@ router.get('/:id', isAuthenticated, async (req, res) => {
         });
 
         if (!preset) return res.status(404).json({ message: 'Preset not found' });
-        
+
         // Record access when user loads their own preset
         await db.PresetAccess.findOrCreate({
             where: {
@@ -135,7 +135,9 @@ router.post('/', isAuthenticated, async (req, res) => {
                     note: m.note || null,
                     assetId: m.assetId || null, // Optional if file linked
                     synthSettings: m.synthSettings || null, // Optional if type=synth
-                    graphicAssetId: m.graphicAssetId || null // Optional pad image
+                    graphicAssetId: m.graphicAssetId || null, // Optional pad image
+                    color: m.color || null,
+                    image: m.image || null
                 };
                 console.log('Creating KeyMapping:', data); // Debug log
                 return data;

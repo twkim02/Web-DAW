@@ -14,6 +14,31 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc', visu
         const STAR_COUNT = 1500;
         let resizeObserver;
 
+        // Helper to create a circle texture on the fly (no external image needed)
+        const createCircleTexture = () => {
+            const size = 64;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Draw a soft glow
+            const center = size / 2;
+            const gradient = ctx.createRadialGradient(center, center, 0, center, center, size / 2);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        };
+        const particleTexture = createCircleTexture();
+
         try {
             const container = mountRef.current;
             const width = container.clientWidth;
@@ -51,7 +76,14 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc', visu
                     starPos[i] = (Math.random() - 0.5) * 100;
                 }
                 starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-                const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
+                const starMat = new THREE.PointsMaterial({
+                    color: 0xffffff,
+                    size: 0.2, // Slightly larger to see the glow
+                    map: particleTexture,
+                    transparent: true,
+                    opacity: 0.8,
+                    depthWrite: false // Fixes transparency sorting issues
+                });
                 stars = new THREE.Points(starGeo, starMat);
                 scene.add(stars);
 
@@ -117,20 +149,133 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc', visu
                     });
                 }
                 pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-                const pMat = new THREE.PointsMaterial({ color: primaryColor, size: 0.2, transparent: true, opacity: 0.8 });
+                const pMat = new THREE.PointsMaterial({
+                    color: primaryColor,
+                    size: 0.5,
+                    map: particleTexture,
+                    transparent: true,
+                    opacity: 0.8,
+                    depthWrite: false
+                });
                 particleSystem = new THREE.Points(pGeo, pMat);
                 particleSystem.userData = { velocities: pVel };
                 scene.add(particleSystem);
             }
 
 
-            // --- 4. Animation ---
+            // --- 4. Legendary Fluid Shader Background ---
+            const vertexShader = `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `;
+
+            const fragmentShader = `
+                uniform float uTime;
+                uniform float uBass;
+                uniform vec3 uColor;
+                varying vec2 vUv;
+
+                // Simplex 2D noise
+                vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+                float snoise(vec2 v){
+                    const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                            -0.577350269189626, 0.024390243902439);
+                    vec2 i  = floor(v + dot(v, C.yy) );
+                    vec2 x0 = v - i + dot(i, C.xx);
+                    vec2 i1;
+                    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                    vec4 x12 = x0.xyxy + C.xxzz;
+                    x12.xy -= i1;
+                    i = mod(i, 289.0);
+                    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+                    + i.x + vec3(0.0, i1.x, 1.0 ));
+                    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+                    m = m*m ;
+                    m = m*m ;
+                    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                    vec3 h = abs(x) - 0.5;
+                    vec3 ox = floor(x + 0.5);
+                    vec3 a0 = x - ox;
+                    m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                    vec3 g;
+                    g.x  = a0.x  * x0.x  + h.x  * x0.y;
+                    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                    return 130.0 * dot(m, g);
+                }
+
+                void main() {
+                    vec2 uv = vUv;
+                    
+                    // Dynamic Liquid Movement
+                    float time = uTime * 0.2;
+                    float noise1 = snoise(uv * 3.0 + time);
+                    float noise2 = snoise(uv * 6.0 - time * 1.5 + noise1);
+                    
+                    // Bass Impact (Ripple)
+                    float dist = distance(uv, vec2(0.5));
+                    float ripple = sin(dist * 20.0 - uTime * 2.0) * uBass * 0.1;
+
+                    // Color Mixing
+                    vec3 color1 = vec3(0.0, 0.0, 0.0); // Black Base
+                    vec3 color2 = uColor * 0.5; // Muted Theme Color
+                    vec3 color3 = uColor * 2.0; // Bright Pop
+
+                    float mixVal = smoothstep(-0.5, 1.0, noise2 + ripple);
+                    vec3 finalColor = mix(color1, color2, mixVal);
+                    finalColor = mix(finalColor, color3, smoothstep(0.6, 1.0, noise2));
+
+                    // Vignette
+                    float vignette = 1.0 - smoothstep(0.5, 1.5, dist);
+                    
+                    gl_FragColor = vec4(finalColor * vignette, 1.0);
+                }
+            `;
+
+            // Background Plane
+            // We want it strictly behind everything.
+            // Since camera z=8.4, we can put this at z=-5 or so, and scale it up.
+            const bgGeo = new THREE.PlaneGeometry(30, 20); // Large enough to cover screen
+            const bgUniforms = {
+                uTime: { value: 0 },
+                uBass: { value: 0 }, // 0.0 to 1.0
+                uColor: { value: new THREE.Color(primaryColor) }
+            };
+            const bgMat = new THREE.ShaderMaterial({
+                vertexShader,
+                fragmentShader,
+                uniforms: bgUniforms,
+                depthWrite: false,
+                depthTest: true
+            });
+
+            // "Legendary" Toggle: Only add if enabled (default true for now, can be toggled via prop)
+            // But user wants a toggle. Let's assume prop 'showBackground'.
+            // For now, add it, we will control opacity or remove based on prop later?
+            // Actually, better to just modify the shader logic or visibility.
+            backgroundPlane = new THREE.Mesh(bgGeo, bgMat);
+            backgroundPlane.position.z = -2; // Behind particles
+            scene.add(backgroundPlane);
+
+
+            // --- 5. Animation ---
             const animate = () => {
                 frameId = requestAnimationFrame(animate);
+                const time = performance.now() * 0.001;
 
                 // --- Frequency Data (for Scale/Color) ---
                 const array = audioEngine.getFrequencyData();
                 const bass = (array && array.length > 0) ? Math.max(array[0] || 0, array[1] || 0, array[2] || 0) : 0;
+
+                // Update Shader Uniforms
+                if (backgroundPlane) {
+                    backgroundPlane.material.uniforms.uTime.value = time;
+                    // Smooth bass for shader
+                    backgroundPlane.material.uniforms.uBass.value = (bass / 255);
+                    backgroundPlane.material.uniforms.uColor.value.set(primaryColor);
+                }
 
                 // --- Time Domain Data (for Wave) ---
                 const waveData = visualizerMode === 'circular_wave' ? audioEngine.getTimeDomainData() : null;
@@ -246,11 +391,11 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc', visu
                     if (bassEnergy > 150) {
                         particleSystem.material.color.setHex(0xffffff);
                         particleSystem.material.opacity = 1;
-                        particleSystem.material.size = 0.3;
+                        particleSystem.material.size = 0.5;
                     } else {
                         particleSystem.material.color.lerp(new THREE.Color(primaryColor), 0.1);
-                        particleSystem.material.opacity = 0.7;
-                        particleSystem.material.size = 0.2;
+                        particleSystem.material.opacity = 0.8;
+                        particleSystem.material.size = 0.5;
                     }
                 }
 
@@ -269,6 +414,8 @@ const ThreeVisualizer = ({ themeType = 'dynamic', primaryColor = '#00ffcc', visu
                 renderer.setSize(w, h);
                 camera.aspect = w / h;
                 camera.updateProjectionMatrix();
+
+                // Also update shader time for smoother transitions if needed
             };
 
             resizeObserver = new ResizeObserver(() => handleResize());

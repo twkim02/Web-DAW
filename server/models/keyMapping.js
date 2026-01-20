@@ -30,6 +30,16 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             allowNull: true,
             comment: '패드 이미지 GraphicAsset ID'
+        },
+        color: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            comment: '패드 LED 색상'
+        },
+        image: {
+            type: DataTypes.TEXT, // URL can be long
+            allowNull: true,
+            comment: '패드 배경 이미지 URL (레거시 지원, graphicAssetId 사용 권장)'
         }
     }, {
         tableName: 'KeyMappings',
