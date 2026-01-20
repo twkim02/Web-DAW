@@ -109,7 +109,7 @@ const commentRoutes = require('./routes/comments');
 app.use('/api/posts/:postId/comments', commentRoutes);
 
 // Sync Database & Start Server
-db.sequelize.sync().then(() => {
+db.sequelize.sync({ alter: true }).then(() => {
     app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
     });
