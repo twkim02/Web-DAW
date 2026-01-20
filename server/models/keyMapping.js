@@ -25,6 +25,11 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
             comment: 'Tone.js 신서사이저 파라미터 (type=synth일 때 사용)'
             // 예시: { oscillator: { type: 'sine' }, envelope: { attack: 0.1, ... } }
+        },
+        graphicAssetId: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            comment: '패드 이미지 GraphicAsset ID'
         }
     }, {
         tableName: 'KeyMappings',
@@ -34,6 +39,7 @@ module.exports = (sequelize, DataTypes) => {
     KeyMapping.associate = function (models) {
         KeyMapping.belongsTo(models.Preset, { foreignKey: 'presetId' });
         KeyMapping.belongsTo(models.Asset, { foreignKey: 'assetId' });
+        KeyMapping.belongsTo(models.GraphicAsset, { foreignKey: 'graphicAssetId', onDelete: 'SET NULL' });
     };
 
     return KeyMapping;

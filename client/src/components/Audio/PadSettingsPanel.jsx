@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import useStore from '../../store/useStore';
 import styles from '../Layout/RightSidebar.module.css'; // Reusing sidebar styles
 import ColorThief from 'colorthief';
+import { uploadGraphicAsset } from '../../api/graphicAssets';
 
 const PadSettingsPanel = () => {
     const editingPadId = useStore(state => state.editingPadId);
@@ -54,10 +55,11 @@ const PadSettingsPanel = () => {
         handleSave({ name: newName });
     };
 
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
+        // Show preview immediately
         const reader = new FileReader();
         reader.onload = (event) => {
             const dataUrl = event.target.result;
@@ -67,7 +69,7 @@ const PadSettingsPanel = () => {
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.src = dataUrl;
-            img.onload = () => {
+            img.onload = async () => {
                 try {
                     const colorThief = new ColorThief();
                     const rgb = colorThief.getColor(img);
@@ -77,10 +79,47 @@ const PadSettingsPanel = () => {
                     }).join('');
 
                     setColor(hex);
-                    handleSave({ image: dataUrl, color: hex });
+
+                    // Upload to server and get GraphicAsset
+                    try {
+                        const result = await uploadGraphicAsset(file, 'pad', false);
+                        if (result && result.asset) {
+                            const graphicAsset = result.asset;
+                            // Get the URL from the asset
+                            const imageUrl = graphicAsset.url || dataUrl;
+                            handleSave({ 
+                                image: imageUrl, 
+                                color: hex,
+                                graphicAssetId: graphicAsset.id 
+                            });
+                        } else {
+                            // Fallback to dataUrl if upload fails
+                            handleSave({ image: dataUrl, color: hex });
+                        }
+                    } catch (uploadErr) {
+                        console.error('Failed to upload pad image:', uploadErr);
+                        // Fallback to dataUrl if upload fails
+                        handleSave({ image: dataUrl, color: hex });
+                    }
                 } catch (err) {
                     console.error('Color Extraction Failed:', err);
-                    handleSave({ image: dataUrl });
+                    // Try to upload anyway
+                    try {
+                        const result = await uploadGraphicAsset(file, 'pad', false);
+                        if (result && result.asset) {
+                            const graphicAsset = result.asset;
+                            const imageUrl = graphicAsset.url || dataUrl;
+                            handleSave({ 
+                                image: imageUrl,
+                                graphicAssetId: graphicAsset.id 
+                            });
+                        } else {
+                            handleSave({ image: dataUrl });
+                        }
+                    } catch (uploadErr) {
+                        console.error('Failed to upload pad image:', uploadErr);
+                        handleSave({ image: dataUrl });
+                    }
                 }
             };
         };
@@ -89,7 +128,7 @@ const PadSettingsPanel = () => {
 
     const clearImage = () => {
         setImage(null);
-        handleSave({ image: null });
+        handleSave({ image: null, graphicAssetId: null });
     };
 
     // --- FX CHAIN HELPERS ---

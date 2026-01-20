@@ -74,7 +74,10 @@ router.get('/:id', isAuthenticated, async (req, res) => {
             include: [
                 {
                     model: db.KeyMapping,
-                    include: [db.Asset] // Include file info
+                    include: [
+                        db.Asset, // Include file info
+                        db.GraphicAsset // Include pad image info
+                    ]
                 }
             ]
         });
@@ -130,7 +133,8 @@ router.post('/', isAuthenticated, async (req, res) => {
                 type: m.type,
                 note: m.note || null,
                 assetId: m.assetId || null, // Optional if file linked
-                synthSettings: m.synthSettings || null // Optional if type=synth
+                synthSettings: m.synthSettings || null, // Optional if type=synth
+                graphicAssetId: m.graphicAssetId || null // Optional pad image
             }));
 
             await db.KeyMapping.bulkCreate(mappingData, { transaction: t });

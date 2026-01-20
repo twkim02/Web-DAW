@@ -288,6 +288,25 @@ function App() {
               SamplerMod.sampler.loadSample(padId, fileUrl);
             }
 
+            // Get pad image URL from GraphicAsset
+            let padImageUrl = null;
+            if (mapping.GraphicAsset) {
+              const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+              let imagePath = mapping.GraphicAsset.url || mapping.GraphicAsset.filePath;
+              if (imagePath && imagePath.trim().match(/^https?:\/\//)) {
+                padImageUrl = imagePath;
+              } else {
+                if (imagePath && !imagePath.startsWith('/') && !imagePath.startsWith('http')) {
+                  imagePath = '/' + imagePath;
+                }
+                if (imagePath.startsWith('http')) {
+                  padImageUrl = imagePath;
+                } else {
+                  padImageUrl = `${baseURL}${imagePath}`;
+                }
+              }
+            }
+
             const newMapping = {
               mode: mapping.mode,
               volume: mapping.volume,
@@ -296,6 +315,8 @@ function App() {
               note: mapping.note || 'C4',
               assetId: mapping.Asset ? mapping.Asset.id : null,
               originalName: mapping.Asset ? mapping.Asset.originalName : null,
+              image: padImageUrl, // Pad image from GraphicAsset
+              graphicAssetId: mapping.GraphicAsset ? mapping.GraphicAsset.id : null,
               // 향후 확장: 새 필드 지원 가능
               // type: mapping.type,
               // note: mapping.note,
@@ -435,6 +456,7 @@ function App() {
         type: p.type,
         note: p.note || null,
         assetId: p.assetId || null,
+        graphicAssetId: p.graphicAssetId || null, // Pad image GraphicAsset ID
         synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null
       }));
 
