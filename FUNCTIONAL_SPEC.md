@@ -109,8 +109,10 @@ AudioEngine (싱글톤)
 
 #### API 라우트 구조
 - `/auth/*`: 인증 (Google OAuth, Dev Login, Session)
-- `/upload/*`: 파일 업로드/다운로드 (로컬/S3)
+- `/upload/*`: 오디오 파일 업로드/다운로드 (로컬/S3)
+- `/api/graphic-assets/*`: 그래픽 자산 CRUD (이미지 파일, 로컬/S3)
 - `/presets/*`: 프리셋 CRUD (인증 필요)
+  - `POST /presets/:id/access`: 프리셋 접근 기록
 - `/api/posts/*`: 게시판 CRUD (공개/비공개)
 - `/api/posts/:postId/comments/*`: 댓글 CRUD
 - `/api/user/preferences/*`: 사용자 설정 (인증 필요)
@@ -121,11 +123,14 @@ User
 ├── hasMany Preset
 ├── hasMany Post
 ├── hasMany Comment
+├── hasMany PresetAccess
+├── hasMany GraphicAsset
 └── hasOne UserPreference
 
 Preset
 ├── belongsTo User
 ├── hasMany KeyMapping
+├── hasMany PresetAccess
 └── hasMany Post (presetId or presetData snapshot)
 
 Post
@@ -133,8 +138,21 @@ Post
 ├── belongsTo Preset (nullable - snapshot 지원)
 └── hasMany Comment
 
-Asset (파일 메타데이터)
+Asset (오디오 파일 메타데이터)
 └── referenced by KeyMapping (assetId)
+
+GraphicAsset (이미지 파일 메타데이터)
+├── belongsTo User
+└── referenced by KeyMapping (graphicAssetId)
+
+KeyMapping
+├── belongsTo Preset
+├── belongsTo Asset (오디오 파일)
+└── belongsTo GraphicAsset (패드 이미지)
+
+PresetAccess (프리셋 접근 추적)
+├── belongsTo User (nullable - 비로그인 지원)
+└── belongsTo Preset
 ```
 
 ---
@@ -246,7 +264,10 @@ Asset (파일 메타데이터)
     type: string,     // 'sample', 'synth'
     note: string,     // 'C4', etc.
     assetId: number,  // Asset ID (샘플인 경우)
-    synthSettings: object  // 신스인 경우
+    synthSettings: object,  // 신스인 경우
+    graphicAssetId: number,  // GraphicAsset ID (패드 이미지)
+    color: string,    // 패드 LED 색상 (hex)
+    image: string     // 패드 배경 이미지 URL (레거시 지원)
   }]
 }
 ```
@@ -254,9 +275,10 @@ Asset (파일 메타데이터)
 #### 4.3.2 프리셋 저장
 - **조건**: 로그인 필수
 - **저장 항목**:
-  - 활성 패드 매핑 (파일/타입/볼륨)
+  - 활성 패드 매핑 (파일/타입/볼륨/이미지/색상)
   - BPM
   - 글로벌 설정 (믹서, 이펙트, 테마)
+- **패드 이미지**: `graphicAssetId`로 GraphicAsset 참조 저장
 - **API**: `POST /presets`
 
 #### 4.3.3 프리셋 로드
@@ -267,6 +289,8 @@ Asset (파일 메타데이터)
   2. 글로벌 설정 복원 (믹서, 이펙트, 테마)
   3. 패드 매핑 복원
   4. 샘플 파일 로드 (Asset URL 기반)
+  5. 패드 이미지 로드 (GraphicAsset URL 기반)
+- **접근 추적**: 프리셋 로드 시 `PresetAccess` 레코드 생성/업데이트
 
 #### 4.3.4 프리셋 삭제
 - **권한**: 소유자만 삭제 가능
@@ -353,14 +377,25 @@ Asset (파일 메타데이터)
 ### 4.7 파일 관리 (File Library)
 
 #### 4.7.1 파일 업로드
-- **지원 형식**: 오디오 파일 (MP3, WAV, OGG 등)
-- **스토리지**: 로컬 (uploads/) 또는 AWS S3
-- **메타데이터**: Asset 모델에 저장
-  - originalName, filename, filePath, mimetype
-  - category (sample, loop, etc.)
-  - isRecorded (녹음 파일 여부)
-  - storageType (local, s3)
-- **API**: `POST /upload`
+- **지원 형식**: 
+  - 오디오 파일 (MP3, WAV, OGG 등) → Asset 모델
+  - 이미지 파일 (JPEG, PNG, GIF 등) → GraphicAsset 모델
+- **스토리지**: 로컬 (uploads/, uploads/graphics/) 또는 AWS S3
+- **메타데이터**: 
+  - **Asset 모델** (오디오 파일):
+    - originalName, filename, filePath, mimetype
+    - category (sample, loop, etc.)
+    - isRecorded (녹음 파일 여부)
+    - storageType (local, s3)
+  - **GraphicAsset 모델** (이미지 파일):
+    - originalName, filename, filePath, mimetype
+    - category (background, pad, icon, texture, overlay, other)
+    - width, height, fileSize
+    - isPublic (공개 여부)
+    - storageType (local, s3)
+- **API**: 
+  - 오디오: `POST /upload`
+  - 이미지: `POST /api/graphic-assets`
 
 #### 4.7.2 파일 라이브러리 UI
 - **카테고리별 표시**: 샘플, 루프, 녹음 파일
@@ -369,10 +404,15 @@ Asset (파일 메타데이터)
   - 패드에 할당: 드래그 앤 드롭 또는 클릭
   - 삭제: 선택 후 삭제 (배치 삭제 지원)
   - 이름 변경: `PUT /upload/rename`
+- **필터링 규칙**:
+  - **비로그인 상태**: 현재 로드된 preset의 asset만 표시 (presetId 쿼리 파라미터 필요)
+  - **로그인 상태**: 본인이 만든 preset의 asset + 로드한 preset의 asset + 본인이 업로드한 asset
 
 #### 4.7.3 파일 할당
 - **패드 설정 패널**: 파일 선택 드롭다운
-- **패드별 파일**: Asset ID 참조
+- **패드별 파일**: Asset ID 참조 (오디오)
+- **패드 이미지**: GraphicAsset ID 참조 (이미지)
+- **패드 색상**: LED 색상 설정 (hex)
 - **오프라인 파일**: URL 직접 입력 가능
 
 ### 4.8 이펙트 라이브러리 (Effect Library)
@@ -428,7 +468,8 @@ Asset (파일 메타데이터)
   - background (CSS gradient 또는 이미지)
   - type (static, dynamic)
   - visualizerMode (default, particles, etc.)
-- **커스텀 배경**: 사용자 이미지 업로드 (customBackgroundImage)
+- **커스텀 배경**: 사용자 이미지 업로드 (GraphicAsset의 category='background'로 저장)
+- **패드 이미지**: 각 패드별 개별 이미지 설정 가능 (GraphicAsset의 category='pad'로 저장)
 
 #### 4.10.2 비주얼라이저
 - **3D 비주얼라이저**: Three.js 기반
@@ -548,8 +589,13 @@ Asset (파일 메타데이터)
 ### 5.2 파일 업로드 (Upload)
 
 #### GET /upload
-- **설명**: 파일 목록 조회
-- **쿼리**: `category` (선택)
+- **설명**: 오디오 파일 목록 조회
+- **쿼리**: 
+  - `category` (선택)
+  - `presetId` (선택, 비로그인 시 필수)
+- **필터링**:
+  - 비로그인: 현재 로드된 preset의 asset만
+  - 로그인: 본인이 만든 preset의 asset + 로드한 preset의 asset + 본인이 업로드한 asset
 - **응답**: `Asset[]`
 
 #### POST /upload
@@ -572,6 +618,47 @@ Asset (파일 메타데이터)
 - **인증**: 세션 기반 (소유자만)
 - **Body**: `{ id: number, newName: string }`
 - **응답**: `{ message, asset }`
+
+### 5.2.1 그래픽 자산 (Graphic Assets)
+
+#### GET /api/graphic-assets
+- **설명**: 그래픽 자산 목록 조회
+- **쿼리**: `category` (선택: background, pad, icon, texture, overlay, other)
+- **필터링**:
+  - 비로그인: 공개된 asset만 (isPublic: true)
+  - 로그인: 본인이 업로드한 asset + 공개된 asset
+- **응답**: `GraphicAsset[]`
+
+#### GET /api/graphic-assets/:id
+- **설명**: 그래픽 자산 상세 조회
+- **인증**: 선택 (비공개 asset은 소유자만)
+- **응답**: `GraphicAsset`
+
+#### POST /api/graphic-assets
+- **설명**: 그래픽 자산 업로드
+- **인증**: 선택 (로그인 시 userId 할당)
+- **Body**: `multipart/form-data`
+  - `file`: 이미지 파일
+  - `category`: string (background, pad, icon, texture, overlay, other)
+  - `isPublic`: boolean
+- **응답**: `{ message, asset: GraphicAsset }`
+
+#### PUT /api/graphic-assets/:id
+- **설명**: 그래픽 자산 수정
+- **인증**: 세션 기반 (소유자만)
+- **Body**: `{ category?, isPublic? }`
+- **응답**: `{ message, asset }`
+
+#### DELETE /api/graphic-assets/:id
+- **설명**: 그래픽 자산 삭제
+- **인증**: 세션 기반 (소유자만)
+- **응답**: `{ message }`
+
+#### POST /api/graphic-assets/delete
+- **설명**: 그래픽 자산 배치 삭제
+- **인증**: 세션 기반 (소유자만)
+- **Body**: `{ ids: number[] }`
+- **응답**: `{ message }`
 
 ### 5.3 프리셋 (Presets)
 
@@ -600,7 +687,10 @@ Asset (파일 메타데이터)
     "type": string,
     "note": string,
     "assetId": number,
-    "synthSettings": object
+    "synthSettings": object,
+    "graphicAssetId": number,
+    "color": string,
+    "image": string
   }],
   "settings": {
     "mixerLevels": {...},
@@ -615,6 +705,13 @@ Asset (파일 메타데이터)
 }
 ```
 - **응답**: `Preset`
+
+#### POST /presets/:id/access
+- **설명**: 프리셋 접근 기록 (프리셋 로드 시 호출)
+- **인증**: 선택 (비로그인도 가능)
+- **Body**: 없음
+- **응답**: `{ success: boolean, message: string }`
+- **동작**: PresetAccess 레코드 생성/업데이트 (userId, presetId, sessionId, loadedAt)
 
 #### DELETE /presets/:id
 - **설명**: 프리셋 삭제
@@ -679,8 +776,8 @@ Asset (파일 메타데이터)
 
 #### POST /api/posts/:id/download
 - **설명**: 프리셋 다운로드 (공개 게시글)
-- **인증**: 선택 (로그인 시 downloadCount 증가)
-- **응답**: `{ success: boolean, downloadCount: number, post: Post }` (Preset 데이터 포함)
+- **인증**: 선택 (로그인 시 downloadCount 증가 및 PresetAccess 기록)
+- **응답**: `{ success: boolean, downloadCount: number, post: Post }` (Preset 데이터 포함, KeyMapping에 GraphicAsset 포함)
 
 #### POST /api/posts/:id/fork
 - **설명**: 프리셋 포크
@@ -763,11 +860,14 @@ updatedAt: DATETIME
 id: INTEGER PRIMARY KEY
 presetId: INTEGER FOREIGN KEY (Presets.id)
 keyChar: STRING  -- 패드 ID (0-63)
-mode: STRING  -- 'one-shot', 'loop', etc.
+mode: STRING  -- 'one-shot', 'gate', 'toggle'
 volume: FLOAT
 type: STRING  -- 'sample', 'synth'
 note: STRING  -- 'C4', etc.
-assetId: INTEGER FOREIGN KEY (Assets.id) NULL
+assetId: INTEGER FOREIGN KEY (Assets.id) NULL  -- 오디오 파일
+graphicAssetId: INTEGER FOREIGN KEY (GraphicAssets.id) NULL  -- 패드 이미지
+color: STRING NULL  -- 패드 LED 색상 (hex)
+image: TEXT NULL  -- 패드 배경 이미지 URL (레거시 지원)
 synthSettings: JSON NULL
 createdAt: DATETIME
 updatedAt: DATETIME
@@ -827,6 +927,35 @@ visualizerMode: STRING NULL
 defaultMasterVolume: FLOAT DEFAULT 0.7
 createdAt: DATETIME
 updatedAt: DATETIME
+```
+
+### 6.8 GraphicAssets
+```sql
+id: INTEGER PRIMARY KEY
+userId: INTEGER FOREIGN KEY (Users.id) NULL  -- NULL이면 비로그인 사용자
+originalName: STRING NOT NULL
+filename: STRING NOT NULL
+filePath: STRING NOT NULL  -- 로컬 경로 또는 S3 URL
+mimetype: STRING NULL  -- image/jpeg, image/png, image/gif, etc.
+category: ENUM('background', 'icon', 'texture', 'overlay', 'pad', 'other') DEFAULT 'background'
+width: INTEGER NULL  -- 이미지 너비 (픽셀)
+height: INTEGER NULL  -- 이미지 높이 (픽셀)
+fileSize: INTEGER NULL  -- 파일 크기 (바이트)
+isPublic: BOOLEAN DEFAULT false
+storageType: ENUM('local', 's3') DEFAULT 'local'
+s3Key: STRING NULL  -- S3 객체 키
+createdAt: DATETIME
+updatedAt: DATETIME
+```
+
+### 6.9 PresetAccesses
+```sql
+id: INTEGER PRIMARY KEY
+userId: INTEGER FOREIGN KEY (Users.id) NULL  -- NULL이면 비로그인 사용자
+presetId: INTEGER FOREIGN KEY (Presets.id) NOT NULL
+sessionId: STRING NULL  -- 비로그인 사용자 세션 ID
+loadedAt: DATETIME NOT NULL  -- 프리셋 로드 시각
+-- timestamps: false (createdAt, updatedAt 없음)
 ```
 
 ---
@@ -918,9 +1047,13 @@ updatedAt: DATETIME
 
 ### 8.4 프리셋 관련
 - [ ] 프리셋 저장 (로그인 필수)
+  - [ ] 패드 이미지 저장 (graphicAssetId)
+  - [ ] 패드 색상 저장 (color)
 - [ ] 프리셋 목록 조회 (자신의 프리셋만)
-- [ ] 프리셋 상세 조회 (매핑 포함)
+- [ ] 프리셋 상세 조회 (매핑, Asset, GraphicAsset 포함)
 - [ ] 프리셋 로드 (BPM, 설정, 매핑 복원)
+  - [ ] 패드 이미지 복원 (GraphicAsset URL)
+  - [ ] 프리셋 접근 기록 (PresetAccess)
 - [ ] 프리셋 삭제 (연쇄 처리 확인)
 - [ ] 프리셋 라이브러리 검색/필터링
 
@@ -937,11 +1070,16 @@ updatedAt: DATETIME
 - [ ] 댓글 작성/삭제
 
 ### 8.6 파일 관리 관련
-- [ ] 파일 업로드 (로컬/S3)
-- [ ] 파일 목록 조회
+- [ ] 오디오 파일 업로드 (로컬/S3)
+- [ ] 이미지 파일 업로드 (GraphicAsset, 로컬/S3)
+- [ ] 파일 목록 조회 (필터링 규칙 확인)
+  - [ ] 비로그인: 현재 preset의 asset만
+  - [ ] 로그인: 본인 preset + 로드한 preset + 본인 업로드 asset
 - [ ] 파일 삭제 (배치 삭제)
 - [ ] 파일 이름 변경
-- [ ] 파일을 패드에 할당
+- [ ] 파일을 패드에 할당 (오디오)
+- [ ] 이미지를 패드에 할당 (GraphicAsset)
+- [ ] 패드 색상 설정
 - [ ] 업로드된 파일 재생
 
 ### 8.7 믹서 관련
@@ -960,7 +1098,9 @@ updatedAt: DATETIME
 
 ### 8.9 테마/비주얼라이저 관련
 - [ ] 테마 변경 (cosmic, dark, neon, etc.)
-- [ ] 커스텀 배경 이미지 업로드
+- [ ] 커스텀 배경 이미지 업로드 (GraphicAsset, category='background')
+- [ ] 패드 이미지 업로드 (GraphicAsset, category='pad')
+- [ ] 패드 이미지 미리보기
 - [ ] 비주얼라이저 모드 변경
 - [ ] 비주얼라이저 표시/숨김
 - [ ] 3D 비주얼라이저 오디오 반응
@@ -1052,6 +1192,42 @@ updatedAt: DATETIME
 
 ---
 
-**문서 버전**: 1.0  
+---
+
+## 11. 최근 변경 사항 (Changelog)
+
+### v1.1 (2024)
+- **패드 이미지 저장 기능 추가**
+  - `GraphicAssets` 테이블 생성 (이미지 파일 메타데이터 저장)
+  - `KeyMappings`에 `graphicAssetId`, `color`, `image` 필드 추가
+  - 패드별 개별 이미지 설정 및 미리보기 지원
+  - 배경 이미지도 `GraphicAsset`로 저장 (category='background')
+
+- **프리셋 접근 추적 기능 추가**
+  - `PresetAccesses` 테이블 생성
+  - 프리셋 로드 시 접근 기록 (비로그인 사용자도 지원)
+  - 파일 라이브러리 필터링에 활용 (로드한 preset의 asset 표시)
+
+- **파일 라이브러리 필터링 개선**
+  - 비로그인: 현재 로드된 preset의 asset만 표시
+  - 로그인: 본인이 만든 preset + 로드한 preset + 본인이 업로드한 asset 표시
+
+- **API 엔드포인트 추가**
+  - `GET /api/graphic-assets`: 그래픽 자산 목록 조회
+  - `GET /api/graphic-assets/:id`: 그래픽 자산 상세 조회
+  - `POST /api/graphic-assets`: 그래픽 자산 업로드
+  - `PUT /api/graphic-assets/:id`: 그래픽 자산 수정
+  - `DELETE /api/graphic-assets/:id`: 그래픽 자산 삭제
+  - `POST /api/graphic-assets/delete`: 그래픽 자산 배치 삭제
+  - `POST /presets/:id/access`: 프리셋 접근 기록
+
+- **프리셋 저장/로드 개선**
+  - 프리셋 저장 시 패드 이미지(`graphicAssetId`) 및 색상(`color`) 포함
+  - 프리셋 로드 시 `GraphicAsset` 정보 포함하여 패드 이미지 복원
+  - 프리셋 로드 시 자동으로 접근 기록 생성
+
+---
+
+**문서 버전**: 1.1  
 **최종 업데이트**: 2024  
 **작성자**: Web-DAW Development Team
