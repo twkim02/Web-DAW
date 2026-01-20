@@ -37,8 +37,8 @@ app.use(cors({
     },
     credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Serve static files from uploads
 app.use('/uploads', express.static('uploads'));
 // Serve graphic assets
@@ -115,20 +115,20 @@ const graphicAssetRoutes = require('./routes/graphicAssets');
 app.use('/api/graphic-assets', graphicAssetRoutes);
 
 // Sync Database & Start Server
-db.sequelize.sync({ alter: true }).then(async () => {
+db.sequelize.sync().then(async () => {
     // 테이블에 인덱스 추가 (컬럼 생성 후)
     try {
         await db.GraphicAsset.addIndexes();
     } catch (err) {
         console.warn('GraphicAsset index addition skipped (may already exist):', err.message);
     }
-    
+
     try {
         await db.PresetAccess.addIndexes();
     } catch (err) {
         console.warn('PresetAccess index addition skipped (may already exist):', err.message);
     }
-    
+
     app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
     });

@@ -6,11 +6,12 @@ import { useUserPreferences } from '../../hooks/useUserPreferences';
  */
 const SettingsModal = ({ isOpen, onClose }) => {
     const { preferences, loading, loadPreferences, savePreferences } = useUserPreferences();
-    
+
     const [formData, setFormData] = useState({
         latencyMs: 100,
         visualizerMode: '',
-        defaultMasterVolume: 0.7
+        defaultMasterVolume: 0.7,
+        dynamicBackground: true // Default On
     });
 
     // 모달이 열릴 때 설정 로드
@@ -26,7 +27,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
             setFormData({
                 latencyMs: preferences.latencyMs || 100,
                 visualizerMode: preferences.visualizerMode || '',
-                defaultMasterVolume: preferences.defaultMasterVolume || 0.7
+                defaultMasterVolume: preferences.defaultMasterVolume || 0.7,
+                dynamicBackground: preferences.dynamicBackground !== undefined ? preferences.dynamicBackground : true
             });
         }
     }, [preferences]);
@@ -40,7 +42,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
             await savePreferences({
                 latencyMs: parseInt(formData.latencyMs) || 100,
                 visualizerMode: formData.visualizerMode || null,
-                defaultMasterVolume: parseFloat(formData.defaultMasterVolume) || 0.7
+                latencyMs: parseInt(formData.latencyMs) || 100,
+                visualizerMode: formData.visualizerMode || null,
+                defaultMasterVolume: parseFloat(formData.defaultMasterVolume) || 0.7,
+                dynamicBackground: formData.dynamicBackground
             });
             alert('설정이 저장되었습니다.');
             onClose();
@@ -136,6 +141,46 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             onChange={(e) => handleChange('defaultMasterVolume', e.target.value)}
                             style={{ width: '100%' }}
                         />
+                    </div>
+
+                    {/* Background Type Selection */}
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '5px' }}>
+                            배경 화면 모드
+                        </label>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    borderRadius: '5px',
+                                    border: '1px solid #444',
+                                    backgroundColor: !formData.dynamicBackground ? '#4CAF50' : '#2a2a2a',
+                                    color: '#fff',
+                                    cursor: 'pointer'
+                                }}
+                                onClick={() => handleChange('dynamicBackground', false)}
+                            >
+                                이미지 (Custom/Default)
+                            </button>
+                            <button
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    borderRadius: '5px',
+                                    border: '1px solid #444',
+                                    backgroundColor: formData.dynamicBackground ? '#4CAF50' : '#2a2a2a',
+                                    color: '#fff',
+                                    cursor: 'pointer'
+                                }}
+                                onClick={() => handleChange('dynamicBackground', true)}
+                            >
+                                사운드 오로라 (Sound Aurora)
+                            </button>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#888', marginTop: '5px' }}>
+                            * 사운드 오로라 선택 시 배경 이미지는 숨겨집니다.
+                        </p>
                     </div>
                 </div>
 

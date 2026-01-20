@@ -3,11 +3,11 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import ParticleField from './ParticleField';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
-
 import VisualizerBars from './VisualizerBars';
 import VisualizerWave from './VisualizerWave';
+import FluidBackground from './FluidBackground'; // Import
 
-const Visualizer3D = ({ primaryColor = '#00ffcc', hasCustomBackground = false, mode = 'default' }) => {
+const Visualizer3D = ({ primaryColor = '#00ffcc', hasCustomBackground = false, mode = 'default', dynamicMode = true }) => {
     return (
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none', background: 'transparent' }}>
             <Canvas camera={{ position: [0, 0, 35], fov: 75 }} gl={{ antialias: false }}>
@@ -18,6 +18,9 @@ const Visualizer3D = ({ primaryColor = '#00ffcc', hasCustomBackground = false, m
 
                 {/* Content */}
                 <Suspense fallback={null}>
+                    {/* Dynamic Fluid Background */}
+                    {dynamicMode && <FluidBackground primaryColor={primaryColor} />}
+
                     {/* Particles Mode or 'Stardust' */}
                     {(mode === 'particles' || mode === 'stardust') && (
                         <ParticleField count={1000} color={primaryColor} />
@@ -33,8 +36,12 @@ const Visualizer3D = ({ primaryColor = '#00ffcc', hasCustomBackground = false, m
                         <VisualizerBars mode={mode} primaryColor={primaryColor} />
                     )}
 
-                    {/* Stars - always nice for depth, maybe optional? keeping for consistency with previous */}
-                    <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+                    {/* Stars - Hide if Dynamic Mode is On to reduce clutter? Or Keep? Use smaller count/fade? */}
+                    {/* User disliked 'white squares'. If we keep Stars, we need to fix them or accept them. */}
+                    {/* Let's keep them 'subtle' or hide them if Dynamic BG is robust enough. */}
+                    {/* For now, let's keep them but with lower opacity/count if dynamic is on */}
+                    {!dynamicMode && <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />}
+                    {dynamicMode && <Stars radius={100} depth={50} count={1000} factor={4} saturation={0} fade speed={0.5} />}
                 </Suspense>
 
                 {/* Post Processing */}

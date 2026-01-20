@@ -4,6 +4,8 @@ import styles from './PadSettingsModal.module.css';
 import { instrumentManager } from '../../audio/InstrumentManager';
 import { SAMPLER_PRESETS } from '../../audio/instruments/Samplers';
 import { SYNTH_PRESETS } from '../../audio/instruments/Synths';
+import { uploadFile } from '../../api/upload';
+import client from '../../api/client';
 
 const PadSettingsModal = () => {
     const editingPadId = useStore((state) => state.editingPadId);
@@ -17,7 +19,8 @@ const PadSettingsModal = () => {
         mode: 'one-shot',
         color: '#FFFFFF',
         chokeGroup: '',
-        preset: '' // New Preset Field
+        preset: '', // New Preset Field
+        image: null // New Image Field
     });
 
     useEffect(() => {
@@ -30,7 +33,8 @@ const PadSettingsModal = () => {
                 color: current?.color || '#FFFFFF',
                 chokeGroup: current?.chokeGroup || '',
                 preset: current?.preset || '',
-                effects: current?.effects || (current?.effect ? [current.effect] : []) // Load existing effects
+                effects: current?.effects || (current?.effect ? [current.effect] : []),
+                image: current?.image || null
             });
         }
     }, [editingPadId, padMappings]);
@@ -194,6 +198,64 @@ const PadSettingsModal = () => {
                                     onClick={() => handleChange('color', c)}
                                 />
                             ))}
+                        </div>
+                    </div>
+
+                    {/* Pad Image (Custom) */}
+                    <div className={styles.fieldGroup}>
+                        <label>PAD IMAGE (CUSTOM)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {/* Preview */}
+                            <div style={{
+                                width: '60px', height: '60px', borderRadius: '8px',
+                                background: '#333', overflow: 'hidden',
+                                border: '1px solid #555',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                {formState.image ? (
+                                    <img src={formState.image} alt="Pad" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <span style={{ fontSize: '0.7rem', color: '#666' }}>None</span>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    id="pad-image-upload"
+                                    style={{ display: 'none' }}
+                                    onChange={async (e) => {
+                                        const file = e.target.files[0];
+                                        if (!file) return;
+                                        try {
+                                            const response = await uploadFile(file);
+                                            const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+                                            const fileUrl = response.file.url ? `${baseURL}${response.file.url}` : `${baseURL}/uploads/${encodeURIComponent(response.file.filename)}`;
+                                            handleChange('image', fileUrl);
+                                        } catch (err) {
+                                            console.error(err);
+                                            alert('Failed to upload image');
+                                        }
+                                    }}
+                                />
+                                <button
+                                    className={styles.glassBtnSmall}
+                                    style={{ padding: '4px 10px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                    onClick={() => document.getElementById('pad-image-upload').click()}
+                                >
+                                    Upload Image
+                                </button>
+
+                                {formState.image && (
+                                    <button
+                                        style={{ padding: '4px 10px', fontSize: '0.8rem', background: 'rgba(255,0,0,0.2)', color: '#ffaaaa', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                        onClick={() => handleChange('image', null)}
+                                    >
+                                        Remove Image
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

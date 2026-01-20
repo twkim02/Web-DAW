@@ -585,7 +585,7 @@ const Grid = () => {
                     style={{
                         width: '100%', height: '100%',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: isRecording ? '#ffffff' : (isLiveMode ? '#ffffff' : 'var(--color-bg-dark)'),
+                        background: isRecording ? '#ffffff' : (isLiveMode ? '#ffffff' : '#000000'),
                         borderRadius: '4px',
                         border: isRecording ? '2px solid var(--color-danger)' : (isLiveMode ? '1px solid var(--color-text-secondary)' : '1px solid var(--glass-border-medium)'),
                         cursor: 'pointer',
@@ -599,11 +599,11 @@ const Grid = () => {
                     }
                 >
                     <img
-                        src="/assets/images/logo.png"
+                        src="/assets/images/logo_v2.png"
                         alt="WEB DAW"
                         style={{
                             width: '80%', height: '80%', objectFit: 'contain',
-                            filter: isLiveMode ? 'none' : 'grayscale(100%) opacity(0.7)'
+                            filter: 'none'
                         }}
                     />
                 </div>

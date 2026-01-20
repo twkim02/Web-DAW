@@ -26,23 +26,22 @@ const TransportControls = () => {
     };
 
     return (
-        <div className={styles.transportContainer}>
-            <div className={styles.controls}>
-                {/* METRONOME TOGGLE */}
-                <button
-                    className={`${styles.playBtn} ${isMetronomeOn ? styles.active : ''}`}
-                    style={{ fontSize: '0.8rem', width: '60px', borderRadius: 'var(--radius-sm)' }}
-                    onClick={toggleMetronome}
-                    title="Metronome"
-                >
-                    METRO
-                </button>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* METRONOME TOGGLE */}
+            <button
+                className={`glass-btn ${isMetronomeOn ? 'active-metro' : ''}`}
+                onClick={toggleMetronome}
+                title="Metronome"
+            >
+                METRO
+            </button>
 
-            <div className={styles.bpmControl}>
-                <label>BPM: {bpm}</label>
+            {/* BPM CONTROL */}
+            <div className="glass-input-group">
+                <span className="glass-label">BPM</span>
                 <input
-                    type="range"
+                    type="number"
+                    className="glass-input"
                     min="60"
                     max="200"
                     value={bpm}
@@ -50,23 +49,15 @@ const TransportControls = () => {
                 />
             </div>
 
-            <div className={styles.bpmControl} style={{ marginLeft: '10px' }}>
-                <label style={{ fontSize: '0.7rem', whiteSpace: 'nowrap' }}>TIME SIG</label>
+            {/* TIME SIG */}
+            <div className="glass-input-group">
+                <span className="glass-label">SIG</span>
                 <select
+                    className="glass-select"
                     value={`${timeSignature[0]}/${timeSignature[1]}`}
                     onChange={(e) => {
                         const [num, den] = e.target.value.split('/').map(Number);
                         setTimeSignature([num, den]);
-                    }}
-                    style={{
-                        background: '#333',
-                        color: 'white',
-                        border: '1px solid #555',
-                        borderRadius: '4px',
-                        padding: '1px 3px',
-                        fontSize: '0.75rem',
-                        marginLeft: '4px',
-                        height: '24px'
                     }}
                 >
                     <option value="4/4">4/4</option>

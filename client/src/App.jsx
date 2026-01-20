@@ -253,6 +253,8 @@ function App() {
         if (s.launchQuantization) setLaunchQuantization(s.launchQuantization);
         if (s.customBackgroundImage) useStore.getState().setCustomBackgroundImage(s.customBackgroundImage);
         if (s.currentThemeId) useStore.getState().setThemeId(s.currentThemeId);
+        if (s.visualizerMode) useStore.getState().setVisualizerMode(s.visualizerMode);
+        if (s.showVisualizer !== undefined) useStore.getState().setShowVisualizer(s.showVisualizer);
       }
 
       // 3. Load Mappings
@@ -296,6 +298,8 @@ function App() {
               note: mapping.note || 'C4',
               assetId: mapping.Asset ? mapping.Asset.id : null,
               originalName: mapping.Asset ? mapping.Asset.originalName : null,
+              color: mapping.color,
+              image: mapping.image
               // 향후 확장: 새 필드 지원 가능
               // type: mapping.type,
               // note: mapping.note,
@@ -308,7 +312,7 @@ function App() {
         // Refresh Library UI
         useStore.getState().triggerLibraryRefresh();
       }
-      
+
       // Record preset access and set current preset ID
       if (preset.id) {
         setCurrentPresetId(preset.id);
@@ -317,7 +321,7 @@ function App() {
           console.warn('Failed to record preset access:', err);
         });
       }
-      
+
       alert(`Loaded: ${preset.title || 'Preset'}`);
     } catch (e) {
       console.error(e);
@@ -435,7 +439,9 @@ function App() {
         type: p.type,
         note: p.note || null,
         assetId: p.assetId || null,
-        synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null
+        synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null,
+        color: p.color,
+        image: p.image
       }));
 
     // Capture Full State
@@ -445,7 +451,9 @@ function App() {
       effects: useStore.getState().effects,
       launchQuantization: useStore.getState().launchQuantization,
       currentThemeId: useStore.getState().currentThemeId,
-      customBackgroundImage: useStore.getState().customBackgroundImage
+      customBackgroundImage: useStore.getState().customBackgroundImage,
+      visualizerMode: useStore.getState().visualizerMode,
+      showVisualizer: useStore.getState().showVisualizer
     };
 
     try {
@@ -500,8 +508,8 @@ function App() {
               zIndex: 10
             }}>
               {/* ... content */}
-              {/* Custom Background Layer (zIndex: 0) */}
-              {customBackgroundImage && (
+              {/* Custom Background Layer (zIndex: 0) - Only show if Dynamic Background is OFF */}
+              {customBackgroundImage && !(preferences?.dynamicBackground ?? true) && (
                 <div style={{
                   position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
                   backgroundImage: `url(${customBackgroundImage})`,
@@ -511,8 +519,8 @@ function App() {
                 }} />
               )}
 
-              {/* Static Theme Background (zIndex: -1) */}
-              {!customBackgroundImage && currentTheme.type !== 'dynamic' && (
+              {/* Static Theme Background (zIndex: -1) - Only show if Custom/Dynamic are OFF */}
+              {!customBackgroundImage && currentTheme.type !== 'dynamic' && !(preferences?.dynamicBackground ?? true) && (
                 <div style={{
                   position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
                   background: currentTheme.background,
@@ -524,8 +532,10 @@ function App() {
               {useStore.getState().showVisualizer !== false && (
                 <Visualizer3D
                   primaryColor={currentTheme.primaryColor}
-                  hasCustomBackground={!!customBackgroundImage}
+                  // If logic: Custom BG is 'effective' only if it exists AND dynamic is off
+                  hasCustomBackground={!!customBackgroundImage && !(preferences?.dynamicBackground ?? true)}
                   mode={visualizerMode || currentTheme.visualizerMode || 'default'}
+                  dynamicMode={preferences?.dynamicBackground ?? true}
                 />
               )}
 
@@ -566,7 +576,15 @@ function App() {
                         onClick={() => useStore.getState().toggleLeftSidebar()}
                         className={`glass-btn ${isLeftSidebarOpen ? 'active' : ''}`}
                       >
-                        📂 Library
+                        📂 Files
+                      </button>
+
+                      {/* Presets Manager */}
+                      <button
+                        onClick={() => setIsPresetManagerOpen(true)}
+                        className={`glass-btn ${isPresetManagerOpen ? 'active' : ''}`}
+                      >
+                        🎹 Presets
                       </button>
 
 
@@ -578,6 +596,15 @@ function App() {
                         title="Keyboard Shortcuts"
                       >
                         ❔ Help
+                      </button>
+
+                      {/* Settings */}
+                      <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        className={`glass-btn ${isSettingsOpen ? 'active' : ''}`}
+                        title="Settings"
+                      >
+                        ⚙️ Settings
                       </button>
                       <div className="header-divider"></div>
 

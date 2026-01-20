@@ -24,7 +24,16 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.JSON,
             allowNull: true,
             comment: 'Tone.js 신서사이저 파라미터 (type=synth일 때 사용)'
-            // 예시: { oscillator: { type: 'sine' }, envelope: { attack: 0.1, ... } }
+        },
+        color: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            comment: '패드 LED 색상'
+        },
+        image: {
+            type: DataTypes.TEXT, // URL can be long
+            allowNull: true,
+            comment: '패드 배경 이미지 URL'
         }
     }, {
         tableName: 'KeyMappings',
