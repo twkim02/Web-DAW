@@ -102,10 +102,6 @@ const SynthLibrary = () => {
 
             {/* Presets Section */}
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
-                <div style={{ marginBottom: '10px', fontSize: '0.8rem', fontWeight: 'bold', color: '#99ccff', borderBottom: '1px solid #336699', paddingBottom: '5px' }}>
-                    FACTORY PRESETS
-                </div>
-
                 {Object.entries(presetCategories).map(([category, presets]) => (
                     <div key={category} style={{ marginBottom: '15px' }}>
                         <div style={{ fontSize: '0.7rem', color: '#6688aa', marginBottom: '5px', fontWeight: 'bold' }}>{category}</div>

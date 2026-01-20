@@ -253,9 +253,6 @@ const FileLibrary = ({ category = 'sample' }) => {
     // Render Synth Presets
     const renderSynthPresets = () => (
         <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--color-text-muted)', marginBottom: '10px', textTransform: 'uppercase' }}>
-                Factory Presets
-            </div>
             {Object.entries(synthPresets).map(([grp, items]) => (
                 <div key={grp} style={{ marginBottom: '10px' }}>
                     <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 'bold', marginBottom: '4px' }}>{grp}</div>
