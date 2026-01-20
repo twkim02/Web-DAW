@@ -83,5 +83,43 @@ export const SAMPLER_PRESETS = {
     'violin': {
         baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/violin-mp3/",
         urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+
+    // --- KEYS / MALLETS (Expanded) ---
+    'bright_piano': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/bright_acoustic_piano-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'electric_grand': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/electric_grand_piano-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'honky_tonk': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/honkytonk_piano-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'rhodes': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/electric_piano_1-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'vibraphone': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/vibraphone-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'marimba': { // Shape of You style
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/marimba-mp3/",
+        urls: { "C3": "C3.mp3", "E3": "E3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3" }
+    },
+    'xylophone': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/xylophone-mp3/",
+        urls: { "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3", "E5": "E5.mp3", "A5": "A5.mp3", "C6": "C6.mp3" }
+    },
+    'kalimba': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/kalimba-mp3/",
+        urls: { "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3", "E5": "E5.mp3", "A5": "A5.mp3", "C6": "C6.mp3" }
+    },
+    'steel_drums': {
+        baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/steel_drums-mp3/",
+        urls: { "C4": "C4.mp3", "E4": "E4.mp3", "A4": "A4.mp3", "C5": "C5.mp3", "E5": "E5.mp3", "A5": "A5.mp3" }
     }
 };

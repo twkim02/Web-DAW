@@ -63,19 +63,29 @@ const FileLibrary = ({ category = 'sample' }) => {
 
     const instruments = [
         { id: 'grand_piano', name: 'Grand Piano', type: 'sampler', preset: 'grand_piano', category: 'KEYS' },
+        { id: 'bright_piano', name: 'Bright Piano', type: 'sampler', preset: 'bright_piano', category: 'KEYS' },
+        { id: 'electric_grand', name: 'Electric Grand', type: 'sampler', preset: 'electric_grand', category: 'KEYS' },
+        { id: 'honky_tonk', name: 'Honky Tonk', type: 'sampler', preset: 'honky_tonk', category: 'KEYS' },
         { id: 'electric_piano', name: 'Electric Piano', type: 'sampler', preset: 'electric_piano', category: 'KEYS' },
+        { id: 'rhodes', name: 'Rhodes EP', type: 'sampler', preset: 'rhodes', category: 'KEYS' },
         { id: 'acoustic_guitar', name: 'Acoustic Guitar', type: 'sampler', preset: 'acoustic_guitar', category: 'STRINGS' },
         { id: 'electric_guitar', name: 'Electric Guitar', type: 'sampler', preset: 'electric_guitar', category: 'STRINGS' },
         { id: 'strings', name: 'String Ensemble', type: 'sampler', preset: 'strings', category: 'STRINGS' },
         { id: 'cello', name: 'Cello', type: 'sampler', preset: 'cello', category: 'STRINGS' },
+        { id: 'violin', name: 'Violin', type: 'sampler', preset: 'violin', category: 'STRINGS' },
         { id: 'brass', name: 'Brass Section', type: 'sampler', preset: 'brass', category: 'WIND' },
         { id: 'flute', name: 'Flute', type: 'sampler', preset: 'flute', category: 'WIND' },
         { id: 'clarinet', name: 'Clarinet', type: 'sampler', preset: 'clarinet', category: 'WIND' },
+        { id: 'marimba', name: 'Marimba (Shape of You)', type: 'sampler', preset: 'marimba', category: 'OTHERS' },
+        { id: 'vibraphone', name: 'Vibraphone', type: 'sampler', preset: 'vibraphone', category: 'OTHERS' },
+        { id: 'xylophone', name: 'Xylophone', type: 'sampler', preset: 'xylophone', category: 'OTHERS' },
+        { id: 'kalimba', name: 'Kalimba', type: 'sampler', preset: 'kalimba', category: 'OTHERS' },
+        { id: 'steel_drums', name: 'Steel Drums', type: 'sampler', preset: 'steel_drums', category: 'OTHERS' },
         { id: 'choir', name: 'Choir Aahs', type: 'sampler', preset: 'choir', category: 'OTHERS' },
         { id: 'chiptune', name: 'Chiptune (8-bit)', type: 'synth', preset: 'fx_chiptune', category: 'OTHERS' },
-        { id: '808_kit', name: '808 Drum Kit', type: 'drums', preset: '808', category: 'RHYTHMIC' },
-        { id: 'acoustic_kit', name: 'Acoustic Kit', type: 'drums', preset: 'acoustic', category: 'RHYTHMIC' },
-        { id: 'kpr77_kit', name: 'Vinyl (Lo-Fi) Kit', type: 'drums', preset: 'kpr77', category: 'RHYTHMIC' },
+        { id: '808_kit', name: '808 Drum Kit', type: 'drums', preset: '808', category: 'DRUMS' },
+        { id: 'acoustic_kit', name: 'Acoustic Kit', type: 'drums', preset: 'acoustic', category: 'DRUMS' },
+        { id: 'kpr77_kit', name: 'Vinyl (Lo-Fi) Kit', type: 'drums', preset: 'kpr77', category: 'DRUMS' },
     ];
 
     const startRename = (e, asset) => {
@@ -283,7 +293,7 @@ const FileLibrary = ({ category = 'sample' }) => {
             <div style={{ marginBottom: '20px' }}>
                 {/* Sub Tabs */}
                 <div className={styles.subTabContainer}>
-                    {['ALL', 'KEYS', 'STRINGS', 'WIND', 'OTHERS'].map(tab => (
+                    {['ALL', 'KEYS', 'STRINGS', 'WIND', 'DRUMS', 'OTHERS'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setInstSubTab(tab)}
@@ -319,7 +329,7 @@ const FileLibrary = ({ category = 'sample' }) => {
                                 {item.category === 'KEYS' && '🎹'}
                                 {item.category === 'STRINGS' && '🎻'}
                                 {item.category === 'WIND' && '🎷'}
-                                {item.category === 'RHYTHMIC' && '🥁'}
+                                {(item.category === 'RHYTHMIC' || item.category === 'DRUMS') && '🥁'}
                                 {item.category === 'OTHERS' && '🎵'}
                             </span>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>

@@ -153,9 +153,8 @@ class InstrumentManager {
                         effectNode = new Tone.PitchShift(params.pitch);
                         break;
                     case 'reverb':
-                        // Use Freeverb or JCReverb for synchronous instantiation (Standard Reverb is async convolution)
                         effectNode = new Tone.Freeverb({
-                            roomSize: (params.decay || 1.5) / 10, // approximate mapping
+                            roomSize: (params.decay || 1.5) / 10,
                             dampening: 3000
                         });
                         effectNode.wet.value = params.mix || 0.5;
@@ -180,6 +179,29 @@ class InstrumentManager {
                             depth: params.depth,
                             feedback: params.feedback
                         }).start();
+                        break;
+                    case 'feedbackDelay':
+                        effectNode = new Tone.FeedbackDelay(params.delayTime || '8n', params.feedback || 0.5);
+                        break;
+                    case 'pingPongDelay':
+                        effectNode = new Tone.PingPongDelay(params.delayTime || '8n', params.feedback || 0.2).toDestination();
+                        // Note: PingPongDelay needs destination sometimes for stereo, but we usually connect in chain.
+                        // However, standard connect logic works.
+                        break;
+                    case 'limiter':
+                        effectNode = new Tone.Limiter(params.threshold || -10);
+                        break;
+                    case 'autoFilter':
+                        effectNode = new Tone.AutoFilter(params.frequency || 1, params.baseFrequency || 200, params.octaves || 2.6).start();
+                        break;
+                    case 'vibrato':
+                        effectNode = new Tone.Vibrato(params.frequency || 5, params.depth || 0.1).start();
+                        break;
+                    case 'stereoWidener':
+                        effectNode = new Tone.StereoWidener(params.width || 0.5);
+                        break;
+                    case 'filter':
+                        effectNode = new Tone.Filter(params.frequency || 1000, params.type || 'lowpass');
                         break;
                     default:
                         console.warn('Unknown effect type:', config.type);
@@ -301,7 +323,7 @@ class InstrumentManager {
         if (!item) return;
         const { type, instance } = item;
 
-        if (type === 'piano' || type === 'synth') {
+        if (type === 'piano' || type === 'synth' || type === 'sampler' || type === 'instrument') {
             instance.triggerAttackRelease(note, duration, time);
         } else if (type === 'drums') {
             const sample = DRUM_NOTE_MAP[note] || note;

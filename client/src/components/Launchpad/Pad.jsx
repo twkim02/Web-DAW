@@ -52,7 +52,7 @@ const Pad = React.memo(({ id, label }) => {
     const handleContextMenu = (e) => {
         e.preventDefault();
         const m = useStore.getState().padMappings[id];
-        if (m && (m.type === 'piano' || m.type === 'synth' || m.type === 'drums')) {
+        if (m && (m.type === 'piano' || m.type === 'synth' || m.type === 'drums' || m.type === 'instrument')) {
             setPlayingPadId(id);
         } else {
             setEditingPadId(id);

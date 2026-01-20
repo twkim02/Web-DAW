@@ -102,7 +102,7 @@ const usePadTrigger = () => {
         };
 
         // 3. Play
-        if (type === 'synth' || type === 'piano' || type === 'drums') {
+        if (type === 'synth' || type === 'piano' || type === 'drums' || type === 'instrument') {
             const note = mapping.note || 'C4';
             instrumentManager.trigger(padId, note, '8n', startTimeOverride);
         } else {
