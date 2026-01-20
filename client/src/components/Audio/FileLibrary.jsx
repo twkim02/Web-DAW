@@ -120,11 +120,22 @@ const FileLibrary = ({ category = 'sample' }) => {
         }
     };
 
+    const currentPresetId = useStore(state => state.currentPresetId);
+    const user = useStore(state => state.user);
+
     const fetchAssets = async () => {
         setLoading(true);
         try {
+            // Build query params
+            const params = new URLSearchParams();
+            params.append('category', category);
+            // For non-logged-in users, send current preset ID
+            if (!user && currentPresetId) {
+                params.append('presetId', currentPresetId);
+            }
+
             // Fetch by selected category
-            const res = await client.get(`/upload?category=${category}`);
+            const res = await client.get(`/upload?${params.toString()}`);
             if (Array.isArray(res.data)) {
                 // Prepend baseURL to make URLs absolute for AudioEngine
                 const baseURL = client.defaults.baseURL || 'http://localhost:3001';
@@ -184,7 +195,7 @@ const FileLibrary = ({ category = 'sample' }) => {
         fetchAssets();
         setIsSelectionMode(false);
         setSelectedIds(new Set());
-    }, [lastLibraryUpdate, category]);
+    }, [lastLibraryUpdate, category, currentPresetId, user]);
 
     // Update Drop Logic
     const handleDragStart = (e, item, source) => {

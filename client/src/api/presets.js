@@ -21,3 +21,15 @@ export const deletePreset = async (id) => {
     const response = await client.delete(`/presets/${id}`);
     return response.data;
 };
+
+export const recordPresetAccess = async (presetId) => {
+    // Record that user has loaded this preset (for asset filtering)
+    try {
+        const response = await client.post(`/presets/${presetId}/access`);
+        return response.data;
+    } catch (err) {
+        console.error('Failed to record preset access:', err);
+        // Don't throw - this is not critical
+        return null;
+    }
+};

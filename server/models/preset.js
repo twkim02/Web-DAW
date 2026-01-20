@@ -52,6 +52,10 @@ module.exports = (sequelize, DataTypes) => {
             as: 'ParentPreset',
             foreignKey: 'parentPresetId'
         });
+        Preset.hasMany(models.PresetAccess, {
+            foreignKey: 'presetId',
+            onDelete: 'CASCADE'
+        });
     };
 
     return Preset;

@@ -362,6 +362,28 @@ router.post('/:id/download', async (req, res) => {
             await post.save();
         }
 
+        // Record preset access (for asset filtering)
+        const presetId = post.presetId || (post.presetData && post.presetData.id);
+        if (presetId) {
+            try {
+                await db.PresetAccess.findOrCreate({
+                    where: {
+                        userId: req.user ? req.user.id : null,
+                        presetId: presetId
+                    },
+                    defaults: {
+                        userId: req.user ? req.user.id : null,
+                        presetId: presetId,
+                        sessionId: req.sessionID || null,
+                        loadedAt: new Date()
+                    }
+                });
+            } catch (err) {
+                console.warn('Failed to record preset access:', err);
+                // Don't fail the request
+            }
+        }
+
         // Return post with full preset data for download (로그인 여부와 관계없이)
         res.json({
             success: true,
