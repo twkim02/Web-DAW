@@ -12,7 +12,12 @@ const storage = multer.diskStorage({
     },
     filename: function (req, file, cb) {
         // Fix for Korean/UTF-8 filenames in Multer
-        file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        // Common issue where Multer parses non-ASCII filenames as Latin1
+        try {
+            file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        } catch (e) {
+            console.warn('Filename encoding fix failed:', e);
+        }
 
         // timestamp_originalName
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

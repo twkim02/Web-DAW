@@ -348,7 +348,30 @@ function App() {
         if (state.previewMode.isOpen || state.playingPadId !== null) return;
 
         e.preventDefault(); // Prevent scroll
+
+        // Only Toggle Live Mode? NO. User expects Play/Stop with Count-in via Spacebar.
+        // If we are in Live Mode, Spacebar definitely controls transport.
+        // Even if NOT in Live Mode, Spacebar usually maps to Play/Stop in DAWs.
+        // User said: "Spacebar ... count-in ... start properly".
+        // modifying to Standard Transport Control.
+
+        // Note: Live Mode toggle can be moved to another key if needed?
+        // Or keep Spacebar = Live Mode Toggle + Play?
+        // User request: "Spacebar press -> Metronome 1 bar -> Start". 
+        // This implies Play/Stop functionality. It does NOT imply toggling UI mode.
+
+        // Let's CHANGE Spacebar to be purely Transport Play/Stop (with Count-in).
+        // Remove 'toggleLiveMode()' call unless user strictly wanted it?
+        // User prompt: "스페이스바 누르면 메트로놈 한마디 찍어주면서 마디 시작하는거 제대로 구현 안됨" 
+        // (Spacebar press -> Metronome 1 bar -> Start is not working properly).
+
+        // 1. Toggle Live Mode (UI Changes: Hide Sidebars, etc.)
         toggleLiveMode();
+
+        // 2. Transport Control (Play/Stop with Count-in)
+        // This ensures music starts/stops with the UI change.
+        const status = audioEngine.toggleTransport();
+        useStore.setState({ isPlaying: status === 'started' });
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -499,37 +522,37 @@ function App() {
                 <div className="header-panel">
 
                   {/* Single Consolidated Row */}
-                  <div className="header-row" style={{ justifyContent: 'space-between', width: '100%' }}>
+                  <div className="header-row">
 
                     {/* Left Group: Transport Controls */}
                     <TransportControls />
 
                     {/* Right Group: Tools & User */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="header-right-group">
 
                       {/* Home */}
                       <Link
                         to="/"
                         className="glass-btn"
-                        style={{ borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', textDecoration: 'none', color: 'inherit' }}
                       >
                         🏠 Home
                       </Link>
 
+                      {/* Library (Left Sidebar) */}
                       <button
-                        onClick={() => setIsPresetManagerOpen(true)}
-                        className="glass-btn"
-                        style={{ borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', textDecoration: 'none', color: 'inherit' }}
+                        onClick={() => useStore.getState().toggleLeftSidebar()}
+                        className={`glass-btn ${isLeftSidebarOpen ? 'active' : ''}`}
                       >
                         📂 Library
                       </button>
+
+
 
                       {/* Help */}
                       <button
                         onClick={() => setIsInstructionOpen(!isInstructionOpen)}
                         className={`glass-btn ${isInstructionOpen ? 'active' : ''}`}
                         title="Keyboard Shortcuts"
-                        style={{ fontSize: '0.9rem' }}
                       >
                         ❔ Help
                       </button>

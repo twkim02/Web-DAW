@@ -199,24 +199,42 @@ const RecordingLibrary = () => {
 
             <input type="file" multiple ref={fileInputRef} style={{ display: 'none' }} accept="audio/*" onChange={handleFileUpload} />
 
-            <button
-                onClick={handleRecordToggle}
-                style={{
-                    width: '100%',
-                    padding: '15px',
-                    borderRadius: 'var(--radius-md)',
-                    background: isRecording ? 'var(--color-recording)' : '#333',
-                    border: 'none',
-                    color: 'var(--color-text-primary)',
-                    fontWeight: 'bold',
-                    marginBottom: '20px',
-                    cursor: 'pointer',
-                    boxShadow: isRecording ? '0 0 15px rgba(255, 0, 0, 0.5)' : 'none',
-                    transition: 'var(--transition-fast)'
-                }}
-            >
-                {isRecording ? '⏺ STOP RECORDING' : '🔴 START RECORDING'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                <button
+                    onClick={handleRecordToggle}
+                    style={{
+                        flex: 1,
+                        padding: '15px',
+                        borderRadius: 'var(--radius-md)',
+                        background: isRecording ? 'var(--color-recording)' : '#333',
+                        border: 'none',
+                        color: 'var(--color-text-primary)',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: isRecording ? '0 0 15px rgba(255, 0, 0, 0.5)' : 'none',
+                        transition: 'var(--transition-fast)'
+                    }}
+                >
+                    {isRecording ? '⏺ STOP RECORDING' : '🔴 START RECORDING'}
+                </button>
+
+                {/* Metronome Toggle for Recording */}
+                <button
+                    onClick={() => useStore.getState().setIsMetronomeOn(!useStore.getState().isMetronomeOn)}
+                    style={{
+                        width: '50px',
+                        borderRadius: 'var(--radius-md)',
+                        background: useStore(state => state.isMetronomeOn) ? 'var(--color-accent-primary)' : '#444',
+                        border: 'none',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontSize: '1.2rem'
+                    }}
+                    title="Toggle Metronome"
+                >
+                    ⏰
+                </button>
+            </div>
 
             <div className={styles.scrollContainer} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {recordings.length === 0 && (

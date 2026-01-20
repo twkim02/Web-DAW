@@ -24,12 +24,25 @@ const Pad = React.memo(({ id, label }) => {
     const handleMouseDown = (e) => {
         if (e.shiftKey) {
             e.preventDefault();
-            console.log('Opening settings for Pad', id);
-            setEditingPadId(id);
-            // Ensure sidebar open
-            useStore.getState().setRightSidebarView('settings');
-            if (!useStore.getState().isRightSidebarOpen) {
-                useStore.getState().toggleRightSidebar();
+
+            const state = useStore.getState();
+            const isCurrentlyEditingThis = state.editingPadId === id;
+            const isSidebarOpen = state.isRightSidebarOpen;
+
+            if (isCurrentlyEditingThis && isSidebarOpen) {
+                // If already editing this pad and sidebar is open, CLOSE IT
+                console.log('Closing settings via Shift+Click');
+                state.setIsRightSidebarOpen(false);
+                // Optional: setEditingPadId(null)? Keeps context if just closing.
+            } else {
+                // Otherwise OPEN IT
+                console.log('Opening settings for Pad', id);
+                setEditingPadId(id);
+                // Ensure sidebar open
+                state.setRightSidebarView('settings');
+                if (!isSidebarOpen) {
+                    state.toggleRightSidebar();
+                }
             }
             return;
         }
@@ -135,9 +148,34 @@ const Pad = React.memo(({ id, label }) => {
     const assignedColor = mapping?.color || defaultColor;
     const visualColor = visualState?.color || assignedColor;
 
+    // --- MUTE / SOLO VISUALS ---
+    const trackStates = useStore(state => state.trackStates);
+    const col = id % 8;
+    const isSoloActive = trackStates.solo.some(s => s);
+    const isSelfSoloed = trackStates.solo[col];
+    const isSelfMuted = trackStates.mute[col];
+
+    let isDimmed = false;
+    let statusIcon = null;
+
+    if (isSoloActive) {
+        if (!isSelfSoloed) isDimmed = true; // Dimmed by others
+        else statusIcon = <span style={{ position: 'absolute', top: 2, right: 2, fontSize: '8px', color: '#00ccff' }}>S</span>;
+    } else {
+        if (isSelfMuted) {
+            isDimmed = true;
+            statusIcon = <span style={{ position: 'absolute', top: 2, right: 2, fontSize: '8px', color: '#ff4444' }}>M</span>;
+        }
+    }
+
     // CSS Variables
     let cssVars = {};
     let classes = [styles.pad];
+
+    if (isDimmed) {
+        cssVars['opacity'] = 0.2;
+        cssVars['filter'] = 'grayscale(100%)';
+    }
 
     if (isReserved) {
         // RESERVED STATE (Queue)
@@ -156,9 +194,17 @@ const Pad = React.memo(({ id, label }) => {
         if (fx === 'pulse') classes.push(styles.pulse);
         if (fx === 'flash') classes.push(styles.flash);
 
-        cssVars['--pad-bg'] = assignedColor;
-        cssVars['--pad-glow'] = isVisuallyActive ? visualColor : assignedColor;
-        cssVars['backgroundColor'] = assignedColor;
+        // Ensure Color is valid
+        const activeColor = assignedColor || '#00ffcc';
+
+        cssVars['--pad-bg'] = activeColor;
+        cssVars['--pad-glow'] = isVisuallyActive ? visualColor : activeColor;
+        cssVars['backgroundColor'] = activeColor;
+
+        // Force stronger visual for active loop
+        cssVars['borderColor'] = '#ffffff';
+        cssVars['boxShadow'] = `0 0 15px ${activeColor}, inset 0 0 5px ${activeColor}`;
+        cssVars['zIndex'] = 2; // Bring to front
 
     } else if (isVisuallyActive) {
         // Just a ripple passing through
@@ -181,7 +227,27 @@ const Pad = React.memo(({ id, label }) => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            <span className={styles.keyLabel}>{label}</span>
+            {/* Image Overlay */}
+            {mapping?.image && (
+                <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundImage: `url(${mapping.image})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    opacity: isLogicallyActive ? 1 : 0.6, // Brighten when active
+                    zIndex: 0,
+                    borderRadius: 'inherit',
+                    filter: isDimmed ? 'grayscale(100%) brightness(0.5)' : 'none', // Apply Dim logic to image too
+                    transition: 'opacity 0.1s, filter 0.2s'
+                }} />
+            )}
+
+            {/* Content (Label/Icons) - Ensure z-index > 0 */}
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span className={styles.keyLabel} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{label}</span>
+                {statusIcon}
+            </div>
         </button>
     );
 });

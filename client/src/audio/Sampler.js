@@ -67,6 +67,33 @@ class Sampler {
 
     // ... inside play method ...
     play(key, options = {}) {
+        // --- MUTE / SOLO CHECK ---
+        const padId = parseInt(key);
+        const col = padId % 8;
+        const state = useStore.getState();
+        const { solo, mute } = state.trackStates;
+
+        const isSoloActive = solo.some(s => s); // Is ANY track soloed?
+        const isSelfSoloed = solo[col];
+        const isSelfMuted = mute[col];
+
+        // Logic:
+        // 1. If Solo Mode is Active: Only play if WE are soloed. (Solo overrides Mute)
+        // 2. If No Solo Mode: Play unless WE are Muted.
+
+        let shouldPlay = true;
+
+        if (isSoloActive) {
+            if (!isSelfSoloed) shouldPlay = false; // Muted by other's Solo
+        } else {
+            if (isSelfMuted) shouldPlay = false; // Physically Muted
+        }
+
+        if (!shouldPlay) {
+            // console.log(`[Sampler] Blocked Pad ${key} (Mute/Solo State)`);
+            return;
+        }
+
         if (this.players.has(key)) {
             const player = this.players.get(key);
 

@@ -19,9 +19,7 @@ const RightSidebar = () => {
             transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             boxShadow: isOpen ? '-5px 0 15px rgba(0,0,0,0.5)' : 'none'
         }}>
-            <div className={styles.handle} onClick={() => useStore.getState().toggleRightSidebar()}>
-                {isOpen ? '›' : '‹'}
-            </div>
+            {/* Handle Removed */}
 
             <div className={styles.sidebarContent}>
                 <div className={styles.section}>

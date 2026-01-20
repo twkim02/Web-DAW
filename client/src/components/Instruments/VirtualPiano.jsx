@@ -258,6 +258,16 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
 
                     {/* RECORD & CLOSE */}
                     <div style={{ display: 'flex', gap: '10px' }}>
+                        {/* METRONOME */}
+                        <button
+                            onClick={() => setIsMetronomeOn(!isMetronomeOn)}
+                            className={`${styles.actionBtn}`}
+                            style={{ background: isMetronomeOn ? 'var(--color-accent-primary)' : '#444' }}
+                            title="Toggle Metronome"
+                        >
+                            ⏰
+                        </button>
+
                         {previewMode && (
                             <button
                                 onClick={toggleRecording}

@@ -181,6 +181,20 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
                     </div>
 
                     <div className={styles.controlsRow}>
+                        {/* METRONOME */}
+                        <button
+                            onClick={() => useStore.getState().setIsMetronomeOn(!useStore.getState().isMetronomeOn)}
+                            className={styles.closeBtn}
+                            style={{
+                                background: useStore(state => state.isMetronomeOn) ? 'var(--color-accent-primary)' : '#444',
+                                marginRight: '10px',
+                                minWidth: '40px'
+                            }}
+                            title="Toggle Metronome"
+                        >
+                            ⏰
+                        </button>
+
                         {previewMode && (
                             <button
                                 onClick={toggleRecording}

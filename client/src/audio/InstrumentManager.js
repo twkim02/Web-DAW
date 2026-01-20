@@ -282,6 +282,21 @@ class InstrumentManager {
     }
 
     trigger(padId, note, duration = '8n', time) {
+        // --- MUTE / SOLO CHECK ---
+        const col = padId % 8;
+        const state = useStore.getState();
+        const { solo, mute } = state.trackStates;
+
+        const isSoloActive = solo.some(s => s);
+        const isSelfSoloed = solo[col];
+        const isSelfMuted = mute[col];
+
+        if (isSoloActive) {
+            if (!isSelfSoloed) return;
+        } else {
+            if (isSelfMuted) return;
+        }
+
         const item = this.activeInstruments.get(padId);
         if (!item) return;
         const { type, instance } = item;
@@ -295,6 +310,21 @@ class InstrumentManager {
     }
 
     startNote(padId, note) {
+        // --- MUTE / SOLO CHECK ---
+        const col = padId % 8;
+        const state = useStore.getState();
+        const { solo, mute } = state.trackStates;
+
+        const isSoloActive = solo.some(s => s);
+        const isSelfSoloed = solo[col];
+        const isSelfMuted = mute[col];
+
+        if (isSoloActive) {
+            if (!isSelfSoloed) return;
+        } else {
+            if (isSelfMuted) return;
+        }
+
         const item = this.activeInstruments.get(padId);
         if (!item) return;
         if (item.type === 'drums') {

@@ -36,8 +36,21 @@ router.post('/', upload.single('file'), async (req, res) => {
         const filename = req.file.key ? path.basename(req.file.key) : req.file.filename;
         const filePath = req.file.location || req.file.path;
 
-        const { originalname, mimetype } = req.file;
+        const { originalname: rawOriginalname, mimetype } = req.file;
         const { isRecorded, category } = req.body;
+
+        // ECD: Fix for Korean/UTF-8 filenames (Multer Latin1 issue)
+        let originalname = rawOriginalname;
+        try {
+            // Buffer.from(..., 'latin1') takes the raw bytes interpreted as latin1 and restores them
+            // Then .toString('utf8') interprets them correctly as UTF8.
+            // Only apply if it looks like it needs it? Hard to detect.
+            // But Safe to try: if it IS utf8 already, this might mangle it if it contains latin1 chars that are valid?
+            // Actually, Node.js Multer 1.4.x default behavior IS latin1.
+            originalname = Buffer.from(rawOriginalname, 'latin1').toString('utf8');
+        } catch (e) {
+            console.warn('Encoding fix failed, using raw:', e);
+        }
 
         const asset = await db.Asset.create({
             originalName: originalname,

@@ -7,6 +7,7 @@ const AudioController = () => {
     const mixerLevels = useStore((state) => state.mixerLevels);
     const trackStates = useStore((state) => state.trackStates);
     const bpm = useStore((state) => state.bpm); // Select BPM
+    const timeSignature = useStore((state) => state.timeSignature); // Select Time Signature
 
     // --- Mixer Audio Sync Effect ---
     useEffect(() => {
@@ -34,6 +35,11 @@ const AudioController = () => {
     useEffect(() => {
         audioEngine.setBpm(bpm);
     }, [bpm]);
+
+    // --- Time Signature Sync Effect ---
+    useEffect(() => {
+        audioEngine.setTimeSignature(timeSignature);
+    }, [timeSignature]);
 
     // --- Metronome Sync Effect ---
     const isMetronomeOn = useStore((state) => state.isMetronomeOn);

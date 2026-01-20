@@ -41,8 +41,7 @@ const InstructionModal = () => {
 
                         <div className={styles.section}>
                             <h3 className={styles.sectionTitle}>🌐 Global Controls (Action)</h3>
-                            <div className={styles.row}><div className={styles.keyBadge}>Space</div><span>Play / Pause Music</span></div>
-                            <div className={styles.row}><div className={styles.keyBadge}>Enter</div><span>Start / Stop Recording (Live Mode)</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Space</div><span>Toggle Live Mode</span></div>
                             <div className={styles.row}><div className={styles.keyBadge}>Esc</div><span>Close Modal / Zoom Out</span></div>
                             <div className={styles.row}><div className={styles.keyBadge}>Arrows</div><span>Navigate Banks (Left/Right/Up/Down)</span></div>
                         </div>
@@ -63,11 +62,29 @@ const InstructionModal = () => {
                             <div className={styles.row}><div className={styles.keyBadge}>U, I, O, P</div><span>Volume, Pan, Send A, Send B</span></div>
                             <div className={styles.row}><div className={styles.keyBadge}>[   ]</div><span>Cycle Previous / Next Mode</span></div>
 
-                            <div style={{ marginTop: '15px', fontWeight: '700', fontSize: '14px', color: 'var(--color-danger)', marginBottom: '8px' }}>Track Actions</div>
-                            <div className={styles.row}><div className={styles.keyBadge}>M</div><span>Mute Mode (then press 1-8 to toggle)</span></div>
-                            <div className={styles.row}><div className={styles.keyBadge}>K</div><span>Solo Mode (then press 1-8 to toggle)</span></div>
-                            <div className={styles.row}><div className={styles.keyBadge}>; (Semi)</div><span>Stop Mode (then press 1-8 to stop)</span></div>
-                            <div className={styles.row}><div className={styles.keyBadge}>L</div><span>Clear Mode (then press 1-8 to clear)</span></div>
+                            <div style={{ marginTop: '15px', fontWeight: '700', fontSize: '14px', color: 'var(--color-danger)', marginBottom: '8px' }}>Track Modifiers</div>
+                            <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '8px' }}>Hold key + Press <strong>1-8</strong> or <strong>Pad</strong></div>
+
+                            <div className={styles.row}>
+                                <div className={styles.keyBadge} style={{ backgroundColor: '#e74c3c' }}>M</div>
+                                <span><strong>Mute</strong> Track / Pad</span>
+                            </div>
+                            <div className={styles.row}>
+                                <div className={styles.keyBadge} style={{ backgroundColor: '#f1c40f', color: '#333' }}>J</div>
+                                <span><strong>Solo</strong> Track / Pad</span>
+                            </div>
+                            <div className={styles.row}>
+                                <div className={styles.keyBadge} style={{ backgroundColor: '#e67e22' }}>K</div>
+                                <span><strong>Stop</strong> Track / Pad</span>
+                            </div>
+                            <div className={styles.row}>
+                                <div className={styles.keyBadge}>⌫</div>
+                                <span><strong>Delete</strong> (Backspace or Alt)</span>
+                            </div>
+
+                            <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+                                * Modifiers work with both Number Row (1-8) and Pad Grid.
+                            </div>
                         </div>
                     </div>
 
@@ -80,7 +97,7 @@ const InstructionModal = () => {
                     Close Help
                 </button>
             </div>
-        </div>
+        </div >
     );
 };
 

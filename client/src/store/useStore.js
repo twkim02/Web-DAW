@@ -3,16 +3,18 @@ import { create } from 'zustand';
 const useStore = create((set) => ({
     // Transport State
     bpm: 120,
+    timeSignature: [4, 4], // Default 4/4
     isPlaying: false,
+    isCountIn: false, // New state for Count-in phase
     isMetronomeOn: false,
     isRecording: false, // Live Mode Video Recording
     isLoopRecording: false, // Sequencer Loop Recording
-    launchQuantization: 'none', // 'none', '1m', '4n', '8n', '16n'
+    launchQuantization: '1m', // Default to 1 Bar for Loop Station workflow
     setBpm: (bpm) => set({ bpm }),
+    setTimeSignature: (ts) => set({ timeSignature: ts }),
     setIsPlaying: (isPlaying) => set({ isPlaying }),
+    setIsCountIn: (isCountIn) => set({ isCountIn }),
     setIsMetronomeOn: (isOn) => set({ isMetronomeOn: isOn }),
-    setIsRecording: (isRecording) => set({ isRecording }),
-    setIsLoopRecording: (isLoopRecording) => set({ isLoopRecording }),
     setLaunchQuantization: (val) => set({ launchQuantization: val }),
 
     // Visualizer State
@@ -87,13 +89,27 @@ const useStore = create((set) => ({
             chokeGroup: null
         };
 
-        // Also clear active state just in case
+        // Clear active active state
         const newActivePads = { ...state.activePads };
         delete newActivePads[id];
 
+        // REMOVE FROM QUEUE
+        const col = id % 8;
+        const newQueues = [...state.padQueues];
+        // Filter out this specific ID from the column's queue
+        if (newQueues[col]) {
+            newQueues[col] = newQueues[col].filter(queuedId => queuedId !== id);
+        }
+
+        // Rebuild queuedPads Set
+        const newQueuedPads = new Set();
+        newQueues.forEach(q => q.forEach(pId => newQueuedPads.add(pId)));
+
         return {
             padMappings: newMappings,
-            activePads: newActivePads
+            activePads: newActivePads,
+            padQueues: newQueues,
+            queuedPads: newQueuedPads
         };
     }),
 
@@ -159,6 +175,18 @@ const useStore = create((set) => ({
     clearQueue: (col) => set((state) => {
         const newQueues = [...state.padQueues];
         newQueues[col] = [];
+
+        const newSet = new Set();
+        newQueues.forEach(q => q.forEach(id => newSet.add(id)));
+
+        return { padQueues: newQueues, queuedPads: newSet };
+    }),
+
+    removeFromQueue: (col, padId) => set((state) => {
+        const newQueues = [...state.padQueues];
+        if (newQueues[col]) {
+            newQueues[col] = newQueues[col].filter(id => id !== padId);
+        }
 
         const newSet = new Set();
         newQueues.forEach(q => q.forEach(id => newSet.add(id)));

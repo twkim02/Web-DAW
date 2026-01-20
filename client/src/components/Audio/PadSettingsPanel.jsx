@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import useStore from '../../store/useStore';
 import styles from '../Layout/RightSidebar.module.css'; // Reusing sidebar styles
+import ColorThief from 'colorthief';
 
 const PadSettingsPanel = () => {
     const editingPadId = useStore(state => state.editingPadId);
@@ -12,6 +13,7 @@ const PadSettingsPanel = () => {
     const [name, setName] = useState('');
     const [color, setColor] = useState('#00ffcc');
     const [mode, setMode] = useState('one-shot');
+    const [image, setImage] = useState(null);
 
     const mapping = padMappings[editingPadId];
 
@@ -20,6 +22,7 @@ const PadSettingsPanel = () => {
             setName(mapping.name || mapping.originalName || '');
             setColor(mapping.color || '#00ffcc');
             setMode(mapping.mode || 'one-shot');
+            setImage(mapping.image || null);
         }
     }, [mapping, editingPadId]);
 
@@ -49,6 +52,44 @@ const PadSettingsPanel = () => {
         setName(newName);
         // Debounce or save on blur usually better, but for now instant update for "Real-time" feel
         handleSave({ name: newName });
+    };
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const dataUrl = event.target.result;
+            setImage(dataUrl);
+
+            // Extract Color
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.src = dataUrl;
+            img.onload = () => {
+                try {
+                    const colorThief = new ColorThief();
+                    const rgb = colorThief.getColor(img);
+                    const hex = '#' + rgb.map(x => {
+                        const hex = x.toString(16);
+                        return hex.length === 1 ? '0' + hex : hex;
+                    }).join('');
+
+                    setColor(hex);
+                    handleSave({ image: dataUrl, color: hex });
+                } catch (err) {
+                    console.error('Color Extraction Failed:', err);
+                    handleSave({ image: dataUrl });
+                }
+            };
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const clearImage = () => {
+        setImage(null);
+        handleSave({ image: null });
     };
 
     // --- FX CHAIN HELPERS ---
@@ -169,6 +210,7 @@ const PadSettingsPanel = () => {
                     {/* Icon Removed as requested */}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
                     {/* Name */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <span className={styles.paramLabel} style={{ width: 'auto' }}>NAME</span>
@@ -179,6 +221,49 @@ const PadSettingsPanel = () => {
                             className={styles.glassInput}
                             placeholder="Pad Name..."
                         />
+                    </div>
+
+                    {/* COVER IMAGE */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <span className={styles.paramLabel} style={{ width: 'auto' }}>COVER IMAGE</span>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                            {image ? (
+                                <div style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #444', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                                    <img src={image} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <button
+                                        onClick={clearImage}
+                                        style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}
+                                    >✕</button>
+                                </div>
+                            ) : (
+                                <div style={{ width: '100px', height: '100px', borderRadius: '6px', border: '1px dashed #444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: '0.8rem', background: 'rgba(0,0,0,0.1)' }}>
+                                    No Image
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <label
+                                    className={styles.glassBtn}
+                                    style={{
+                                        fontSize: '0.75rem',
+                                        padding: '6px 12px',
+                                        cursor: 'pointer',
+                                        textAlign: 'center',
+                                        display: 'inline-block',
+                                        background: '#333',
+                                        border: '1px solid #555',
+                                        color: '#ddd',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    Upload / Auto-Color
+                                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                                </label>
+                                <div style={{ fontSize: '0.65rem', color: '#666', lineHeight: '1.2' }}>
+                                    * Auto-extracts color tag
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     {/* Color Palette */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -199,7 +284,24 @@ const PadSettingsPanel = () => {
                                     }}
                                 />
                             ))}
-                            {/* Hidden Custom Picker Trigger (Optional, maybe minimal icon?) */}
+                            {/* Custom Color Input (Shows Active Color) */}
+                            <label
+                                className={`${styles.colorSwatch} ${!['#FF0055', '#FF3300', '#FFAA00', '#FFFF00', '#CCFF00', '#00FF66', '#00FFCC', '#0099FF', '#3300FF', '#9900FF', '#FF00CC', '#FFFFFF', '#888888', '#222222'].includes(color) ? styles.active : ''}`}
+                                style={{ backgroundColor: color, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #666', overflow: 'hidden' }}
+                                title="Custom / Extracted Color"
+                            >
+                                {/* Plus icon only if default/dark? Or just rely on visual? Let's hide text to clear view of color */}
+                                <input
+                                    type="color"
+                                    value={color}
+                                    onChange={handleColorChange}
+                                    style={{ opacity: 0, position: 'absolute', width: '100%', height: '100%', cursor: 'pointer' }}
+                                />
+                            </label>
+                        </div>
+                        {/* Show Active Hex Code */}
+                        <div style={{ fontSize: '0.7rem', color: '#888', textAlign: 'right', marginTop: '4px' }}>
+                            Active: <span style={{ color: color, fontWeight: 'bold' }}>{color}</span>
                         </div>
                     </div>
                     {/* Visual Effect Selector */}

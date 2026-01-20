@@ -27,6 +27,9 @@
     font-family: 'Inter', sans-serif;
     transition: all 0.2s;
     text-transform: uppercase;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .playBtn {

@@ -191,29 +191,53 @@ select {
 }
 
 .header-panel {
+  /* Refined Header Panel */
   position: absolute;
-  top: 40px;
-  /* Moved up slightly */
+  top: 20px;
+  /* Moved up for more space */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  /* Reduced gap */
+  flex-direction: row;
+  /* Force row direction */
+  justify-content: space-between;
+  /* Space out children */
   align-items: center;
+  /* Vertically center */
   z-index: 100;
-  width: 90%;
-  max-width: 850px;
-  /* Slightly narrower */
-  background: rgba(10, 10, 10, 0.6);
-  backdrop-filter: blur(20px);
-  padding: 10px 20px;
-  /* Reduced padding */
-  border-radius: 16px;
-  /* Slightly smaller radius */
+  width: auto;
+  min-width: 60%;
+  /* Flexible Width */
+  max-width: calc(100% - 700px);
+  /* PREVENT OVERLAP: Left (280) + Right (380) + Padding */
+  /* Fallback for smaller screens handled by media query below */
+  background: rgba(18, 18, 18, 0.75);
+  /* Darker, sleek glass */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 8px 24px;
+  /* Balanced padding */
+  border-radius: 24px;
+  /* Sleek roundness */
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  animation: fadeIn 0.3s ease-out;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: fadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Smooth entry */
+}
+
+.header-right-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .header-panel {
+    max-width: 90%;
+    /* On smaller screens where sidebars might be hidden or overlay, take full width */
+    top: 60px;
+    /* Push down if needed */
+  }
 }
 
 @keyframes fadeIn {
@@ -230,10 +254,10 @@ select {
 
 .header-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  /* Reduced gap */
-  justify-content: center;
+  flex-wrap: nowrap;
+  /* NO WRAP - Single Line */
+  gap: 20px;
+  justify-content: space-between;
   align-items: center;
   width: 100%;
 }
@@ -248,19 +272,22 @@ select {
 .glass-btn {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.6);
-  padding: 5px 12px;
-  /* Reduced padding */
-  border-radius: 16px;
-  font-size: 0.75rem;
-  /* Reduced font size */
+  color: rgba(255, 255, 255, 0.7);
+  padding: 6px 16px;
+  /* Standardized padding */
+  border-radius: 20px;
+  /* Rounded pill */
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  /* Slightly larger gap */
+  text-decoration: none;
+  /* For Links */
 }
 
 .glass-btn:hover {

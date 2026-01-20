@@ -117,19 +117,27 @@ class Sequencer {
         const audioDurationTicks = Tone.Time(maxDurationSeconds).toTicks();
 
         // Determines target length
-        // Priority: Audio Tail > Manual Stop (unless audio is empty)
-        let targetDurationTicks = audioDurationTicks;
+        // Priority: Manual Stop Time (Quantized) > Audio Tail (Only if significantly longer?)
+        // Standard Loop Station: The interval between Rec Start and Rec Stop defines the loop.
 
-        // Fallback: If no audio events or very short audio, use manual duration
-        // Current manual duration
-        const manualDurationTicks = Tone.Transport.ticks - startTick;
+        const currentTick = Tone.Transport.ticks;
+        const manualDurationTicks = currentTick - this.recordingStartTick;
 
-        if (!hasAudioEvents || targetDurationTicks < 192) { // Less than 1 beat?
-            console.log("[Sequencer] Audio analysis empty or too short. Using manual duration.");
-            targetDurationTicks = manualDurationTicks;
-            // If manual duration is also tiny, default to 1 bar
-            if (targetDurationTicks < 192) targetDurationTicks = 192 * 4;
+        let targetDurationTicks = manualDurationTicks;
+
+        if (!hasAudioEvents) {
+            console.log("[Sequencer] No audio events. Creating silent loop based on manual duration.");
+        } else {
+            // Optional: If audio tail extends significantly beyond manual stop, maybe warn or extend?
+            // But for standard looping, we stick to the user's defined structure.
+            // We'll stick to manualDurationTicks.
         }
+
+        // AUTO-CLIP: Snap to NEAREST Bar
+        // Behavior: 
+        // 0.9 bars -> 1 bar
+        // 1.1 bars -> 1 bar
+        // 3.8 bars -> 4 bars
 
         // AUTO-CLIP: Snap to NEAREST Bar
         // But what if the user plays a 2-bar loop but stops at 1.9 bars? 
@@ -137,7 +145,7 @@ class Sequencer {
         // If they stop at 2.1 bars? We want 2 bars.
         // Rounding usually works.
 
-        const TICKS_PER_BAR = 192 * 4; // 768 ticks
+        const TICKS_PER_BAR = new Tone.Time("1m").toTicks(); // Dynamic based on Time Signature
         let loopBars = Math.round(targetDurationTicks / TICKS_PER_BAR);
 
         // Minimum 1 Bar
@@ -190,9 +198,45 @@ class Sequencer {
 
         // Auto-Start Logic (Latched)
         if (this.isWaitingForInput) {
-            console.log(`[Sequencer] Input Detected! Starting Recording at ${currentTick}`);
+            // Quantize Start Time to align with Grid (e.g. 1/16 or Bar)
+            // If user is slightly late, this aligns the loop start to the beat.
+            const ppq = Tone.Transport.PPQ; // 192 usually
+            const quantizeVal = useStore.getState().launchQuantization || '4n';
+
+            // Convert notation to ticks (approximate or use Tone.Time)
+            // '1m' = 192*4, '4n' = 192, '8n' = 96, '16n' = 48
+            let gridTicks = 192; // Default 4n
+            if (quantizeVal === '1m') gridTicks = 192 * 4;
+            else if (quantizeVal === '2n') gridTicks = 192 * 2;
+            else if (quantizeVal === '8n') gridTicks = 96;
+            else if (quantizeVal === '16n') gridTicks = 48;
+            else if (quantizeVal === 'none') gridTicks = 1;
+
+            // Snap Current Tick to Nearest Grid
+            let snappedTick = Math.round(currentTick / gridTicks) * gridTicks;
+
+            // If Snapped Tick is in the future (user played very early), waiting? 
+            // Usually user plays LATE (latency). So valid.
+            // But if user plays 10ms early (anticipation), snappedTick < currentTick.
+            // Events will have (rawTick - startTick) > 0 still? 
+            // If startTick > rawTick, relTick is Negative. Tone.Part might fail or be weird.
+            // We should ensure events are shifted correctly.
+
+            // Fix: If snapped start is AFTER the event, we effectively need to shift the event "back" 
+            // or consider it "pick up"? 
+            // Simpler: Just force startTick <= rawTick? 
+            // No, if I aim for Beat 1 (Tick 768) and play at 760 (Early). 
+            // Snapped = 768. 
+            // RelTick = 760 - 768 = -8. 
+            // Loop Length = 1 Bar (768).
+            // Quantized RelTick = -8 % 768 = 760. 
+            // So resizing puts it at end of bar? 
+            // Yes! That's what anticipation means (Pickup note at end of previous bar).
+            // This is actually CORRECT behavior for looping.
+
+            console.log(`[Sequencer] Input Detected! Raw: ${currentTick}, Snapped: ${snappedTick} (${quantizeVal})`);
             this.isWaitingForInput = false;
-            this.recordingStartTick = currentTick;
+            this.recordingStartTick = snappedTick;
 
             // Visual Feedback: ARMED -> RECORDING
             useStore.getState().setLoopSlotStatus(this.activeSlotIndex, 'recording');
@@ -244,75 +288,127 @@ class Sequencer {
     }
 
     toggleMute(trackId) {
-        const trackData = this.tracks.get(trackId);
-        if (trackData) {
-            const isMuted = !trackData.part.mute;
-            trackData.part.mute = isMuted;
-            useStore.getState().updateTrack(trackId, { isMuted });
-
-            // If unmuting, ensure the part is started?
-            // Tone.Part runs on Transport. If Transport is running, part runs.
-            // But if we stopped the part manually elsewhere?
-
-            // If it's a Loop Slot, update UI status (Playing <-> Stopped)
-            if (trackId.startsWith('slot-')) {
-                const slotIndex = parseInt(trackId.replace('slot-', ''));
-
-                // If we are unmuting (Playing), make sure Transport is running
-                if (!isMuted) {
-                    if (Tone.Transport.state !== 'started') {
-                        Tone.Transport.start();
-                    }
-                    // Ensure part is started (in case it was stopped?)
-                    // part.start(0) is usually enough.
-                    // But mute is just audio silence, part still processes events.
-                }
-
-                useStore.getState().setLoopSlotStatus(slotIndex, isMuted ? 'stopped' : 'playing');
-            }
-
-            // If we have solos, we need to re-evaluate everyone's mute state.
-            this.updateSoloState();
+        // Extract Column Index
+        let colIndex = -1;
+        if (trackId.startsWith('slot-')) {
+            colIndex = parseInt(trackId.replace('slot-', ''));
+        } else {
+            // Find in tracks? For now assume slot/col workflow for shortcuts
+            // If trackId is arbitrary string, we might struggle.
+            // But shortcuts pass 'slot-N'.
+            return;
         }
+
+        const trackData = this.tracks.get(trackId);
+        if (!trackData) return;
+
+        // Current State from STORE (Single Source of Truth)
+        const currentMuteState = useStore.getState().trackStates.mute[colIndex];
+        const willBeMuted = !currentMuteState;
+
+        console.log(`[Sequencer] Toggle Mute Col ${colIndex}: ${currentMuteState} -> ${willBeMuted}`);
+
+        // Update Store
+        useStore.getState().toggleTrackState('mute', colIndex);
+
+        // Apply Audio Logic
+        if (willBeMuted) {
+            // MUTE (Stop)
+            trackData.part.mute = true;
+            useStore.getState().setLoopSlotStatus(colIndex, 'stopped');
+        } else {
+            // UNMUTE (Play)
+            // 1. Check Transport
+            if (Tone.Transport.state !== 'started') {
+                trackData.part.mute = false;
+                useStore.getState().setLoopSlotStatus(colIndex, 'playing');
+            } else {
+                // 2. Quantized Resume
+                const nextBar = Tone.Transport.nextSubdivision("1m");
+                console.log(`[Sequencer] Queue Unmute Col ${colIndex} at ${nextBar}`);
+                // Ideally visual should show queued. For now just schedule.
+                Tone.Transport.scheduleOnce((time) => {
+                    Tone.Draw.schedule(() => {
+                        const currentData = this.tracks.get(trackId);
+                        if (currentData) currentData.part.mute = false;
+                        useStore.getState().setLoopSlotStatus(colIndex, 'playing');
+                    }, time);
+                }, nextBar);
+            }
+        }
+
+        // Update Solo impacts
+        // If we mute explicitly, does it affect solo?
+        // Usually Solo overrides Mute.
+        this.updateSoloState();
     }
 
     toggleSolo(trackId) {
-        // Toggle UI state first
-        const currentTracks = useStore.getState().tracks;
-        const track = currentTracks.find(t => t.id === trackId);
-        if (!track) return;
+        let colIndex = -1;
+        if (trackId.startsWith('slot-')) {
+            colIndex = parseInt(trackId.replace('slot-', ''));
+        } else { return; }
 
-        const newSoloState = !track.isSolo;
-        useStore.getState().updateTrack(trackId, { isSolo: newSoloState });
+        console.log(`[Sequencer] Toggle Solo Col ${colIndex}`);
 
-        // Apply logic
+        // Update Store
+        useStore.getState().toggleTrackState('solo', colIndex);
+
+        // Apply Logic
         this.updateSoloState();
     }
 
     updateSoloState() {
-        const storeTracks = useStore.getState().tracks;
-        const soloedTracks = storeTracks.filter(t => t.isSolo);
-        const hasSolo = soloedTracks.length > 0;
+        const state = useStore.getState();
+        const soloStates = state.trackStates.solo; // [false, false, true, ...]
+        const muteStates = state.trackStates.mute; // [false, true, ...]
 
-        storeTracks.forEach(t => {
-            const trackData = this.tracks.get(t.id);
-            if (!trackData) return;
+        const hasSolo = soloStates.includes(true);
+
+        // Iterate all 8 columns (assuming 8 tracks max)
+        for (let i = 0; i < 8; i++) {
+            const trackId = `slot-${i}`;
+            const trackData = this.tracks.get(trackId);
+            if (!trackData) continue; // No audio for this slot
+
+            const isThisSolo = soloStates[i];
+            const isThisMuted = muteStates[i];
 
             if (hasSolo) {
-                // If there are solo tracks, mute everyone who is NOT solo
-                // AND adhere to their manual mute? 
-                // Typically Solo overrides Mute, or effectively mutes non-solos.
-                if (t.isSolo) {
-                    trackData.part.mute = t.isMuted; // Respect manual mute even in solo? Or force unmute? usually solo = audible
-                    trackData.part.mute = false; // Force audible if soloed
+                // SOLO MODE ACTIVE
+                if (isThisSolo) {
+                    // This track IS soloed -> FORCE UNMUTE (Audible)
+                    // (Ignoring manual mute state usually? Or Solo+Mute = Mute? 
+                    // Standard: Solo overrides Mute.)
+                    trackData.part.mute = false;
                 } else {
-                    trackData.part.mute = true; // Implicit mute
+                    // This track is NOT soloed -> FORCE MUTE (Silent)
+                    trackData.part.mute = true;
                 }
             } else {
-                // No solor, just respect manual mute
-                trackData.part.mute = t.isMuted; // Restore manual mute state
+                // NO SOLO ACTIVE
+                // Respect Manual Mute State
+                // Check if we are physically muted?
+                // If isThisMuted is true, we should be muted.
+                // If isThisMuted is false, we should be unmuted.
+
+                // CRITICAL: If we were just un-soloed, we need to return to 'isThisMuted' state.
+                // However, 'queued unmute' might be tricky here.
+                // For simplicity: Update state immediately.
+                trackData.part.mute = isThisMuted;
+
+                // Sync UI Status
+                // If part is muted, ensure status is stopped?
+                // Logic: If muteStates[i] is true, status 'stopped'. Else 'playing'.
+                const status = isThisMuted ? 'stopped' : 'playing';
+                // Only update status if it's currently playing/stopped (don't overwrite 'recording' or 'empty')
+                const currentStatus = state.loopSlots[i].status;
+                if (currentStatus === 'playing' || currentStatus === 'stopped') {
+                    // Defer store update to avoid loops? No, we are in method.
+                    // But we are reading state.
+                }
             }
-        });
+        }
     }
 
     deleteTrack(trackId) {

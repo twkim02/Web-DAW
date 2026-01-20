@@ -105,9 +105,6 @@ const usePadTrigger = () => {
         if (type === 'synth' || type === 'piano' || type === 'drums') {
             const note = mapping.note || 'C4';
             instrumentManager.trigger(padId, note, '8n', startTimeOverride);
-            // Instruments don't support "Queue Handoff" easily via onLoop yet. 
-            // They rely on Note events. 
-            // Only SAMPLES fully support the Loop/End callbacks right now.
         } else {
             // Sample Playback
             const isGate = (mode === 'gate');
@@ -117,7 +114,9 @@ const usePadTrigger = () => {
                 loop: shouldLoop || isGate,
                 startTime: startTimeOverride,
                 onLoop: () => {
-                    // Check Queue on every loop cycle
+                    // LOOP HANDOFF LOGIC
+                    // We check the queue at the end of every loop cycle.
+                    // If something is queued, we stop current and start next (Handoff).
                     if (checkQueueAndPlayNext()) return;
 
                     // If no queue, just visual FX
@@ -125,7 +124,7 @@ const usePadTrigger = () => {
                 },
                 onEnded: () => {
                     setPadActive(padId, false);
-                    // Check Queue on end
+                    // Check Queue on end (Crucial for One-Shot Chains)
                     checkQueueAndPlayNext();
                 }
             });
@@ -134,7 +133,7 @@ const usePadTrigger = () => {
 
 
     // --- Main Trigger Function ---
-    const triggerPad = useCallback((padId, eventType) => {
+    const triggerPad = useCallback(async (padId, eventType) => {
         const state = useStore.getState();
         const mapping = state.padMappings[padId];
 
@@ -150,33 +149,22 @@ const usePadTrigger = () => {
 
         // 2. Down Event Logic
         if (eventType === 'down') {
-            console.log(`[Pad ${padId}] DOWN (Mode: ${mode}, Type: ${type})`);
 
-            // A. Trigger Visuals (Immediate Feedback)
+            // A. Visual Feedback (Immediate)
             triggerVisualFX(padId, visualEffect, mapping.color);
             sequencer.recordEvent(padId);
 
-            // B. Determine Start Time (Quantization)
-            const quantization = state.launchQuantization;
-            let startTime = undefined;
-            if (quantization && quantization !== 'none') {
-                if (Tone.Transport.state !== 'started') {
-                    Tone.Transport.start();
-                } else {
-                    startTime = Tone.Transport.nextSubdivision(quantization);
-                }
+            // B. TOGGLE OFF QUEUED PAD (Cancel Reservation)
+            // If the pad is already in the queue (Reserved), clicking it again should cancel the reservation.
+            if (state.queuedPads.has(padId)) {
+                console.log(`[Queue] Cancelling Reservation for Pad ${padId}`);
+                state.removeFromQueue(col, padId);
+                return;
             }
 
-            // C. Queue vs Play Logic
-            // If any pad in this column is active, we QUEUE (unless it's the SAME pad doing a stop/toggle)
-
-            // Find currently playing pad in this column
+            // C. Find Active Pad in Column (Exclusive Group)
+            // Iterate all 8 rows for this column
             let activePadInCol = -1;
-            for (let i = 0; i < 8; i++) {
-                const checkId = (Math.floor(padId / 8) * 8 + i); // Wait, stored is Row*8+Col. 
-                // Col is vertical. So indices are col, col+8, col+16...
-            }
-            // Better loop: 0 to 7 rows
             for (let r = 0; r < 8; r++) {
                 const pId = r * 8 + col;
                 if (state.activePads[pId]) {
@@ -185,70 +173,125 @@ const usePadTrigger = () => {
                 }
             }
 
-            // Case 1: LATCH / TOGGLE / LOOP
-            if (mode === 'loop' || mode === 'toggle') {
+            // D. Launch Quantization (Default to Next Bar for Loops)
+            // User Request: "All loops... reservation state... play at start of bar"
+            // Determine Start Time (Quantization)
+            const quantization = state.launchQuantization;
+            let startTime = undefined;
+            const isTransportStarted = Tone.Transport.state === 'started';
+
+            // F. Count-in Logic (Special Case)
+            // If we are in Count-in phase (AudioEngine set isCountIn=true), 
+            // the Transport is technically stopped but will start at a known time.
+            // We want toQUEUE the pad and launch it at Transport Time 0. (Start of Song)
+            if (state.isCountIn) {
+                console.log(`[Pad ${padId}] Clicked during Count-in -> Queuing for Start.`);
+
+                // 1. Queue Visual (Flashing)
+                // addToQueue adds it to padQueues which Grid renders as flashing
+                state.addToQueue(padId);
+
+                // 2. Schedule Launch at 0
+                // Since Transport starts at 0, we schedule 0.
+                // We use scheduleOnce which fires when Transport reaches 0.
+                Tone.Transport.scheduleOnce(() => {
+                    console.log(`[Pad ${padId}] Launching from Count-in Queue.`);
+
+                    // Remove from Queue (Stop Flashing)
+                    state.shiftQueue(col); // Assumes we are the next one in queue? Yes.
+
+                    // Play!
+                    playPadNow(padId, mapping, state, "0:0:0");
+                }, 0);
+
+                return; // Stop further processing
+            }
+
+            if (quantization && quantization !== 'none') {
+                if (!isTransportStarted) {
+                    Tone.Transport.start();
+                } else {
+                    startTime = Tone.Transport.nextSubdivision(quantization);
+                }
+            } else {
+                startTime = 0;
+            }
+
+            // --- SIBLING INTERACTION: QUEUE LOGIC ---
+            // If another pad in the same column is active, we QUEUE this new pad.
+            // We do NOT play immediately.
+            const isSiblingActive = (activePadInCol !== -1 && activePadInCol !== padId);
+            const isLooping = (mode === 'loop' || mode === 'toggle' || mode === 'gate');
+
+            if (isSiblingActive) {
+                console.log(`[Queue] Sibling Active (${activePadInCol}) -> Queuing ${padId}`);
+                // Simply add to Queue.
+                // The Active Pad will detect this in its 'onLoop' or 'onEnded' callback
+                // and trigger the Switch (Handoff).
+                state.addToQueue(padId);
+                return; // Stop execution here.
+            }
+
+            // --- STANDARD PLAYBACK (No Sibling Active OR Self-Interaction) ---
+
+            // ONE-SHOT: Play Immediately (Retrigger if self)
+            if (!isLooping) {
+                playPadNow(padId, mapping, state);
+                return;
+            }
+
+            // LOOPS: Toggle Logic
+            if (isLooping) {
                 const isCurrentlyActive = state.activePads[padId];
 
                 if (isCurrentlyActive) {
-                    // STOP Action (Manual override)
-                    // If we press a playing loop, we typically stop it.
-                    setPadActive(padId, false);
-                    if (type === 'synth') audioEngine.stopSynthNote(mapping.note);
-                    else sampler.stop(padId);
+                    // STOP Action (Quantized)
+                    state.addToQueue(padId); // Visual Queue
+
+                    const scheduleTime = startTime !== undefined ? startTime : Tone.Transport.nextSubdivision(quantization || '1m');
+
+                    Tone.Transport.scheduleOnce((time) => {
+                        console.log(`[Scheduler] Quantized STOP for Pad ${padId} at ${time}`);
+                        useStore.getState().shiftQueue(col);
+                        setPadActive(padId, false);
+                        sampler.stop(padId);
+                    }, scheduleTime);
+
                     return;
                 }
 
-                // If another pad is playing in column -> Queue
-                if (activePadInCol !== -1 && activePadInCol !== padId) {
-                    console.log(`[Queue] Column ${col} busy (Pad ${activePadInCol}). Queueing ${padId}.`);
-                    state.addToQueue(padId);
+                // PLAY Action (Start)
+                if (!isTransportStarted) {
+                    // Auto-Start Transport
+                    console.log(`[Pad ${padId}] Auto-Starting Transport for First Loop`);
+
+                    // eslint-disable-next-line
+                    if (Tone.context.state !== 'running') await Tone.start();
+
+                    Tone.Transport.start();
+                    playPadNow(padId, mapping, state, "0:0:0");
                     return;
                 }
 
-                // Else -> Play Now
-                playPadNow(padId, mapping, state, startTime);
-                return;
-            }
-
-            // Case 2: ONE-SHOT / GATE
-            if (activePadInCol !== -1 && activePadInCol !== padId) {
-                // Column Busy -> Queue
-                console.log(`[Queue] Column ${col} busy. Queueing ${padId}.`);
+                // Schedule Quantized Start
                 state.addToQueue(padId);
-                return;
+                const scheduleTime = startTime !== undefined ? startTime : Tone.Transport.nextSubdivision(quantization || '1m');
+
+                Tone.Transport.scheduleOnce((time) => {
+                    console.log(`[Scheduler] Quantized START for Pad ${padId} at ${time}`);
+                    useStore.getState().shiftQueue(col);
+                    playPadNow(padId, mapping, useStore.getState(), time);
+                }, scheduleTime);
             }
-
-            // Allow re-triggering self in One-Shot? (Standard is yes, cuts self off)
-            // But if we queue self? "Same vertical line" includes self.
-            // If I press SAME pad that is playing One-Shot... 
-            // Usually re-trigger immediately (stutter).
-            // Logic: "Reserved... when one-shot... *do not play immediately*".
-            // User: "If... PRESSED... one-shot... pressed..."
-            // Let's assume re-triggering SELF is immediate (Stutter). Only OTHER pads queue.
-
-            if (mode === 'one-shot' && type === 'sample' && sampler.isPlaying(padId)) {
-                // If self is playing... allow re-trigger? 
-                // Existing code prevented it. Let's allow it for stutter or keep prevention.
-                // Keeping prevention for safe one-shot based on prev code.
-                // But wait, prev code returned: `if (sampler.isPlaying(padId)) return;`
-                // Let's keep that behavior OR allow restart. I'll stick to playPadNow (which restarts).
-            }
-
-            // Logic:
-            playPadNow(padId, mapping, state, startTime);
 
         }
 
         // 3. Up Event Logic
         else if (eventType === 'up') {
-            // Only Gate mode responds to Up events
             if (mode === 'gate') {
+                // Gate Stop Logic
                 setPadActive(padId, false);
-                if (type === 'synth' || type === 'piano' || type === 'drums') {
-                    instrumentManager.stopNote(padId, mapping.note || 'C4');
-                } else {
-                    sampler.stop(padId);
-                }
+                sampler.stop(padId);
             }
         }
 

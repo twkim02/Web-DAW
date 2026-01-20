@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-// import { sampler } from './Sampler'; // Removed unused import
+import useStore from '../store/useStore';
 
 class AudioEngine {
     constructor() {
@@ -479,6 +479,14 @@ class AudioEngine {
         }
     }
 
+    setTimeSignature(ts) {
+        if (!this.isInitialized) return;
+        if (Tone.Transport && Array.isArray(ts)) {
+            Tone.Transport.timeSignature = ts;
+            console.log(`[AudioEngine] Time Signature set to ${ts[0]}/${ts[1]}`);
+        }
+    }
+
     setMetronome(isOn) {
         if (!this.isInitialized || !this.metronomePart) return;
 
@@ -497,6 +505,66 @@ class AudioEngine {
                 if (this.idleMetronome) this.idleMetronome.stop();
             }
         }
+    }
+
+    /**
+     * Starts Transport with a 1-Bar Count-in (Pre-roll)
+     * Triggers Metronome Clicks manually before Transport starts.
+     */
+    async startWithCountIn() {
+        if (Tone.Transport.state === 'started') return;
+
+        console.log('[AudioEngine] Starting with Count-in...');
+
+        // Ensure Audio Context
+        if (Tone.context.state !== 'running') await Tone.start();
+
+        // SET COUNT-IN FLAG
+        useStore.getState().setIsCountIn(true);
+
+        const bpm = Tone.Transport.bpm.value;
+        const timeSignature = Tone.Transport.timeSignature;
+        const beatsPerBar = Array.isArray(timeSignature) ? timeSignature[0] : (typeof timeSignature === 'number' ? timeSignature : 4);
+
+        const beatDuration = 60 / bpm;
+        const now = Tone.now();
+
+        // 1. Schedule Pre-roll Clicks
+        for (let i = 0; i < beatsPerBar; i++) {
+            const time = now + (i * beatDuration);
+            const isDownbeat = (i === 0);
+            const note = isDownbeat ? "C6" : "C5";
+            this.metronomeSynth.triggerAttackRelease(note, "32n", time);
+        }
+
+        // 2. Schedule Transport Start exactly after 1 bar
+        const barDuration = beatDuration * beatsPerBar;
+        Tone.Transport.start(now + barDuration);
+
+        // 3. Clear Count-in Flag at Start
+        // We schedule this on the Transport timeline at 0 so it flips exactly when music starts
+        Tone.Transport.scheduleOnce(() => {
+            useStore.getState().setIsCountIn(false);
+            console.log('[AudioEngine] Count-in Complete. Transport Started.');
+        }, 0);
+
+        return barDuration * 1000;
+    }
+
+    toggleTransport() {
+        if (Tone.Transport.state === 'started') {
+            this.stopTransport();
+            return 'stopped';
+        } else {
+            this.startWithCountIn();
+            return 'started';
+        }
+    }
+
+    stopTransport() {
+        Tone.Transport.stop();
+        useStore.getState().setIsCountIn(false); // Reset flag
+        // Reset Idle Metronome handled by event listener
     }
 }
 

@@ -17,38 +17,153 @@ const useKeyboardMap = () => {
     useEffect(() => {
         if (!isAudioContextReady) return;
 
+        // Track Held Keys for Modifiers (M, K, Backspace, J)
+        const heldKeys = {
+            m: false,
+            k: false,
+            backspace: false,
+            j: false
+        };
+
         const handleKeyDown = (e) => {
-            // DEBUG LOGS
-            // console.log('[Keyboard] Code:', e.code, 'Shift:', e.shiftKey, 'Alt:', e.altKey);
-
             if (e.repeat) return;
-
             // 1. Ignore if typing in an input
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
-            // Disable global map if a modal is open (Playing Mode or Preview Mode)
-            // Allow if editingPadId is set (Sidebar), unless input is focused (handled above)
             const state = useStore.getState();
-            // console.log('[Keyboard] State check - Editing:', state.editingPadId, 'Playing:', state.playingPadId);
-
             if (state.playingPadId !== null || state.previewMode.isOpen) return;
 
             const code = e.code;
 
-            // Global Transport Toggle (Space)
-            if (code === 'Space') {
-                e.preventDefault();
-                import('tone').then(Tone => {
-                    if (Tone.Transport.state === 'started') {
-                        Tone.Transport.pause();
-                        console.log('Transport Paused');
-                    } else {
-                        Tone.Transport.start();
-                        console.log('Transport Started');
+            // Update Held Keys
+            if (code === 'KeyM') heldKeys.m = true;
+            if (code === 'KeyK') heldKeys.k = true;
+            if (code === 'Backspace') heldKeys.backspace = true;
+            if (code === 'KeyJ') heldKeys.j = true;
+
+            // --- 0. Modifiers + Number Row (1-8) for Column/Line Control ---
+            if (['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'].includes(code)) {
+                if (heldKeys.m || heldKeys.k || heldKeys.backspace || heldKeys.j || e.altKey) {
+                    e.preventDefault();
+                    const col = parseInt(code.replace('Digit', '')) - 1; // 0-7
+
+                    // Case 1: Delete (Backspace or Alt) -> Reset Pad in Row 0 (Pad 0-7)
+                    if (heldKeys.backspace || e.altKey) {
+                        console.log('Delete Shortcut for Column (Pad 0-7):', col);
+                        try { sampler.unload(col); } catch (e) { }
+                        useStore.getState().resetPad(col);
+                        // Also clear loop slot if applicable?
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            sequencer.clearSlot(col);
+                        });
+                        return;
                     }
-                });
-                return;
+
+                    // Case 2: Mute
+                    if (heldKeys.m) {
+                        console.log('Mute Shortcut for Column:', col);
+                        const trackId = `slot-${col}`;
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            sequencer.toggleMute(trackId);
+                            useStore.getState().toggleTrackState('mute', col);
+                        });
+                        return;
+                    }
+
+                    // Case 3: Stop
+                    if (heldKeys.k) {
+                        console.log('Stop Shortcut for Column:', col);
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            sequencer.stopTrack(col);
+                        });
+                        return;
+                    }
+
+                    // Case 4: Solo
+                    if (heldKeys.j) {
+                        console.log('Solo Shortcut for Column:', col);
+                        const trackId = `slot-${col}`;
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            sequencer.toggleSolo(trackId);
+                            useStore.getState().toggleTrackState('solo', col);
+                        });
+                        return;
+                    }
+                }
             }
+
+            // --- 1. Modifier + Pad Trigger (Mute, Stop, Delete) ---
+            if (Object.prototype.hasOwnProperty.call(CODE_MAP, code)) {
+                const bankCoords = useStore.getState().bankCoords;
+                const localIndex = CODE_MAP[code];
+                const localRow = Math.floor(localIndex / 4);
+                const localCol = localIndex % 4;
+                const globalRow = (bankCoords.y * 4) + localRow;
+                const globalCol = (bankCoords.x * 4) + localCol;
+                const globalIndex = (globalRow * 8) + globalCol;
+
+                // PRIORITY 1: Backspace + Pad OR Alt + Pad -> DELETE
+                if (heldKeys.backspace || e.altKey) {
+                    e.preventDefault();
+                    console.log('Delete Shortcut for Pad:', globalIndex);
+
+                    try {
+                        sampler.unload(globalIndex);
+                    } catch (err) {
+                        console.warn('Audio unload failed:', err);
+                    }
+
+                    // Stop Sequencer/Audio explicitly if needed
+                    import('../audio/Sequencer').then(({ sequencer }) => {
+                        // Resetting the pad in store clears active state.
+                        // We also might want to stop the track if it relies on this specific clip.
+                    });
+
+                    // Reset Store (This cleans queues too now)
+                    useStore.getState().resetPad(globalIndex);
+                    return;
+                }
+
+                // PRIORITY 2: M + Pad -> MUTE Track
+                if (heldKeys.m) {
+                    e.preventDefault();
+                    const col = globalIndex % 8;
+                    const trackId = `slot-${col}`;
+                    import('../audio/Sequencer').then(({ sequencer }) => {
+                        console.log('Mute Shortcut for Column:', col);
+                        sequencer.toggleMute(trackId);
+                        useStore.getState().toggleTrackState('mute', col);
+                    });
+                    return;
+                }
+
+                // PRIORITY 3: K + Pad -> STOP Track
+                if (heldKeys.k) {
+                    e.preventDefault();
+                    const col = globalIndex % 8;
+                    import('../audio/Sequencer').then(({ sequencer }) => {
+                        console.log('Stop Shortcut for Column:', col);
+                        sequencer.stopTrack(col);
+                    });
+                    return;
+                }
+
+                // PRIORITY 4: J + Pad -> SOLO Track
+                if (heldKeys.j) {
+                    e.preventDefault();
+                    const col = globalIndex % 8;
+                    const trackId = `slot-${col}`;
+                    import('../audio/Sequencer').then(({ sequencer }) => {
+                        console.log('Solo Shortcut for Column:', col);
+                        sequencer.toggleSolo(trackId);
+                        useStore.getState().toggleTrackState('solo', col);
+                    });
+                    return;
+                }
+            }
+
+
+            // --- 2. Existing Global Key Logic ---
 
             // Arrow Keys for Bank Navigation or Mixer Control
             const viewMode = useStore.getState().viewMode;
@@ -89,17 +204,13 @@ const useKeyboardMap = () => {
                     return; // Blocking Launchpad/Loop logic
                 }
 
-                // Arrow Keys: Left/Right DISABLED for Track Selection as per request
-                // Only Up/Down/Enter remain for Parameter Control
-
                 // Parameter / Action Control (Up/Down/Enter)
                 if (code === 'ArrowUp' || code === 'ArrowDown' || code === 'Enter') {
                     e.preventDefault();
 
                     // 1. Parameter Modes (Volume, Pan, Sends)
-                    // MIXER_SELECTION defaults to Volume control
                     if (['VOLUME', 'PAN', 'SEND_A', 'SEND_B', 'MIXER_SELECTION'].includes(viewMode)) {
-                        if (code === 'Enter') return; // Enter doesn't adjust sliders
+                        if (code === 'Enter') return;
 
                         const typeMap = {
                             'VOLUME': 'vol',
@@ -113,25 +224,22 @@ const useKeyboardMap = () => {
                         let currentVal = state.mixerLevels[type][selectedTrack];
 
 
-                        let min = 0, max = 1, step = 0.125; // Default for Vol/Send (1/8 of 0-1)
+                        let min = 0, max = 1, step = 0.125;
 
                         if (type === 'pan') {
                             min = -1;
                             max = 1;
-                            step = 0.25; // 1/8 of -1 to 1 (Range 2)
+                            step = 0.25;
                         }
-                        // Sends share the same 0-1 range as Volume
 
                         const delta = (code === 'ArrowUp' ? step : -step);
                         let newVal = currentVal + delta;
                         if (newVal > max) newVal = max;
                         if (newVal < min) newVal = min;
-                        // Precision handling for 0.125 steps
                         newVal = Math.round(newVal * 1000) / 1000;
 
                         state.setMixerLevel(type, selectedTrack, newVal);
 
-                        // Sync with AudioEngine
                         import('../audio/AudioEngine').then(({ audioEngine }) => {
                             audioEngine.updateMixerTrack(selectedTrack, { [type]: newVal });
                         });
@@ -141,22 +249,17 @@ const useKeyboardMap = () => {
                     // 2. Action Modes (Mute, Solo, Stop)
                     if (['MUTE', 'SOLO', 'STOP'].includes(viewMode)) {
                         import('../audio/Sequencer').then(({ sequencer }) => {
-                            // Try to find track by index
                             const tracks = useStore.getState().tracks;
-                            // Note: track ordering in store should match mixer columns 0-7
                             const track = tracks[selectedTrack];
-                            const trackId = track ? track.id : `slot-${selectedTrack}`; // Fallback to slot ID
+                            const trackId = track ? track.id : `slot-${selectedTrack}`;
 
                             if (viewMode === 'MUTE') {
-                                // Toggle Mute
                                 if (trackId) sequencer.toggleMute(trackId);
                             }
                             else if (viewMode === 'SOLO') {
-                                // Toggle Solo
                                 if (trackId) sequencer.toggleSolo(trackId);
                             }
                             else if (viewMode === 'STOP') {
-                                // Trigger Stop
                                 sequencer.stopTrack(selectedTrack);
                             }
                         });
@@ -178,10 +281,8 @@ const useKeyboardMap = () => {
             if (code === 'KeyU') { setViewMode('VOLUME'); return; }
             if (code === 'KeyI') { setViewMode('PAN'); return; }
             if (code === 'KeyO') { setViewMode('SEND_A'); return; }
-            if (code === 'KeyO') { setViewMode('SEND_A'); return; }
             if (code === 'KeyP') { setViewMode('SEND_B'); return; }
 
-            // Global FX Settings (Y)
             // Global FX Settings (Y)
             if (code === 'KeyY') {
                 e.preventDefault();
@@ -198,10 +299,9 @@ const useKeyboardMap = () => {
             }
 
             // Row 2: States
-            if (code === 'KeyM') { setViewMode('MUTE'); return; } // M for Mute (Intuitive) - Overrides KeyJ plan
-            if (code === 'KeyK') { setViewMode('SOLO'); return; } // K is near L
-            if (code === 'KeyL') { setViewMode('CLEAR'); return; }  // L for Loop Clear
-            // if (code === 'Semicolon') { setViewMode('STOP'); return; } // ; for Stop
+            if (code === 'KeyM') { setViewMode('MUTE'); return; }
+            if (code === 'KeyK') { setViewMode('SOLO'); return; }
+            if (code === 'KeyL') { setViewMode('CLEAR'); return; }
 
             // Alternative Standard Map (J,K,L,;)
             if (code === 'KeyJ') { setViewMode('MUTE'); return; }
@@ -229,7 +329,6 @@ const useKeyboardMap = () => {
             if (code === 'Tab') {
                 e.preventDefault();
                 const current = useStore.getState().viewMode;
-                // Default to VOLUME directly as requested
                 setViewMode(current === 'SESSION' ? 'VOLUME' : 'SESSION');
                 return;
             }
@@ -246,20 +345,10 @@ const useKeyboardMap = () => {
             }
 
             // --- Scene Launch Keys (5, T, G, B) ---
-            // DISABLED IN MIXER MODE? No, user only asked for Loop (5-0) and Launchpad (1-4)
-            // But '5' is also Loop 1 in new mapping?
-            // "1234(Launchpad) 567890(Loop)" -> 1-0 are now used for Mixer.
-            // So we must intercept Scene Launch '5' if it conflicts?
-            // Scene Launch is on 5, T, G, B. 
-            // If Mixer Mode uses 5 for Track 5, Scene Launch 5 is blocked by the return above. Correct.
-
-            // --- Loop / Bank Logic ---
             const bankCoords = useStore.getState().bankCoords;
             const bankOffset = bankCoords.y * 4; // Top Bank = 0, Bottom Bank = 4
 
-            // Handle Scene Launch IF NOT handled by Mixer
-            // But we processed Digit5 above and returned. So this only runs if not Mixer.
-            // if (code === 'Digit5') ...
+            if (code === 'Digit5') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 0)); return; }
             if (code === 'KeyT') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 1)); return; }
             if (code === 'KeyG') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 2)); return; }
             if (code === 'KeyB') { e.preventDefault(); import('../audio/Sequencer').then(({ sequencer }) => sequencer.playScene(bankOffset + 3)); return; }
@@ -287,17 +376,6 @@ const useKeyboardMap = () => {
                     useStore.getState().setRightSidebarView('settings');
                     useStore.getState().setIsRightSidebarOpen(true); // Force Open
                 }
-                // NEW: Alt Key to Reset Pad
-                else if (e.altKey) {
-                    e.preventDefault();
-                    try {
-                        sampler.unload(globalIndex); // Unload audio
-                    } catch (err) {
-                        console.warn('Audio unload failed, forcing UI reset:', err);
-                    }
-                    useStore.getState().resetPad(globalIndex); // Reset state
-                    // Optional: Visual feedback or toast could go here
-                }
                 else {
                     triggerPad(globalIndex, 'down');
                 }
@@ -306,6 +384,12 @@ const useKeyboardMap = () => {
 
         const handleKeyUp = (e) => {
             const code = e.code;
+
+            // Update Held Keys (Reset on release)
+            if (code === 'KeyM') heldKeys.m = false;
+            if (code === 'KeyK') heldKeys.k = false;
+            if (code === 'Backspace') heldKeys.backspace = false;
+            if (code === 'KeyJ') heldKeys.j = false;
 
             // Allow Mixer Mode to block 'up' events for reused keys
             const viewMode = useStore.getState().viewMode;
