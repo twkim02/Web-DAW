@@ -148,12 +148,13 @@ router.post('/', upload.single('file'), async (req, res) => {
             s3Key: isS3 ? req.file.key : null
         });
 
+        // Ensure URL is included in response (virtual getter might not be in toJSON)
+        const assetData = asset.toJSON();
+        assetData.url = asset.url; // Explicitly add virtual getter
+        
         res.json({
             message: 'Graphic asset uploaded successfully',
-            asset: {
-                ...asset.toJSON(),
-                url: asset.url // Use virtual getter
-            }
+            asset: assetData
         });
     } catch (err) {
         console.error(err);

@@ -3,6 +3,7 @@ import useStore from '../../store/useStore';
 import styles from '../Layout/RightSidebar.module.css'; // Reusing sidebar styles
 import ColorThief from 'colorthief';
 import { uploadGraphicAsset } from '../../api/graphicAssets';
+import client from '../../api/client';
 
 const PadSettingsPanel = () => {
     const editingPadId = useStore(state => state.editingPadId);
@@ -86,9 +87,23 @@ const PadSettingsPanel = () => {
                         console.log('Upload result:', result); // Debug log
                         if (result && result.asset) {
                             const graphicAsset = result.asset;
-                            // Get the URL from the asset
-                            const imageUrl = graphicAsset.url || dataUrl;
+                            // Get the URL from the asset - ensure it's a full URL
+                            let imageUrl = graphicAsset.url || dataUrl;
+                            
+                            // If URL is relative, make it absolute using server URL
+                            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+                                // Use server base URL (not client origin) for images
+                                const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+                                if (imageUrl.startsWith('/')) {
+                                    imageUrl = `${baseURL}${imageUrl}`;
+                                } else {
+                                    imageUrl = `${baseURL}/${imageUrl}`;
+                                }
+                            }
+                            
                             console.log('Saving pad image:', { imageUrl, graphicAssetId: graphicAsset.id }); // Debug log
+                            // Update local state immediately for preview
+                            setImage(imageUrl);
                             handleSave({ 
                                 image: imageUrl, 
                                 color: hex,
@@ -113,8 +128,22 @@ const PadSettingsPanel = () => {
                         console.log('Upload result (no color):', result); // Debug log
                         if (result && result.asset) {
                             const graphicAsset = result.asset;
-                            const imageUrl = graphicAsset.url || dataUrl;
+                            let imageUrl = graphicAsset.url || dataUrl;
+                            
+                            // If URL is relative, make it absolute using server URL
+                            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+                                // Use server base URL (not client origin) for images
+                                const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+                                if (imageUrl.startsWith('/')) {
+                                    imageUrl = `${baseURL}${imageUrl}`;
+                                } else {
+                                    imageUrl = `${baseURL}/${imageUrl}`;
+                                }
+                            }
+                            
                             console.log('Saving pad image (no color):', { imageUrl, graphicAssetId: graphicAsset.id }); // Debug log
+                            // Update local state immediately for preview
+                            setImage(imageUrl);
                             handleSave({ 
                                 image: imageUrl,
                                 graphicAssetId: graphicAsset.id 

@@ -317,13 +317,9 @@ function App() {
               note: mapping.note || 'C4',
               assetId: mapping.Asset ? mapping.Asset.id : null,
               originalName: mapping.Asset ? mapping.Asset.originalName : null,
-<<<<<<< HEAD
-              image: padImageUrl, // Pad image from GraphicAsset
+              image: padImageUrl || mapping.image || null, // Pad image from GraphicAsset (preferred) or legacy image
               graphicAssetId: mapping.GraphicAsset ? mapping.GraphicAsset.id : null,
-=======
-              color: mapping.color,
-              image: mapping.image
->>>>>>> origin/main
+              color: mapping.color || null,
               // 향후 확장: 새 필드 지원 가능
               // type: mapping.type,
               // note: mapping.note,
