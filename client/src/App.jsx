@@ -448,17 +448,21 @@ function App() {
     if (!title) return;
 
     const mappings = padMappings
-      .filter(p => p.file || p.type) // Capture only active pads
-      .map(p => ({
-        keyChar: String(p.id),
-        mode: p.mode,
-        volume: p.volume,
-        type: p.type,
-        note: p.note || null,
-        assetId: p.assetId || null,
-        graphicAssetId: p.graphicAssetId || null, // Pad image GraphicAsset ID
-        synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null
-      }));
+      .filter(p => p.file || p.type || p.graphicAssetId) // Capture active pads (with file, type, or image)
+      .map(p => {
+        const mapping = {
+          keyChar: String(p.id),
+          mode: p.mode,
+          volume: p.volume,
+          type: p.type,
+          note: p.note || null,
+          assetId: p.assetId || null,
+          graphicAssetId: p.graphicAssetId || null, // Pad image GraphicAsset ID
+          synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null
+        };
+        console.log('Saving mapping for pad', p.id, ':', mapping); // Debug log
+        return mapping;
+      });
 
     // Capture Full State
     const globalSettings = {

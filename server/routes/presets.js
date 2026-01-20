@@ -125,17 +125,21 @@ router.post('/', isAuthenticated, async (req, res) => {
         }, { transaction: t });
 
         if (mappings && mappings.length > 0) {
-            const mappingData = mappings.map(m => ({
-                presetId: preset.id,
-                keyChar: m.keyChar,
-                mode: m.mode,
-                volume: m.volume,
-                type: m.type,
-                note: m.note || null,
-                assetId: m.assetId || null, // Optional if file linked
-                synthSettings: m.synthSettings || null, // Optional if type=synth
-                graphicAssetId: m.graphicAssetId || null // Optional pad image
-            }));
+            const mappingData = mappings.map(m => {
+                const data = {
+                    presetId: preset.id,
+                    keyChar: m.keyChar,
+                    mode: m.mode,
+                    volume: m.volume,
+                    type: m.type,
+                    note: m.note || null,
+                    assetId: m.assetId || null, // Optional if file linked
+                    synthSettings: m.synthSettings || null, // Optional if type=synth
+                    graphicAssetId: m.graphicAssetId || null // Optional pad image
+                };
+                console.log('Creating KeyMapping:', data); // Debug log
+                return data;
+            });
 
             await db.KeyMapping.bulkCreate(mappingData, { transaction: t });
         }

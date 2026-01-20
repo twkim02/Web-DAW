@@ -83,21 +83,25 @@ const PadSettingsPanel = () => {
                     // Upload to server and get GraphicAsset
                     try {
                         const result = await uploadGraphicAsset(file, 'pad', false);
+                        console.log('Upload result:', result); // Debug log
                         if (result && result.asset) {
                             const graphicAsset = result.asset;
                             // Get the URL from the asset
                             const imageUrl = graphicAsset.url || dataUrl;
+                            console.log('Saving pad image:', { imageUrl, graphicAssetId: graphicAsset.id }); // Debug log
                             handleSave({ 
                                 image: imageUrl, 
                                 color: hex,
                                 graphicAssetId: graphicAsset.id 
                             });
                         } else {
+                            console.warn('Upload result missing asset:', result); // Debug log
                             // Fallback to dataUrl if upload fails
                             handleSave({ image: dataUrl, color: hex });
                         }
                     } catch (uploadErr) {
                         console.error('Failed to upload pad image:', uploadErr);
+                        console.error('Upload error details:', uploadErr.response?.data || uploadErr.message); // Debug log
                         // Fallback to dataUrl if upload fails
                         handleSave({ image: dataUrl, color: hex });
                     }
@@ -106,18 +110,22 @@ const PadSettingsPanel = () => {
                     // Try to upload anyway
                     try {
                         const result = await uploadGraphicAsset(file, 'pad', false);
+                        console.log('Upload result (no color):', result); // Debug log
                         if (result && result.asset) {
                             const graphicAsset = result.asset;
                             const imageUrl = graphicAsset.url || dataUrl;
+                            console.log('Saving pad image (no color):', { imageUrl, graphicAssetId: graphicAsset.id }); // Debug log
                             handleSave({ 
                                 image: imageUrl,
                                 graphicAssetId: graphicAsset.id 
                             });
                         } else {
+                            console.warn('Upload result missing asset (no color):', result); // Debug log
                             handleSave({ image: dataUrl });
                         }
                     } catch (uploadErr) {
                         console.error('Failed to upload pad image:', uploadErr);
+                        console.error('Upload error details:', uploadErr.response?.data || uploadErr.message); // Debug log
                         handleSave({ image: dataUrl });
                     }
                 }

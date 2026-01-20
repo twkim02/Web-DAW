@@ -115,23 +115,54 @@ const graphicAssetRoutes = require('./routes/graphicAssets');
 app.use('/api/graphic-assets', graphicAssetRoutes);
 
 // Sync Database & Start Server
-db.sequelize.sync({ alter: true }).then(async () => {
-    // 테이블에 인덱스 추가 (컬럼 생성 후)
+// Users 테이블은 인덱스가 너무 많아서 alter를 건너뛰고, 다른 테이블만 동기화
+(async () => {
     try {
-        await db.GraphicAsset.addIndexes();
+        // Users 모델은 alter 없이 확인만 (이미 존재하면 건너뜀)
+        // email unique 제약조건이 이미 있으면 alter 시도 시 인덱스 초과 에러 발생
+        try {
+            await db.User.sync({ alter: false });
+            console.log('User model: table exists, skipping alter');
+        } catch (err) {
+            // 테이블이 없으면 생성만 시도 (alter 없이)
+            if (err.message && err.message.includes("doesn't exist")) {
+                await db.User.sync({ alter: false });
+                console.log('User model: table created');
+            } else {
+                console.warn('User model sync warning:', err.message);
+            }
+        }
+
+        // 다른 모델들은 정상적으로 alter 동기화
+        const modelsToSync = ['Preset', 'KeyMapping', 'Asset', 'Post', 'Comment', 'UserPreference', 'PresetAccess', 'GraphicAsset'];
+        for (const modelName of modelsToSync) {
+            if (db[modelName]) {
+                try {
+                    await db[modelName].sync({ alter: true });
+                    console.log(`${modelName} model: synced`);
+                } catch (err) {
+                    console.warn(`${modelName} model sync warning:`, err.message);
+                }
+            }
+        }
+
+        // 테이블에 인덱스 추가 (컬럼 생성 후)
+        try {
+            await db.GraphicAsset.addIndexes();
+        } catch (err) {
+            console.warn('GraphicAsset index addition skipped (may already exist):', err.message);
+        }
+        
+        try {
+            await db.PresetAccess.addIndexes();
+        } catch (err) {
+            console.warn('PresetAccess index addition skipped (may already exist):', err.message);
+        }
+        
+        app.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });
     } catch (err) {
-        console.warn('GraphicAsset index addition skipped (may already exist):', err.message);
+        console.error('Failed to sync database:', err);
     }
-    
-    try {
-        await db.PresetAccess.addIndexes();
-    } catch (err) {
-        console.warn('PresetAccess index addition skipped (may already exist):', err.message);
-    }
-    
-    app.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
-    });
-}).catch(err => {
-    console.error('Failed to sync database:', err);
-});
+})();

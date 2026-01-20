@@ -105,7 +105,7 @@ router.post('/', upload.single('file'), async (req, res) => {
         const { category = 'background', isPublic = false } = req.body;
 
         // Validate category
-        const validCategories = ['background', 'icon', 'texture', 'overlay', 'other'];
+        const validCategories = ['background', 'icon', 'texture', 'overlay', 'pad', 'other'];
         if (!validCategories.includes(category)) {
             return res.status(400).json({ message: 'Invalid category' });
         }
