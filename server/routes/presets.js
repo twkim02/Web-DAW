@@ -22,6 +22,47 @@ router.get('/', isAuthenticated, async (req, res) => {
     }
 });
 
+// POST /presets/:id/access - Record preset access (for tracking loaded presets)
+router.post('/:id/access', async (req, res) => {
+    try {
+        const presetId = parseInt(req.params.id);
+        const userId = req.user ? req.user.id : null;
+        const sessionId = req.sessionID || null;
+
+        // Check if preset exists
+        const preset = await db.Preset.findByPk(presetId);
+        if (!preset) {
+            return res.status(404).json({ message: 'Preset not found' });
+        }
+
+        // Record access (upsert: update if exists, create if not)
+        const [presetAccess, created] = await db.PresetAccess.findOrCreate({
+            where: {
+                userId: userId,
+                presetId: presetId
+            },
+            defaults: {
+                userId: userId,
+                presetId: presetId,
+                sessionId: sessionId,
+                loadedAt: new Date()
+            }
+        });
+
+        // Update loadedAt if already exists
+        if (!created) {
+            presetAccess.loadedAt = new Date();
+            presetAccess.sessionId = sessionId;
+            await presetAccess.save();
+        }
+
+        res.json({ success: true, message: 'Preset access recorded' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
 // GET /presets/:id - Get full preset with mappings
 router.get('/:id', isAuthenticated, async (req, res) => {
     try {
@@ -39,6 +80,20 @@ router.get('/:id', isAuthenticated, async (req, res) => {
         });
 
         if (!preset) return res.status(404).json({ message: 'Preset not found' });
+        
+        // Record access when user loads their own preset
+        await db.PresetAccess.findOrCreate({
+            where: {
+                userId: req.user.id,
+                presetId: preset.id
+            },
+            defaults: {
+                userId: req.user.id,
+                presetId: preset.id,
+                loadedAt: new Date()
+            }
+        });
+
         res.json(preset);
     } catch (err) {
         console.error(err);

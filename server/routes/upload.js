@@ -2,15 +2,103 @@ const express = require('express');
 const router = express.Router();
 const { upload, deleteFromS3 } = require('../config/s3');
 const db = require('../models');
+const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
 // GET /upload - List all assets (optional filter by category)
+// 필터링 규칙:
+// - 비로그인: 현재 로드된 presetId의 asset만 (presetId 쿼리 파라미터 필요)
+// - 로그인: 본인이 만든 preset의 asset + 로드한 preset의 asset + 본인이 업로드한 asset
 router.get('/', async (req, res) => {
     try {
-        const { category } = req.query;
+        const { category, presetId } = req.query;
+        const userId = req.user ? req.user.id : null;
         const whereClause = {};
+        
         if (category) whereClause.category = category;
+
+        let allowedAssetIds = [];
+
+        if (!userId) {
+            // 비로그인 상태: 현재 로드된 preset의 asset만
+            if (!presetId) {
+                // presetId가 없으면 빈 배열 반환
+                return res.json([]);
+            }
+
+            const preset = await db.Preset.findByPk(presetId, {
+                include: [{
+                    model: db.KeyMapping,
+                    include: [db.Asset]
+                }]
+            });
+
+            if (preset && preset.KeyMappings) {
+                allowedAssetIds = preset.KeyMappings
+                    .map(km => km.Asset ? km.Asset.id : null)
+                    .filter(id => id !== null);
+            }
+
+            if (allowedAssetIds.length === 0) {
+                return res.json([]);
+            }
+
+            whereClause.id = { [Op.in]: allowedAssetIds };
+        } else {
+            // 로그인 상태: 본인이 만든 preset의 asset + 로드한 preset의 asset + 본인이 업로드한 asset
+            
+            // 1. 본인이 만든 preset의 asset
+            const myPresets = await db.Preset.findAll({
+                where: { userId: userId },
+                include: [{
+                    model: db.KeyMapping,
+                    include: [db.Asset]
+                }]
+            });
+
+            const myPresetAssetIds = myPresets
+                .flatMap(p => p.KeyMappings)
+                .map(km => km.Asset ? km.Asset.id : null)
+                .filter(id => id !== null);
+
+            // 2. 본인이 로드한 preset의 asset (PresetAccess 기반)
+            const accessedPresets = await db.PresetAccess.findAll({
+                where: { userId: userId },
+                include: [{
+                    model: db.Preset,
+                    include: [{
+                        model: db.KeyMapping,
+                        include: [db.Asset]
+                    }]
+                }]
+            });
+
+            const accessedPresetAssetIds = accessedPresets
+                .flatMap(pa => pa.Preset ? pa.Preset.KeyMappings : [])
+                .map(km => km.Asset ? km.Asset.id : null)
+                .filter(id => id !== null);
+
+            // 3. 본인이 업로드한 asset
+            const myUploadedAssets = await db.Asset.findAll({
+                where: { userId: userId },
+                attributes: ['id']
+            });
+            const myUploadedAssetIds = myUploadedAssets.map(a => a.id);
+
+            // 합치기 (중복 제거)
+            allowedAssetIds = [...new Set([
+                ...myPresetAssetIds,
+                ...accessedPresetAssetIds,
+                ...myUploadedAssetIds
+            ])];
+
+            if (allowedAssetIds.length === 0) {
+                return res.json([]);
+            }
+
+            whereClause.id = { [Op.in]: allowedAssetIds };
+        }
 
         const assets = await db.Asset.findAll({
             where: whereClause,

@@ -47,6 +47,14 @@ module.exports = (sequelize, DataTypes) => {
             foreignKey: 'userId',
             onDelete: 'CASCADE'
         });
+        User.hasMany(models.PresetAccess, {
+            foreignKey: 'userId',
+            onDelete: 'CASCADE'
+        });
+        User.hasMany(models.GraphicAsset, {
+            foreignKey: 'userId',
+            onDelete: 'CASCADE'
+        });
     };
 
     return User;

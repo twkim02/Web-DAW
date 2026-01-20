@@ -8,7 +8,7 @@ import { instrumentManager } from './audio/InstrumentManager'; // Import Instrum
 import VirtualPiano from './components/Instruments/VirtualPiano'; // Import VirtualPiano
 import VirtualDrums from './components/Instruments/VirtualDrums'; // Import VirtualDrums
 import { getCurrentUser, loginURL, devLoginURL, logout } from './api/auth';
-import { getPresets, savePreset, getPreset } from './api/presets';
+import { getPresets, savePreset, getPreset, recordPresetAccess } from './api/presets';
 import { useUserPreferences } from './hooks/useUserPreferences';
 import LeftSidebar from './components/Layout/LeftSidebar';
 import RightSidebar from './components/Layout/RightSidebar';
@@ -65,6 +65,7 @@ function App() {
   const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
   const setPresets = useStore((state) => state.setPresets);
+  const setCurrentPresetId = useStore((state) => state.setCurrentPresetId);
   const padMappings = useStore((state) => state.padMappings);
   const bpm = useStore((state) => state.bpm);
   const setBpm = useStore((state) => state.setBpm);
@@ -187,10 +188,22 @@ function App() {
                 if (originalPreset) {
                   // Simplified: Just load the data. 
                   await loadPresetFromData(originalPreset);
+                  // Record access if preset has ID
+                  if (originalPreset.id) {
+                    recordPresetAccess(originalPreset.id).catch(err => {
+                      console.warn('Failed to record preset access:', err);
+                    });
+                  }
                 }
                 // 3. Snapshot Logic (Fallback)
                 else if (snapshotData) {
                   await loadPresetFromData(snapshotData);
+                  // Snapshot data might not have ID, but try to record if it does
+                  if (snapshotData.id) {
+                    recordPresetAccess(snapshotData.id).catch(err => {
+                      console.warn('Failed to record preset access:', err);
+                    });
+                  }
                 } else {
                   alert('프리셋 정보를 찾을 수 없습니다. (삭제됨)');
                 }
@@ -295,6 +308,16 @@ function App() {
         // Refresh Library UI
         useStore.getState().triggerLibraryRefresh();
       }
+      
+      // Record preset access and set current preset ID
+      if (preset.id) {
+        setCurrentPresetId(preset.id);
+        // Record access (async, don't wait)
+        recordPresetAccess(preset.id).catch(err => {
+          console.warn('Failed to record preset access:', err);
+        });
+      }
+      
       alert(`Loaded: ${preset.title || 'Preset'}`);
     } catch (e) {
       console.error(e);

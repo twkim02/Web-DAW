@@ -47,6 +47,10 @@ const useStore = create((set) => ({
     // Presets State
     presets: [],
     setPresets: (presets) => set({ presets }),
+    
+    // Current Loaded Preset ID (for asset filtering)
+    currentPresetId: null,
+    setCurrentPresetId: (id) => set({ currentPresetId: id }),
 
     // Audio Context State
     isAudioContextReady: false,
