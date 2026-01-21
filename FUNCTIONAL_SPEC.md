@@ -170,10 +170,12 @@ PresetAccess (프리셋 접근 추적)
 - **우측 상단**: 로고/라이브 모드 토글
 
 #### 4.1.2 패드 기능
-- **클릭**: 샘플/신스 트리거
+- **클릭**: 샘플/신스 트리거 (모드에 따라 동작 다름)
 - **우클릭/더블클릭**: 패드 설정 패널 열기
 - **드래그**: 패드 간 파일 이동 (예정)
 - **키보드 단축키**: Q-P (첫 행), A-L (두 번째 행), Z-M (세 번째 행), Space (Live Mode)
+- **패드 이름**: 사용자가 패드에 이름 지정 가능
+- **초크 그룹**: 같은 그룹 내 패드는 동시 재생 시 이전 재생 중지
 
 #### 4.1.3 뷰 모드
 1. **SESSION**: 기본 패드 뷰 (64개 패드)
@@ -218,9 +220,15 @@ PresetAccess (프리셋 접근 추적)
 
 #### 4.2.4 샘플러 (Sampler)
 - **64개 인스턴스**: 패드별 독립 샘플러
-- **모드**: one-shot, loop, choke (같은 그룹 내 중복 재생 방지)
+- **모드**: one-shot, gate, toggle, loop
+  - **one-shot**: 클릭 시 한 번 재생
+  - **gate**: 버튼을 누르고 있는 동안 재생
+  - **toggle**: 클릭 시 재생/정지 토글
+  - **loop**: 반복 재생
+- **초크 그룹**: 같은 그룹 내 중복 재생 방지 (1, 2, 3, 4)
 - **파일 형식**: MP3, WAV, OGG
 - **볼륨**: 패드별 독립 제어
+- **패드별 이펙트**: 각 패드에 독립적인 이펙트 체인 설정 가능
 
 #### 4.2.5 신서사이저 (Synthesizer)
 - **타입**: Tone.js PolySynth
@@ -259,15 +267,19 @@ PresetAccess (프리셋 접근 추적)
   },
   mappings: [{
     keyChar: string,  // 패드 ID (0-63)
-    mode: string,     // 'one-shot', 'loop', etc.
+    mode: string,     // 'one-shot', 'gate', 'toggle', 'loop'
     volume: number,
     type: string,     // 'sample', 'synth'
     note: string,     // 'C4', etc.
+    name: string,     // 사용자가 지정한 패드 이름
     assetId: number,  // Asset ID (샘플인 경우)
     synthSettings: object,  // 신스인 경우
     graphicAssetId: number,  // GraphicAsset ID (패드 이미지)
     color: string,    // 패드 LED 색상 (hex)
-    image: string     // 패드 배경 이미지 URL (레거시 지원)
+    image: string,    // 패드 배경 이미지 URL (레거시 지원)
+    effects: array,   // 패드별 이펙트 체인 설정
+    chokeGroup: string,  // 초크 그룹 (1, 2, 3, 4)
+    instrumentPreset: string  // 가상 악기 프리셋 키
   }]
 }
 ```
@@ -686,11 +698,15 @@ PresetAccess (프리셋 접근 추적)
     "volume": number,
     "type": string,
     "note": string,
+    "name": string,
     "assetId": number,
     "synthSettings": object,
     "graphicAssetId": number,
     "color": string,
-    "image": string
+    "image": string,
+    "effects": array,
+    "chokeGroup": string,
+    "instrumentPreset": string
   }],
   "settings": {
     "mixerLevels": {...},
@@ -860,15 +876,19 @@ updatedAt: DATETIME
 id: INTEGER PRIMARY KEY
 presetId: INTEGER FOREIGN KEY (Presets.id)
 keyChar: STRING  -- 패드 ID (0-63)
-mode: STRING  -- 'one-shot', 'gate', 'toggle'
+mode: ENUM('one-shot', 'gate', 'toggle', 'loop')  -- 재생 모드
 volume: FLOAT
 type: STRING  -- 'sample', 'synth'
 note: STRING  -- 'C4', etc.
+name: STRING NULL  -- 사용자가 지정한 패드 이름
 assetId: INTEGER FOREIGN KEY (Assets.id) NULL  -- 오디오 파일
 graphicAssetId: INTEGER FOREIGN KEY (GraphicAssets.id) NULL  -- 패드 이미지
 color: STRING NULL  -- 패드 LED 색상 (hex)
 image: TEXT NULL  -- 패드 배경 이미지 URL (레거시 지원)
-synthSettings: JSON NULL
+synthSettings: JSON NULL  -- Tone.js 신서사이저 파라미터
+effects: JSON NULL  -- 패드별 이펙트 체인 설정 (배열)
+chokeGroup: STRING NULL  -- 초크 그룹 (1, 2, 3, 4)
+instrumentPreset: STRING NULL  -- 가상 악기 프리셋 키 (예: grand_piano, rhodes)
 createdAt: DATETIME
 updatedAt: DATETIME
 ```
@@ -1196,6 +1216,19 @@ loadedAt: DATETIME NOT NULL  -- 프리셋 로드 시각
 
 ## 11. 최근 변경 사항 (Changelog)
 
+### v1.2 (2026-01)
+- **루프 패드 재생 개선**
+  - 루프 패드 재생 큐잉 문제 해결
+  - Transport 상태 관리 개선
+  - Sequencer 로직 개선
+
+- **패드 기능 확장**
+  - `KeyMappings`에 `name` 필드 추가 (사용자 지정 패드 이름)
+  - `KeyMappings`에 `effects` 필드 추가 (패드별 이펙트 체인)
+  - `KeyMappings`에 `chokeGroup` 필드 추가 (초크 그룹 설정)
+  - `KeyMappings`에 `instrumentPreset` 필드 추가 (가상 악기 프리셋)
+  - `mode` ENUM에 'loop' 추가
+
 ### v1.1 (2024)
 - **패드 이미지 저장 기능 추가**
   - `GraphicAssets` 테이블 생성 (이미지 파일 메타데이터 저장)
@@ -1228,6 +1261,6 @@ loadedAt: DATETIME NOT NULL  -- 프리셋 로드 시각
 
 ---
 
-**문서 버전**: 1.1  
-**최종 업데이트**: 2024  
+**문서 버전**: 1.2  
+**최종 업데이트**: 2026-01  
 **작성자**: Web-DAW Development Team

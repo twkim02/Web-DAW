@@ -32,7 +32,7 @@
    - 클라이언트: http://localhost:5173
    - 서버 API: http://localhost:3001
 
-자세한 내용은 [`document/README_DOCKER.md`](document/README_DOCKER.md)를 참조하세요.
+Docker Compose를 사용하면 MySQL, 서버, 클라이언트가 모두 컨테이너로 실행됩니다.
 
 ### 로컬 실행 (선택사항)
 
@@ -50,16 +50,12 @@
    npm start
    ```
 
-자세한 내용은 [`document/PROJECT_SPEC.md`](document/PROJECT_SPEC.md)를 참조하세요.
+로컬 실행 시 MySQL 서버가 별도로 실행되어 있어야 합니다.
 
 ## 📚 문서
 
-- **[PROJECT_SPEC.md](document/PROJECT_SPEC.md)**: 프로젝트 전체 명세서
-- **[API_DOCUMENTATION.md](document/API_DOCUMENTATION.md)**: API 문서 (프론트엔드 팀용)
-- **[DB_SCHEMA.md](document/DB_SCHEMA.md)**: 데이터베이스 스키마 (DBML 형식)
-- **[HIGH_FI_ROADMAP.md](document/HIGH_FI_ROADMAP.md)**: High-Fi 단계 달성을 위한 로드맵
-- **[README_DOCKER.md](document/README_DOCKER.md)**: Docker 실행 가이드
-- **[DOCKER_TROUBLESHOOTING.md](document/DOCKER_TROUBLESHOOTING.md)**: Docker 트러블슈팅 가이드
+- **[FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md)**: 프로젝트 기능 명세서 (상세 기능, API, 데이터베이스 스키마 포함)
+- **[database_schema.dbml](database_schema.dbml)**: 데이터베이스 스키마 (DBML 형식, dbdiagram.io에서 시각화 가능)
 
 ## 🛠 기술 스택
 
@@ -87,22 +83,39 @@
 ```
 Web-DAW/
 ├── client/          # 프론트엔드 (React + Vite)
+│   ├── src/
+│   │   ├── api/     # API 클라이언트
+│   │   ├── audio/   # 오디오 엔진 (Tone.js)
+│   │   ├── components/  # UI 컴포넌트
+│   │   ├── pages/   # 페이지 컴포넌트
+│   │   ├── store/   # Zustand 상태 관리
+│   │   └── hooks/   # 커스텀 훅
 ├── server/          # 백엔드 (Express.js)
-├── document/        # 프로젝트 문서
-└── docker-compose.yml
+│   ├── routes/      # API 라우트
+│   ├── models/      # Sequelize 모델
+│   ├── middleware/  # 미들웨어
+│   ├── config/      # 설정 파일
+│   └── scripts/     # 유틸리티 스크립트
+├── database_schema.dbml  # 데이터베이스 스키마
+├── FUNCTIONAL_SPEC.md    # 기능 명세서
+├── docker-compose.yml    # Docker Compose 설정
+└── start_dev.bat        # 개발 환경 실행 스크립트
 ```
 
-자세한 구조는 [`document/PROJECT_SPEC.md`](document/PROJECT_SPEC.md)를 참조하세요.
+자세한 구조는 [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md)를 참조하세요.
 
 ## 🔧 주요 기능
 
-- **런치패드**: 16개 패드 그리드, 샘플/신스 모드 지원
-- **시퀀서**: 패턴 녹음 및 재생
-- **믹서**: 트랙별 볼륨/패닝 제어
+- **런치패드**: 64개 패드 그리드 (8x8), 샘플/신스 모드 지원
+- **시퀀서**: 루프 녹음 및 재생 (6개 슬롯)
+- **믹서**: 8개 트랙의 볼륨/패닝/이펙트 제어
 - **신서사이저**: Tone.js 기반 신스 제어
-- **파일 관리**: 오디오 파일 업로드 및 관리
-- **프리셋 저장/로드**: 사용자별 프리셋 관리
-- **프리셋 공유**: 게시판을 통한 프리셋 공유 (Posts API)
+- **이펙트**: 글로벌 이펙트 체인 (Send A/B)
+- **파일 관리**: 오디오 파일 및 이미지 파일 업로드 및 관리
+- **프리셋 저장/로드**: 사용자별 프리셋 관리 (패드 이미지, 색상 포함)
+- **커뮤니티**: 게시판을 통한 프리셋 공유 및 포크
+- **비주얼라이저**: Three.js 기반 3D 오디오 비주얼라이제이션
+- **라이브 모드**: 스크린 녹화 기능
 - **사용자 설정**: 앱 전체 설정 관리 (UserPreferences API)
 
 ## 📝 라이선스
