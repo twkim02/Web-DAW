@@ -15,9 +15,9 @@ React와 Vite로 구축된 프론트엔드와 Express.js 기반의 백엔드로 
 
 ## 👥 팀원 소개
 
-<table>
+<table width="100%" style="table-layout: fixed;">
 <tr>
-<td width="50%">
+<td width="50%" style="word-wrap: break-word; padding-right: 1rem;">
 
 <h3>김태우</h3>
 
@@ -34,7 +34,7 @@ React와 Vite로 구축된 프론트엔드와 Express.js 기반의 백엔드로 
 </ul>
 
 </td>
-<td width="50%">
+<td width="50%" style="word-wrap: break-word; padding-left: 1rem;">
 
 <h3>신민석</h3>
 
