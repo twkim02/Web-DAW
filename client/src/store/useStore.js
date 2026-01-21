@@ -10,6 +10,7 @@ const useStore = create((set) => ({
     isRecording: false, // Live Mode Video Recording
     setIsRecording: (isRecording) => set({ isRecording }),
     isLoopRecording: false, // Sequencer Loop Recording
+    setIsLoopRecording: (isLoopRecording) => set({ isLoopRecording }),
     launchQuantization: '1m', // Default to 1 Bar for Loop Station workflow
     setBpm: (bpm) => set({ bpm }),
     setTimeSignature: (ts) => set({ timeSignature: ts }),

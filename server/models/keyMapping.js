@@ -5,7 +5,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false
         },
         mode: {
-            type: DataTypes.ENUM('one-shot', 'gate', 'toggle'),
+            type: DataTypes.ENUM('one-shot', 'gate', 'toggle', 'loop'),
             defaultValue: 'one-shot'
         },
         volume: {
@@ -19,6 +19,26 @@ module.exports = (sequelize, DataTypes) => {
         note: {
             type: DataTypes.STRING,
             allowNull: true // e.g., 'C4'
+        },
+        name: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            comment: '사용자가 지정한 패드 이름'
+        },
+        effects: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            comment: '패드별 이펙트 체인 설정 (배열)'
+        },
+        chokeGroup: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            comment: '초크 그룹 (1, 2, 3, 4)'
+        },
+        instrumentPreset: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            comment: '가상 악기 프리셋 키 (예: grand_piano, rhodes)'
         },
         synthSettings: {
             type: DataTypes.JSON,

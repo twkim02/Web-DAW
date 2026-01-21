@@ -471,8 +471,20 @@ class AudioEngine {
     setBpm(bpm) {
         if (!this.isInitialized) return;
         if (Tone.Transport && isFinite(bpm)) {
+            // 1. Set New BPM
             Tone.Transport.bpm.value = bpm;
-            // Update Idle Metronome frequency if it exists
+
+            // 2. Resync / Restart Transport if Running
+            // User Request: "Metronome should restart based on that beat"
+            // This implies the grid should reset to 0 (Downbeat) immediately to match the new feeling.
+            if (Tone.Transport.state === 'started') {
+                // Option A: Reset Position to 0 (Jumps audio loops too?)
+                // Yes, loops align to Transport. If we want loops to stay synced, we MUST reset transport.
+                // This effectively "Re-launches" everything at the new tempo.
+                Tone.Transport.position = "0:0:0";
+            }
+
+            // Update Idle Metronome frequency
             if (this.idleMetronome) {
                 this.idleMetronome.frequency.value = bpm / 60;
             }

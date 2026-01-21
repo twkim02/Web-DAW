@@ -41,58 +41,7 @@ const useKeyboardMap = () => {
             if (code === 'Backspace') heldKeys.backspace = true;
             if (code === 'KeyJ') heldKeys.j = true;
 
-            // --- 0. Modifiers + Number Row (1-8) for Column/Line Control ---
-            if (['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'].includes(code)) {
-                if (heldKeys.m || heldKeys.k || heldKeys.backspace || heldKeys.j || e.altKey) {
-                    e.preventDefault();
-                    const col = parseInt(code.replace('Digit', '')) - 1; // 0-7
-
-                    // Case 1: Delete (Backspace or Alt) -> Reset Pad in Row 0 (Pad 0-7)
-                    if (heldKeys.backspace || e.altKey) {
-                        console.log('Delete Shortcut for Column (Pad 0-7):', col);
-                        try { sampler.unload(col); } catch (e) { }
-                        useStore.getState().resetPad(col);
-                        // Also clear loop slot if applicable?
-                        import('../audio/Sequencer').then(({ sequencer }) => {
-                            sequencer.clearSlot(col);
-                        });
-                        return;
-                    }
-
-                    // Case 2: Mute
-                    if (heldKeys.m) {
-                        console.log('Mute Shortcut for Column:', col);
-                        const trackId = `slot-${col}`;
-                        import('../audio/Sequencer').then(({ sequencer }) => {
-                            sequencer.toggleMute(trackId);
-                            useStore.getState().toggleTrackState('mute', col);
-                        });
-                        return;
-                    }
-
-                    // Case 3: Stop
-                    if (heldKeys.k) {
-                        console.log('Stop Shortcut for Column:', col);
-                        import('../audio/Sequencer').then(({ sequencer }) => {
-                            sequencer.stopTrack(col);
-                        });
-                        return;
-                    }
-
-                    // Case 4: Solo
-                    if (heldKeys.j) {
-                        console.log('Solo Shortcut for Column:', col);
-                        const trackId = `slot-${col}`;
-                        import('../audio/Sequencer').then(({ sequencer }) => {
-                            sequencer.toggleSolo(trackId);
-                            useStore.getState().toggleTrackState('solo', col);
-                        });
-                        return;
-                    }
-                }
-            }
-
-            // --- 1. Modifier + Pad Trigger (Mute, Stop, Delete) ---
+            // --- 0. Modifier + Pad Trigger (Mute, Stop, Delete) - PRIORITY UP ---
             if (Object.prototype.hasOwnProperty.call(CODE_MAP, code)) {
                 const bankCoords = useStore.getState().bankCoords;
                 const localIndex = CODE_MAP[code];
@@ -159,6 +108,58 @@ const useKeyboardMap = () => {
                         useStore.getState().toggleTrackState('solo', col);
                     });
                     return;
+                }
+            }
+
+            // --- 1. Modifiers + Number Row (1-8) for Column/Line Control ---
+            // Only if NOT handled by Pad Trigger above (implied by returns above)
+            if (['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'].includes(code)) {
+                if (heldKeys.m || heldKeys.k || heldKeys.backspace || heldKeys.j || e.altKey) {
+                    e.preventDefault();
+                    const col = parseInt(code.replace('Digit', '')) - 1; // 0-7
+
+                    // Case 1: Delete (Backspace or Alt) -> Reset Pad in Row 0 (Pad 0-7)
+                    if (heldKeys.backspace || e.altKey) {
+                        console.log('Delete Shortcut for Column (Pad 0-7):', col);
+                        try { sampler.unload(col); } catch (e) { }
+                        useStore.getState().resetPad(col);
+                        // Also clear loop slot if applicable?
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            sequencer.clearSlot(col);
+                        });
+                        return;
+                    }
+
+                    // Case 2: Mute
+                    if (heldKeys.m) {
+                        console.log('Mute Shortcut for Column:', col);
+                        const trackId = `slot-${col}`;
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            sequencer.toggleMute(trackId);
+                            useStore.getState().toggleTrackState('mute', col);
+                        });
+                        return;
+                    }
+
+                    // Case 3: Stop
+                    if (heldKeys.k) {
+                        console.log('Stop Shortcut for Column:', col);
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            sequencer.stopTrack(col);
+                        });
+                        return;
+                    }
+
+                    // Case 4: Solo
+                    if (heldKeys.j) {
+                        console.log('Solo Shortcut for Column:', col);
+                        const trackId = `slot-${col}`;
+                        import('../audio/Sequencer').then(({ sequencer }) => {
+                            sequencer.toggleSolo(trackId);
+                            useStore.getState().toggleTrackState('solo', col);
+                        });
+                        return;
+                    }
                 }
             }
 

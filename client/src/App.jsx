@@ -322,12 +322,14 @@ function App() {
               note: mapping.note || 'C4',
               assetId: mapping.Asset ? mapping.Asset.id : null,
               originalName: mapping.Asset ? mapping.Asset.originalName : null,
+              name: mapping.name || null, // Custom name
+              effects: mapping.effects || [], // Effects chain
+              chokeGroup: mapping.chokeGroup || null,
+              preset: mapping.instrumentPreset || null, // Instrument/Synth Preset Key
               image: padImageUrl || mapping.image || null, // Pad image from GraphicAsset (preferred) or legacy image
               graphicAssetId: mapping.GraphicAsset ? mapping.GraphicAsset.id : null,
               color: mapping.color || null,
               // 향후 확장: 새 필드 지원 가능
-              // type: mapping.type,
-              // note: mapping.note,
               // synthSettings: mapping.synthSettings ? JSON.parse(mapping.synthSettings) : null
             };
 
@@ -430,7 +432,11 @@ function App() {
           graphicAssetId: p.graphicAssetId || null, // Pad image GraphicAsset ID
           synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null,
           color: p.color || null,
-          image: p.image || null
+          image: p.image || null,
+          name: p.name || null, // Custom name
+          effects: p.effects || null, // Effects chain
+          chokeGroup: p.chokeGroup || null,
+          instrumentPreset: p.preset || null // Instrument/Synth Preset Key
         };
         console.log('Saving mapping for pad', p.id, ':', mapping); // Debug log
         return mapping;

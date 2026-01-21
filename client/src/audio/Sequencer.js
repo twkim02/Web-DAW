@@ -26,14 +26,11 @@ class Sequencer {
             // Case 1: Start Recording
             this.recordToSlot(slotIndex);
         } else if (slotStatus === 'recording') {
-            // Case 2: Stop Recording & Start Looping
+            // Case 2: Stop Recording & Start Looping (Saved State)
             this.stopRecording();
         } else {
-            // Case 3: Playing/Stopped (Toggle Playback)
-            const trackId = `slot-${slotIndex}`;
-            this.toggleMute(trackId);
-
-            // REMOVED: Redundant status update that overwrote 'queued' logic
+            // Case 3: Playing/Stopped (Toggle Playback without muting global track)
+            this.toggleLoop(slotIndex);
         }
     }
 
@@ -123,20 +120,13 @@ class Sequencer {
             // We'll stick to manualDurationTicks.
         }
 
-        // AUTO-CLIP: Snap to NEAREST Bar
+        // AUTO-CLIP: Snap to End of Current Bar (Ceiling)
         // Behavior:
         // 0.9 bars -> 1 bar
-        // 1.1 bars -> 1 bar
-        // 3.8 bars -> 4 bars
-
-        // AUTO-CLIP: Snap to NEAREST Bar
-        // But what if the user plays a 2-bar loop but stops at 1.9 bars?
-        // We want 2 bars.
-        // If they stop at 2.1 bars? We want 2 bars.
-        // Rounding usually works.
+        // 1.1 bars -> 2 bars (End of the 'last' bar, effectively the current playing bar cycle)
 
         const TICKS_PER_BAR = new Tone.Time("1m").toTicks(); // Dynamic based on Time Signature
-        let loopBars = Math.round(targetDurationTicks / TICKS_PER_BAR);
+        let loopBars = Math.ceil(targetDurationTicks / TICKS_PER_BAR);
 
         // Minimum 1 Bar
         if (loopBars < 1) loopBars = 1;
@@ -162,9 +152,16 @@ class Sequencer {
             // Pass recordingStartTick to align playback phase
             this.createTrack(processedEvents, loopString, slotIndex, this.recordingStartTick);
 
-            // Previously we muted here. Now we keep it playing (Auto-Play).
-            // Visuals are already set to 'playing' in createTrack.
-            useStore.getState().setLoopSlotStatus(slotIndex, 'playing');
+            // FEATURE REQUEST: "Green Light" (Saved State) immediately after recording.
+            // Do NOT Auto-Play. Start Muted (Stopped).
+            const trackId = `slot-${slotIndex}`;
+            const trackData = this.tracks.get(trackId);
+            if (trackData) {
+                trackData.isLoopStopped = true;
+                this.updateSoloState(); // Apply Mute based on logic
+            }
+
+            useStore.getState().setLoopSlotStatus(slotIndex, 'stopped');
 
         } else {
             useStore.getState().setLoopSlotStatus(slotIndex, 'empty');
@@ -275,7 +272,140 @@ class Sequencer {
 
         // Update UI
         useStore.getState().setLoopSlotStatus(slotIndex, 'playing');
+
+        // Fix: Ensure the slot is Unmuted in the Global Store
+        // If a previous loop was stopped/muted, this state persists and silences the new loop.
+        const currentMute = useStore.getState().trackStates.mute[slotIndex];
+        if (currentMute) {
+            useStore.getState().toggleTrackState('mute', slotIndex);
+            console.log(`[Sequencer] Auto-Unmuted Slot ${slotIndex} for new recording`);
+        }
+
         console.log(`[Sequencer] Created Loop in Slot ${slotIndex} (${loopLength}) starting at ${startTime}`);
+    }
+
+    toggleSlot(slotIndex) {
+        const state = useStore.getState();
+        const slotStatus = state.loopSlots[slotIndex]?.status || 'empty';
+
+        console.log(`[Sequencer] Toggle Slot ${slotIndex} (Status: ${slotStatus})`);
+
+        if (slotStatus === 'empty') {
+            // Case 1: Start Recording
+            this.recordToSlot(slotIndex);
+        } else if (slotStatus === 'recording') {
+            // Case 2: Stop Recording & Start Looping (Saved State)
+            this.stopRecording();
+        } else {
+            // Case 3: Playing/Stopped (Toggle Playback without muting global track)
+            this.toggleLoop(slotIndex);
+        }
+    }
+
+    /**
+     * Toggles Loop Playback ONLY (Does not affect Global Mixer Channel Mute)
+     * Handles Quantization and Status Updates.
+     */
+    toggleLoop(slotIndex) {
+        const trackId = `slot-${slotIndex}`;
+        const trackData = this.tracks.get(trackId);
+        if (!trackData) return;
+
+        const loopSlot = useStore.getState().loopSlots[slotIndex];
+        const status = loopSlot?.status || 'stopped';
+        // Check actual playing state (status might be 'queued')
+        // Logic: If we are "stopped", we want to Play. If "playing" or "queued", we want to Stop.
+        const isCurrentlyStopped = status === 'stopped';
+
+        // Ensure Tone.js context is running
+        if (Tone.context.state !== 'running') Tone.start();
+
+        if (!isCurrentlyStopped) {
+            // ---> TARGET: STOP (Mute Loop Part)
+
+            // If queued for start, cancel it
+            if (trackData.scheduleId !== null) {
+                Tone.Transport.clear(trackData.scheduleId);
+                trackData.scheduleId = null;
+            }
+
+            const quantization = useStore.getState().launchQuantization || '1m';
+
+            if (quantization === 'none' || Tone.Transport.state !== 'started') {
+                trackData.isLoopStopped = true;
+                this.updateSoloState(); // Apply Mute
+                useStore.getState().setLoopSlotStatus(slotIndex, 'stopped');
+            } else {
+                // Schedule for End of Cycle
+                const currentTick = Tone.Transport.ticks;
+                const startTick = trackData.startTick || 0;
+                let loopLength = trackData.loopLengthTicks || new Tone.Time('1m').toTicks();
+
+                const relTick = currentTick - startTick;
+                let remaining = loopLength - (relTick % loopLength);
+                if (remaining <= 0) remaining = loopLength;
+
+                const nextStopTick = currentTick + remaining;
+                const nextStopTime = new Tone.Time(nextStopTick, 'i').toSeconds();
+
+                console.log(`[Sequencer] Queue LOOP STOP Col ${slotIndex} in ${remaining} ticks`);
+                useStore.getState().setLoopSlotStatus(slotIndex, 'queued'); // Visual Feedback
+
+                trackData.scheduleId = Tone.Transport.scheduleOnce(() => {
+                    const current = this.tracks.get(trackId);
+                    if (current) {
+                        current.isLoopStopped = true;
+                        current.scheduleId = null;
+                        // Apply Mute State
+                        this.updateSoloState();
+                    }
+                    useStore.getState().setLoopSlotStatus(slotIndex, 'stopped');
+                }, nextStopTime);
+            }
+
+        } else {
+            // ---> TARGET: START (Unmute Loop Part)
+
+            // SAFETY: If Global Mixer Mute is ON, we MUST unmute it, otherwise Loop won't be heard.
+            // This is "Auto-Unmute" logic.
+            const isGlobalMuted = useStore.getState().trackStates.mute[slotIndex];
+            if (isGlobalMuted) {
+                useStore.getState().toggleTrackState('mute', slotIndex);
+                // Note: toggleTrackState updates store. updateSoloState reads store.
+            }
+
+            const quantization = useStore.getState().launchQuantization || '1m';
+
+            if (quantization === 'none' || Tone.Transport.state !== 'started') {
+                trackData.isLoopStopped = false;
+                this.updateSoloState(); // Apply Unmute
+                useStore.getState().setLoopSlotStatus(slotIndex, 'playing');
+            } else {
+                // Schedule Next Bar
+                const nextBarTicks = Tone.Transport.nextSubdivision(quantization);
+                const currentTicks = Tone.Transport.ticks;
+                const diffSeconds = Tone.Time(nextBarTicks - currentTicks, "i").toSeconds();
+
+                if (diffSeconds < 0.05) {
+                    trackData.isLoopStopped = false;
+                    this.updateSoloState();
+                    useStore.getState().setLoopSlotStatus(slotIndex, 'playing');
+                } else {
+                    console.log(`[Sequencer] Queue LOOP START Col ${slotIndex}`);
+                    useStore.getState().setLoopSlotStatus(slotIndex, 'queued');
+
+                    trackData.scheduleId = Tone.Transport.scheduleOnce(() => {
+                        const current = this.tracks.get(trackId);
+                        if (current) {
+                            current.isLoopStopped = false;
+                            current.scheduleId = null;
+                            this.updateSoloState();
+                        }
+                        useStore.getState().setLoopSlotStatus(slotIndex, 'playing');
+                    }, nextBarTicks);
+                }
+            }
+        }
     }
 
     toggleMute(trackId) {
@@ -284,116 +414,33 @@ class Sequencer {
         if (trackId.startsWith('slot-')) {
             colIndex = parseInt(trackId.replace('slot-', ''));
         } else {
-            // Find in tracks? For now assume slot/col workflow for shortcuts
-            // If trackId is arbitrary string, we might struggle.
-            // But shortcuts pass 'slot-N'.
             return;
         }
 
         const trackData = this.tracks.get(trackId);
-        if (!trackData) return;
+        // Note: Even if trackData missing, we might want to toggle UI state?
+        // But store toggle is called below.
 
-        // Current State from STORE (Single Source of Truth)
+        // Current State from STORE
         const currentMuteState = useStore.getState().trackStates.mute[colIndex];
         const willBeMuted = !currentMuteState;
 
-        console.log(`[Sequencer] Toggle Mute Col ${colIndex}: ${currentMuteState} -> ${willBeMuted}`);
+        console.log(`[Sequencer] Toggle Mixer Mute Col ${colIndex}: ${currentMuteState} -> ${willBeMuted}`);
 
         // Update Store
         useStore.getState().toggleTrackState('mute', colIndex);
 
         // Apply Audio Logic
-        // Ensure Context is Running
-        if (Tone.context.state !== 'running') {
-            Tone.start();
-        }
-
-        // Cancel previous pending schedule if any (Debounce/Fast Toggle)
-        if (trackData.scheduleId !== null) {
-            console.log(`[Sequencer] Cancelling pending schedule ${trackData.scheduleId}`);
-            Tone.Transport.clear(trackData.scheduleId);
-            trackData.scheduleId = null;
-        }
-
-        const quantization = useStore.getState().launchQuantization || '1m';
-
-        if (willBeMuted) {
-            // TARGET: MUTE (Stop)
-            // Cycle-Based Stop Logic
-            if (quantization === 'none' || Tone.Transport.state !== 'started') {
-                trackData.part.mute = true;
-                useStore.getState().setLoopSlotStatus(colIndex, 'stopped');
-            } else {
-                // Calculate Exact Loop Cycle End
-                const currentTick = Tone.Transport.ticks;
-                const startTick = trackData.startTick || 0;
-
-                // Fallback to 1m if loopLengthTicks missing (shouldn't happen for new recordings)
-                let loopLength = trackData.loopLengthTicks;
-                if (!loopLength) {
-                    console.warn(`[Sequencer] Missing loopLengthTicks for ${trackId}, defaulting to 1m`);
-                    loopLength = new Tone.Time('1m').toTicks();
-                }
-
-                // Relative time since loop started
-                const relTick = currentTick - startTick;
-
-                // Calculate remaining ticks in current cycle
-                // (relTick % loopLength) gives position within the loop [0, length)
-                // remaining = length - position
-                let remaining = loopLength - (relTick % loopLength);
-                if (remaining <= 0) remaining = loopLength; // Should not be <= 0 unless math weirdness, but safety.
-
-                const nextStopTick = currentTick + remaining;
-                const nextStopTime = new Tone.Time(nextStopTick, 'i').toSeconds();
-
-                console.log(`[Sequencer] Queue STOP (Mute) Col ${colIndex}`);
-                console.log(`   > Current: ${currentTick}, Start: ${startTick}, Length: ${loopLength}`);
-                console.log(`   > Rel: ${relTick}, Remaining: ${remaining}, Target: ${nextStopTick}`);
-
-                // Visual: Queued
-                useStore.getState().setLoopSlotStatus(colIndex, 'queued');
-
-                // Schedule
-                trackData.scheduleId = Tone.Transport.scheduleOnce(() => {
-                    const currentData = this.tracks.get(trackId);
-                    if (currentData) {
-                        currentData.part.mute = true;
-                        currentData.scheduleId = null; // Clear self
-                    }
-                    useStore.getState().setLoopSlotStatus(colIndex, 'stopped');
-                }, nextStopTime);
+        if (trackData) {
+            // Cancel pending schedules
+            if (trackData.scheduleId !== null) {
+                Tone.Transport.clear(trackData.scheduleId);
+                trackData.scheduleId = null;
             }
-        } else {
-            // TARGET: UNMUTE (Play)
-            // 1. Check Transport
-            if (quantization === 'none' || Tone.Transport.state !== 'started') {
-                // Immediate
-                trackData.part.mute = false;
-                useStore.getState().setLoopSlotStatus(colIndex, 'playing');
-            } else {
-                const nextBar = Tone.Transport.nextSubdivision(quantization);
-                console.log(`[Sequencer] Queue PLAY (Unmute) Col ${colIndex} at ${nextBar}`);
 
-                // Set QUEUED state immediately
-                useStore.getState().setLoopSlotStatus(colIndex, 'queued');
-
-                // Schedule change
-                trackData.scheduleId = Tone.Transport.scheduleOnce((time) => {
-                    const currentData = this.tracks.get(trackId);
-                    if (currentData) {
-                        currentData.part.mute = false;
-                        currentData.scheduleId = null;
-                    }
-                    useStore.getState().setLoopSlotStatus(colIndex, 'playing');
-                }, nextBar);
-            }
+            // Re-evalute state immediately
+            this.updateSoloState();
         }
-
-        // Update Solo impacts
-        // If we mute explicitly, does it affect solo?
-        // Usually Solo overrides Mute.
-        this.updateSoloState();
     }
 
     toggleSolo(trackId) {
@@ -418,38 +465,35 @@ class Sequencer {
 
         const hasSolo = soloStates.includes(true);
 
-        // Iterate all 8 columns (assuming 8 tracks max)
+        // Iterate all 8 columns
         for (let i = 0; i < 8; i++) {
             const trackId = `slot-${i}`;
             const trackData = this.tracks.get(trackId);
-            if (!trackData) continue; // No audio for this slot
+            if (!trackData) continue;
 
             const isThisSolo = soloStates[i];
             const isThisMuted = muteStates[i];
 
-            if (hasSolo) {
-                // SOLO MODE ACTIVE
-                if (isThisSolo) {
-                    // This track IS soloed -> FORCE UNMUTE (Audible)
-                    trackData.part.mute = false;
-                } else {
-                    // This track is NOT soloed -> FORCE MUTE (Silent)
-                    trackData.part.mute = true;
-                }
-            } else {
-                // NO SOLO ACTIVE
-                // Respect Manual Mute State
-                trackData.part.mute = isThisMuted;
+            // Decoupled Logic:
+            // 1. Mixer Mute/Solo (Highest Priority)
+            // 2. Loop Station Stop (Secondary Priority)
 
-                // Sync UI Status
-                // If isThisMuted is true, status 'stopped'. Else 'playing'.
-                const currentStatus = state.loopSlots[i].status;
-                if (currentStatus === 'playing' || currentStatus === 'stopped') {
-                    // We don't force update here to avoid overriding 'queued'? 
-                    // But if we toggle solo off, we should return to correct state.
-                    // Let's assume toggleMute handled the visuals.
-                }
+            let shouldMute = false;
+
+            if (hasSolo) {
+                // SOLO ACTIVE: Mute if not soloed
+                if (!isThisSolo) shouldMute = true;
+            } else {
+                // NO SOLO: Mute if Global Mute is ON
+                if (isThisMuted) shouldMute = true;
             }
+
+            // Loop Station Stop Logic
+            // Even if global track is ON, if the Loop itself is stopped, mute the part.
+            // (But don't mute the channel, handled by Global Mute)
+            if (trackData.isLoopStopped) shouldMute = true;
+
+            trackData.part.mute = shouldMute;
         }
     }
 
@@ -569,21 +613,68 @@ class Sequencer {
                 }
             }
 
-            // 2. Queue Visuals
-            const shouldQueue = !isImmediate || activeSibling !== -1;
+            // 2. Logic: Conditional Quantization
+            // User Rule: "If currently playing guy in same track? Queue/Quantize. Else? Just Play."
+            const quantization = state.launchQuantization;
+            let padStartTime = undefined;
+            let isPadImmediate = true;
+
+            if (quantization && quantization !== 'none' && activeSibling !== -1) {
+                // Active Sibling exists -> Use Quantization
+                if (Tone.Transport.state !== 'started') {
+                    Tone.Transport.start();
+                    padStartTime = undefined; // Immediate if transport wasn't running
+                } else {
+                    // Use Ticks for precision
+                    padStartTime = Tone.Transport.nextSubdivision(quantization);
+                    // Check threshold? (Reuse similar logic if needed, or trust subdivisions)
+                    // nextSubdivision returns Time, convertible to Ticks.
+                    // Let's keep it simple: Schedule it.
+                    isPadImmediate = false;
+                }
+            } else {
+                // No Sibling -> Immediate Play
+                isPadImmediate = true;
+                padStartTime = undefined;
+                // Ensure transport is running if we want things to start moving?
+                // Usually "Just Play" implies hearing sound.
+                // If it's a loop, it needs Transport.
+                if (Tone.Transport.state !== 'started') {
+                    Tone.Transport.start();
+                }
+            }
+
+            // 3. Queue Visuals
+            const shouldQueue = !isPadImmediate;
 
             if (shouldQueue) {
-                // Show as Queued (Yellow/Flashing)
                 state.addToQueue(i);
             } else {
-                // Immediate Active
                 state.setPadActive(i, true);
             }
 
-            // 3. Audio & State Handling
+            // 4. Audio & State Handling
             const type = mapping.type || 'sample';
             const note = mapping.note || 'C4';
             const mode = mapping.mode || 'one-shot';
+
+            // --- CHECK FOR RECORDED LOOP SLOT FIRST ---
+            const loopSlot = state.loopSlots[col];
+            if (loopSlot && (loopSlot.status === 'playing' || loopSlot.status === 'stopped' || loopSlot.status === 'queued')) {
+                // Determine Action
+                if (loopSlot.status === 'stopped') {
+                    console.log(`[Scene] Resuming Loop Slot ${col}`);
+                    // Use toggleMute to Unmute (Play)
+                    this.toggleMute(`slot-${col}`);
+                } else if (loopSlot.status === 'playing') {
+                    // Already playing. Do nothing (Keep playing).
+                    console.log(`[Scene] Loop Slot ${col} already playing. Ignoring.`);
+                }
+
+                // Update visuals
+                state.setPadActive(i, true);
+                continue; // Skip Sample Logic (Don't layer sample over loop)
+            }
 
             // Define The Start Logic
             const doStart = () => {
@@ -595,7 +686,7 @@ class Sequencer {
 
                 // Synths handled differently (Short Flash)
                 if (['synth', 'piano', 'drums'].includes(type)) {
-                    instrumentManager.trigger(i, note, '8n', undefined); // Time embedded in schedule
+                    instrumentManager.trigger(i, note, '8n', undefined);
                     setTimeout(() => state.setPadActive(i, false), 200);
                 }
                 else {
@@ -629,19 +720,21 @@ class Sequencer {
                 }
             };
 
-            // 4. Scheduling execution
-            if (startTime) {
-                // SCHEDULED
+            // 5. Scheduling execution
+            if (padStartTime !== undefined) {
+                // SCHEDULED (Quantized)
                 Tone.Transport.scheduleOnce((time) => {
                     Tone.Draw.schedule(() => {
                         doStopSibling();
                         doStart();
                     }, time);
-                }, startTime);
+                }, padStartTime);
+                console.log(`[Scene] Pad ${i} Queued for ${padStartTime}`);
             } else {
                 // IMMEDIATE
                 doStopSibling();
                 doStart();
+                console.log(`[Scene] Pad ${i} Started Immediately`);
             }
         }
     }

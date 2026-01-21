@@ -175,10 +175,11 @@ const Grid = () => {
                 isActive = true;
             } else if (status === 'playing') {
                 style = {
-                    borderColor: '#00ff00',
-                    color: '#00ff00',
-                    backgroundColor: 'rgba(0, 255, 0, 0.2)',
-                    boxShadow: '0 0 10px rgba(0, 255, 0, 0.2)'
+                    borderColor: '#00ffff', // Cyan for Playing
+                    color: '#00ffff',
+                    backgroundColor: 'rgba(0, 255, 255, 0.2)',
+                    boxShadow: '0 0 10px rgba(0, 255, 255, 0.2)',
+                    animation: 'recordingBgPulse 2s infinite' // Slow pulse
                 };
                 isActive = true;
             } else if (status === 'queued') {
@@ -191,9 +192,10 @@ const Grid = () => {
                 isActive = true;
             } else if (status === 'stopped') {
                 style = {
-                    borderColor: '#ffcc00',
-                    color: '#ffcc00',
-                    opacity: 0.7
+                    borderColor: '#00ff00', // Green for Saved/Stopped
+                    color: '#00ff00',
+                    backgroundColor: 'rgba(0, 255, 0, 0.1)', // Subtle bg
+                    opacity: 1 // Fully visible
                 };
             }
 
