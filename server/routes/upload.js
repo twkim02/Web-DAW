@@ -104,7 +104,8 @@ router.get('/', async (req, res) => {
             where: whereClause,
             order: [['createdAt', 'DESC']]
         });
-        res.json(assets);
+        // Use toJSON() to ensure virtual fields (like url) are included
+        res.json(assets.map(asset => asset.toJSON()));
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });
