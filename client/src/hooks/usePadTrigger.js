@@ -80,18 +80,27 @@ const usePadTrigger = () => {
                 // Determine Next Pad
                 const nextPadId = queue[0]; // Peek
 
+                // FIX: If next pad is same as current, it means we want to STOP at end of cycle.
+                // Previously we ignored this (return false), which kept the loop going.
+                // Now we explicitly handle it as a STOP command.
+                if (nextPadId === padId) {
+                    console.log(`[Queue] Self-Stop detected for ${padId} at End of Cycle.`);
+                    freshState.shiftQueue(col); // Remove self from queue
+                    setPadActive(padId, false);
+                    sampler.stop(padId);
+                    return true; // We handled a stop
+                }
+
+                // Normal Handoff (Different Pad)
                 // Shift Queue
                 freshState.shiftQueue(col);
                 console.log(`[Queue] Handoff: ${padId} -> ${nextPadId}`);
 
                 // Stop Current (Self)
-                // Note: For 'onLoop', the play loop typically continues unless stopped.
                 setPadActive(padId, false);
                 sampler.stop(padId);
 
                 // Play Next
-                // Recursive call (careful of stack, but async events break stack so it's fine)
-                // Need to fetch mapping for next pad
                 const nextMapping = freshState.padMappings[nextPadId];
                 if (nextMapping) {
                     playPadNow(nextPadId, nextMapping, freshState);
@@ -245,17 +254,14 @@ const usePadTrigger = () => {
                 const isCurrentlyActive = state.activePads[padId];
 
                 if (isCurrentlyActive) {
-                    // STOP Action (Quantized)
-                    state.addToQueue(padId); // Visual Queue
+                    // STOP Action (Quantized to End of Loop Cycle)
+                    // We just add to queue. The 'onLoop' handler (checkQueueAndPlayNext)
+                    // will see this queued item at the end of the cycle and stop the player.
+                    state.addToQueue(padId); // Visual Queue (Flashing)
+                    console.log(`[User] Requested Stop for Pad ${padId}. Queued for End of Cycle.`);
 
-                    const scheduleTime = startTime !== undefined ? startTime : Tone.Transport.nextSubdivision(quantization || '1m');
-
-                    Tone.Transport.scheduleOnce((time) => {
-                        console.log(`[Scheduler] Quantized STOP for Pad ${padId} at ${time}`);
-                        useStore.getState().shiftQueue(col);
-                        setPadActive(padId, false);
-                        sampler.stop(padId);
-                    }, scheduleTime);
+                    // NO explicit Transport schedule here.
+                    // We rely entirely on the natural loop end event.
 
                     return;
                 }

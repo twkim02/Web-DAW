@@ -5,7 +5,6 @@ import ParticleField from './ParticleField';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import VisualizerBars from './VisualizerBars';
 import VisualizerWave from './VisualizerWave';
-import FluidBackground from './FluidBackground'; // Import
 
 const Visualizer3D = ({ primaryColor = '#00ffcc', hasCustomBackground = false, mode = 'default', dynamicMode = true }) => {
     return (
@@ -18,8 +17,8 @@ const Visualizer3D = ({ primaryColor = '#00ffcc', hasCustomBackground = false, m
 
                 {/* Content */}
                 <Suspense fallback={null}>
-                    {/* Dynamic Fluid Background */}
-                    {dynamicMode && <FluidBackground primaryColor={primaryColor} />}
+                    {/* Stars - Always visible */}
+                    <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
                     {/* Particles Mode or 'Stardust' */}
                     {(mode === 'particles' || mode === 'stardust') && (
@@ -35,13 +34,6 @@ const Visualizer3D = ({ primaryColor = '#00ffcc', hasCustomBackground = false, m
                     {['default', 'bass', 'rainbow', 'gradient'].includes(mode) && (
                         <VisualizerBars mode={mode} primaryColor={primaryColor} />
                     )}
-
-                    {/* Stars - Hide if Dynamic Mode is On to reduce clutter? Or Keep? Use smaller count/fade? */}
-                    {/* User disliked 'white squares'. If we keep Stars, we need to fix them or accept them. */}
-                    {/* Let's keep them 'subtle' or hide them if Dynamic BG is robust enough. */}
-                    {/* For now, let's keep them but with lower opacity/count if dynamic is on */}
-                    {!dynamicMode && <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />}
-                    {dynamicMode && <Stars radius={100} depth={50} count={1000} factor={4} saturation={0} fade speed={0.5} />}
                 </Suspense>
 
                 {/* Post Processing */}
@@ -51,21 +43,23 @@ const Visualizer3D = ({ primaryColor = '#00ffcc', hasCustomBackground = false, m
 
                 {/* Controls - disabled for background usually, but here just in case needed for debugging */}
                 {/* <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.5} /> */}
-            </Canvas>
+            </Canvas >
 
             {/* Overlay Gradient to blend with UI - Only show if no custom background to avoid darkening user image */}
-            {!hasCustomBackground && (
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0.8) 100%)',
-                    pointerEvents: 'none'
-                }} />
-            )}
-        </div>
+            {
+                !hasCustomBackground && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0.8) 100%)',
+                        pointerEvents: 'none'
+                    }} />
+                )
+            }
+        </div >
     );
 };
 

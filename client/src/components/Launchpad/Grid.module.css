@@ -28,8 +28,9 @@
     z-index: 0;
     border-radius: 50%;
 
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(20px);
+    /* background: var(--glass-bg-strong); */
+    background: rgba(20, 20, 20, 0.4);
+    backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border-medium);
     box-shadow: 0 0 100px rgba(0, 255, 204, 0.1);
 

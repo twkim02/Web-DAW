@@ -175,6 +175,15 @@ const RecordingLibrary = () => {
         }
     };
 
+    // Auto-stop Metronome on unmount
+    React.useEffect(() => {
+        return () => {
+            if (useStore.getState().isMetronomeOn) {
+                useStore.getState().setIsMetronomeOn(false);
+            }
+        };
+    }, []);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', color: 'var(--color-text-secondary)', padding: '16px', boxSizing: 'border-box' }}>
             <div style={{ marginBottom: '10px', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -223,6 +232,9 @@ const RecordingLibrary = () => {
                     onClick={() => useStore.getState().setIsMetronomeOn(!useStore.getState().isMetronomeOn)}
                     style={{
                         width: '50px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
                         borderRadius: 'var(--radius-md)',
                         background: useStore(state => state.isMetronomeOn) ? 'var(--color-accent-primary)' : '#444',
                         border: 'none',
@@ -367,13 +379,12 @@ const RecordingLibrary = () => {
                 <SampleEditor
                     fileUrl={editingAsset.url}
                     fileName={editingAsset.name}
+                    category="recording" // Save trimmed file back to 'recording' category
                     onClose={() => setEditingAsset(null)}
                     onSave={() => {
                         setEditingAsset(null);
-                        // Refresh logic if needed? 
-                        // The editor saves to a NEW file or overrides? 
-                        // If override, we might need to bust cache or re-fetch.
-                        // For now, assume it saves new or handled by server.
+                        // Refresh list
+                        fetchRecordings();
                     }}
                 />
             )}

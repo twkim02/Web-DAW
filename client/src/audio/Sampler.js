@@ -108,6 +108,13 @@ class Sampler {
             // Handle Looping
             player.loop = !!options.loop;
 
+            // --- RE-TRIGGER RACE CONDITION FIX (DURATION CHECK) ---
+            const playbackStartTime = Tone.now(); // Audio Context Time
+            const bufferDuration = player.buffer.duration;
+            const playbackRate = player.playbackRate;
+            const expectedDuration = bufferDuration / playbackRate;
+            const isLooping = !!options.loop;
+
             // --- CHOKE GROUP LOGIC ---
             // 1. Get Choke Group for this pad
             const padMappings = useStore.getState().padMappings;
@@ -151,40 +158,50 @@ class Sampler {
             player.stop();
 
             // Setup Loop Timer if needed
-            if (options.loop && options.onLoop && player.buffer) {
+            if (isLooping && options.onLoop && player.buffer) {
                 const start = player.loopStart || 0;
                 const end = player.loopEnd || player.buffer.duration;
                 const duration = (end - start);
 
                 if (duration > 0) {
-                    // Interval usage: standard JS interval
                     const timerId = setInterval(() => {
-                        // Only trigger if still playing
                         if (player.state === 'started') {
                             options.onLoop();
                         } else {
-                            clearInterval(timerId); // safety
+                            clearInterval(timerId);
                         }
                     }, duration * 1000);
                     this.loopTimers.set(key, timerId);
                 }
             }
 
-            // Assign onstop callback
+            // Assign onstop callback with DURATION Check
             if (options.onEnded) {
                 player.onstop = () => {
-                    // Clear timer on stop
+                    // CLEAR TIMER
                     if (this.loopTimers.has(key)) {
                         clearInterval(this.loopTimers.get(key));
                         this.loopTimers.delete(key);
                     }
+
+                    // CHECK DURATION (Only for One-Shot)
+                    if (!isLooping) {
+                        const now = Tone.now();
+                        const elapsed = now - playbackStartTime;
+                        // Tolerance: If it played less than 50% of duration, assume Interruption.
+                        const threshold = expectedDuration * 0.5;
+
+                        if (elapsed < threshold) {
+                            // Interrupted! Do NOT fire onEnded.
+                            return;
+                        }
+                    }
+
                     options.onEnded();
-                    // Reset to no-op to avoid double calls or dangling refs
                     player.onstop = () => { };
                 };
             } else {
                 player.onstop = () => {
-                    // Default cleanup even if no onEnded
                     if (this.loopTimers.has(key)) {
                         clearInterval(this.loopTimers.get(key));
                         this.loopTimers.delete(key);

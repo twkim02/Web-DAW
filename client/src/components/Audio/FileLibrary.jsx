@@ -519,6 +519,7 @@ const FileLibrary = ({ category = 'sample' }) => {
                 <SampleEditor
                     fileUrl={editingAsset.url}
                     fileName={editingAsset.name}
+                    category={category} // Pass dynamic category (synth, instrument, etc.)
                     onClose={() => setEditingAsset(null)}
                     onSave={() => {
                         setEditingAsset(null);

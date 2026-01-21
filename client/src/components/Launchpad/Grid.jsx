@@ -7,6 +7,7 @@ import ThreeVisualizer from '../Visualizer/ThreeVisualizer';
 import useKeyboardMap from '../../hooks/useKeyboardMap';
 import useStore from '../../store/useStore';
 import { sequencer } from '../../audio/Sequencer';
+import { audioEngine } from '../../audio/AudioEngine';
 import { THEMES } from '../../constants/themes';
 
 // ... (FaderColumn component kept same) ...
@@ -54,6 +55,7 @@ const Grid = () => {
     const isZoomed = useStore((state) => state.isZoomed);
     const setIsZoomed = useStore((state) => state.setIsZoomed);
     const isRecording = useStore((state) => state.isRecording);
+    const setIsRecording = useStore((state) => state.setIsRecording);
 
     // Theme
     const currentThemeId = useStore((state) => state.currentThemeId);
@@ -177,6 +179,14 @@ const Grid = () => {
                     color: '#00ff00',
                     backgroundColor: 'rgba(0, 255, 0, 0.2)',
                     boxShadow: '0 0 10px rgba(0, 255, 0, 0.2)'
+                };
+                isActive = true;
+            } else if (status === 'queued') {
+                style = {
+                    borderColor: '#ffaa00',
+                    color: '#ffaa00',
+                    backgroundColor: 'rgba(255, 170, 0, 0.2)',
+                    animation: 'recordingBgPulse 0.5s infinite'
                 };
                 isActive = true;
             } else if (status === 'stopped') {
@@ -382,9 +392,7 @@ const Grid = () => {
     // Live Mode State
     const isLiveMode = useStore((state) => state.isLiveMode);
     const toggleLiveMode = useStore((state) => state.toggleLiveMode);
-    const setIsRecording = useStore((state) => state.setIsRecording);
 
-    // Recording Logic
     // Recording Logic
     const handleRecordToggle = async () => {
         if (isRecording) {
@@ -501,13 +509,60 @@ const Grid = () => {
     latestState.current = { isLiveMode, handleRecordToggle };
 
     React.useEffect(() => {
-        const handleKeyDown = (e) => {
+        const handleKeyDown = async (e) => {
             // Check for Blocking Modals
             const state = useStore.getState();
             if (state.previewMode.isOpen || state.playingPadId !== null) return;
 
+            const activeTag = document.activeElement.tagName.toLowerCase();
+            if (['input', 'textarea', 'select'].includes(activeTag)) return;
+
             const { isLiveMode, handleRecordToggle } = latestState.current;
-            // Support Enter and NumpadEnter
+
+            // New Workflow: Backquote (` or ~) -> "Record Session Start/Stop"
+            if (e.code === 'Backquote') {
+                e.preventDefault();
+
+                if (!useStore.getState().isRecording) {
+                    try {
+                        await handleRecordToggle();
+                        if (useStore.getState().isRecording) {
+                            if (!useStore.getState().isLiveMode) state.toggleLiveMode();
+                            if (!useStore.getState().isPlaying) {
+                                const status = audioEngine.toggleTransport();
+                                useStore.setState({ isPlaying: status === 'started' });
+                            }
+                        }
+                    } catch (err) { }
+                } else {
+                    // STOP Sequence
+                    handleRecordToggle(); // Stop Recording
+                    if (useStore.getState().isPlaying) {
+                        audioEngine.stopTransport();
+                        useStore.setState({ isPlaying: false });
+                    }
+                    if (useStore.getState().isLiveMode) {
+                        state.toggleLiveMode();
+                    }
+                }
+                return;
+            }
+
+            // Spacebar: Live Mode + Force Restart (Resync)
+            if (e.code === 'Space') {
+                e.preventDefault();
+                state.toggleLiveMode();
+
+                // Force Restart: Stop -> Count-in -> Start
+                // This ensures we "reset the baseline" as requested.
+                audioEngine.stopTransport();
+                audioEngine.startWithCountIn();
+
+                useStore.setState({ isPlaying: true });
+                return;
+            }
+
+            // Support Enter and NumpadEnter (Legacy / Manual Trigger in Live Mode)
             if (isLiveMode && (e.code === 'Enter' || e.code === 'NumpadEnter' || e.key === 'Enter')) {
                 e.preventDefault();
                 if (!e.repeat) {
@@ -528,14 +583,6 @@ const Grid = () => {
     // Let's rely on standard Hook behavior.
 
     // --- Render Content ---
-
-
-    // Import Visualizer (Need to ensure it's imported at top of file - adding via separate Edit if needed, but lets assume I can add import in a separate tool call first? 
-    // No, I can do checking. I'll issue a separate import tool call first to be safe, or just do the return block update here assuming I fix imports.)
-
-    // Actually, I'll assume I need to do the Imports first.
-    // Let's do the styling update first (previous tool).
-    // This tool is for Grid.jsx STRUCTURE.
 
     // Updated Return with Layers:
     const showVisualizer = useStore((state) => state.showVisualizer);
@@ -646,6 +693,8 @@ const Grid = () => {
                     );
                 })}
             </div>
+
+
         </div>
     );
 };

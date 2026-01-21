@@ -8,6 +8,7 @@ const useStore = create((set) => ({
     isCountIn: false, // New state for Count-in phase
     isMetronomeOn: false,
     isRecording: false, // Live Mode Video Recording
+    setIsRecording: (isRecording) => set({ isRecording }),
     isLoopRecording: false, // Sequencer Loop Recording
     launchQuantization: '1m', // Default to 1 Bar for Loop Station workflow
     setBpm: (bpm) => set({ bpm }),
@@ -47,7 +48,7 @@ const useStore = create((set) => ({
     // Presets State
     presets: [],
     setPresets: (presets) => set({ presets }),
-    
+
     // Current Loaded Preset ID (for asset filtering)
     currentPresetId: null,
     setCurrentPresetId: (id) => set({ currentPresetId: id }),
@@ -290,7 +291,14 @@ const useStore = create((set) => ({
 
     // --- Live Mode State ---
     isLiveMode: false,
-    toggleLiveMode: () => set((state) => ({ isLiveMode: !state.isLiveMode })),
+    toggleLiveMode: () => set((state) => {
+        const nextMode = !state.isLiveMode;
+        return {
+            isLiveMode: nextMode,
+            isRightSidebarOpen: nextMode ? false : state.isRightSidebarOpen,
+            isLeftSidebarOpen: nextMode ? false : state.isLeftSidebarOpen
+        };
+    }),
 
     // Mixer State (8 tracks corresponding to 8 columns)
     mixerLevels: {

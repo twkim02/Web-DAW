@@ -4,7 +4,7 @@ import * as Tone from 'tone';
 import { uploadFile } from '../../api/upload';
 import useStore from '../../store/useStore';
 
-const SampleEditor = ({ fileUrl, fileName, onClose, onSave }) => {
+const SampleEditor = ({ fileUrl, fileName, onClose, onSave, category = 'sample' }) => {
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
     const [buffer, setBuffer] = useState(null);
@@ -15,14 +15,11 @@ const SampleEditor = ({ fileUrl, fileName, onClose, onSave }) => {
     const [isSaving, setIsSaving] = useState(false);
 
     // Store BPM (Global Sync)
-    const store = useStore();
-    // Using individual selectors is better for performance, but grabbing store object handles both set/get.
-    // Let's use selectors for clarity.
+    // Using individual selectors is better for performance
     const bpm = useStore(state => state.bpm);
     const setBpm = useStore(state => state.setBpm);
 
     // BPM & Snapping
-    // const [bpm, setBpm] = useState(120); // Removed local state
     const [snapToGrid, setSnapToGrid] = useState(true);
 
     const [error, setError] = useState(null);
@@ -270,7 +267,7 @@ const SampleEditor = ({ fileUrl, fileName, onClose, onSave }) => {
             const wavBlob = await bufferToWav(renderedBuffer);
             const newFile = new File([wavBlob], `cropped_${fileName || 'sample.wav'}`, { type: 'audio/wav' });
 
-            await uploadFile(newFile, 'sample');
+            await uploadFile(newFile, category); // Use dynamic category
 
             if (onSave) onSave();
             alert("File Cropped and Saved!");

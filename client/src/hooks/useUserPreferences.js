@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { getUserPreferences, updateUserPreferences } from '../api/userPreferences';
+import useStore from '../store/useStore';
 
 /**
  * 사용자 설정을 관리하는 커스텀 훅
@@ -14,6 +15,19 @@ export const useUserPreferences = () => {
      * 설정 로드
      */
     const loadPreferences = useCallback(async () => {
+        // Guest Check
+        const currentUser = useStore.getState().user;
+        if (!currentUser) {
+            // Guest: Return defaults without API call
+            const defaults = {
+                latencyMs: 100,
+                visualizerMode: null,
+                defaultMasterVolume: 0.7
+            };
+            setPreferences(defaults);
+            return defaults;
+        }
+
         setLoading(true);
         setError(null);
         try {
@@ -39,6 +53,15 @@ export const useUserPreferences = () => {
      * @param {Object} data - 저장할 설정 데이터
      */
     const savePreferences = useCallback(async (data) => {
+        // Guest Check
+        const currentUser = useStore.getState().user;
+        if (!currentUser) {
+            // Guest: Just update local state (App.jsx store listeners will handle UI)
+            // But here we return what we "would" have saved to keep promise chain happy
+            setPreferences(prev => ({ ...prev, ...data }));
+            return data;
+        }
+
         setLoading(true);
         setError(null);
         try {

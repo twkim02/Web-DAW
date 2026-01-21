@@ -35,15 +35,23 @@ const InstructionModal = () => {
                             <div className={styles.row}><div className={styles.keyBadge}>Q ~ R</div><span>Row 2 Pads</span></div>
                             <div className={styles.row}><div className={styles.keyBadge}>A ~ F</div><span>Row 3 Pads</span></div>
                             <div className={styles.row}><div className={styles.keyBadge}>Z ~ V</div><span>Row 4 Pads</span></div>
-                            <div className={styles.row}><div className={styles.keyBadge}>T, G, B</div><span>Trigger Scene 1, 2, 3</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>5, T, G, B</div><span>Trigger Scene 0, 1, 2, 3</span></div>
                             <div className={styles.row}><div className={styles.keyBadge}>Shift + Click</div><span>Edit Pad Settings</span></div>
                         </div>
 
                         <div className={styles.section}>
                             <h3 className={styles.sectionTitle}>🌐 Global Controls (Action)</h3>
-                            <div className={styles.row}><div className={styles.keyBadge}>Space</div><span>Toggle Live Mode</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>~</div><span>Record Session (Backquote)</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Enter</div><span>Record (Live Mode)</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Space</div><span>Toggle Live Mode / Play</span></div>
                             <div className={styles.row}><div className={styles.keyBadge}>Esc</div><span>Close Modal / Zoom Out</span></div>
                             <div className={styles.row}><div className={styles.keyBadge}>Arrows</div><span>Navigate Banks (Left/Right/Up/Down)</span></div>
+                        </div>
+
+                        <div className={styles.section}>
+                            <h3 className={styles.sectionTitle}>∞ Loop Station (Top Row)</h3>
+                            <div className={styles.row}><div className={styles.keyBadge}>6 ~ 0, -</div><span>Trigger Loop Slot 1-6</span></div>
+                            <div className={styles.row}><div className={styles.keyBadge}>Alt + (6..-)</div><span>Clear Loop Slot</span></div>
                         </div>
                     </div>
 

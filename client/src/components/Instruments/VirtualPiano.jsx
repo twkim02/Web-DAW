@@ -12,7 +12,6 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
     const setIsMetronomeOn = useStore(state => state.setIsMetronomeOn);
 
     // Generate scale of notes (C3 to B5)
-    // const OCTAVES = 3; // Deprecated by Dual Row logic
 
     // OCTAVE SHIFT STATE
     const [octaveOffset, setOctaveOffset] = useState(0); // -2 to +2
@@ -32,6 +31,15 @@ const VirtualPiano = ({ padId, previewMode, type, preset, instrumentManager, onC
             return () => instrumentManager.closePreview();
         }
     }, [previewMode, type, preset]);
+
+    // Auto-stop Metronome on unmount
+    useEffect(() => {
+        return () => {
+            if (useStore.getState().isMetronomeOn) {
+                useStore.getState().setIsMetronomeOn(false);
+            }
+        };
+    }, []);
 
     // Generate Dual Row Layout
     // Row 1 (Bottom): Z X C V B N M (C3 - B3)

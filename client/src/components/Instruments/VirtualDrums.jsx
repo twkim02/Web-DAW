@@ -18,6 +18,15 @@ const VirtualDrums = ({ padId, previewMode, type, preset, instrumentManager, onC
         }
     }, [previewMode, type, preset]);
 
+    // Auto-stop Metronome on unmount
+    useEffect(() => {
+        return () => {
+            if (useStore.getState().isMetronomeOn) {
+                useStore.getState().setIsMetronomeOn(false);
+            }
+        };
+    }, []);
+
     // Drum Pad Configuration (Extended to 10)
     const pads = [
         { note: 'U', label: 'KICK', key: 'U', color: '#ff0055', sample: 'kick' },
