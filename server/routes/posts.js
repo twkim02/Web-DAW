@@ -388,10 +388,12 @@ router.post('/:id/download', async (req, res) => {
         }
 
         // Return post with full preset data for download (로그인 여부와 관계없이)
+        // Use toJSON() to ensure virtual fields (like Asset.url) are included
+        const postData = post.toJSON();
         res.json({
             success: true,
             downloadCount: post.downloadCount,
-            post: post
+            post: postData
         });
     } catch (err) {
         console.error(err);

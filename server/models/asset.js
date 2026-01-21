@@ -62,5 +62,13 @@ module.exports = (sequelize, DataTypes) => {
         Asset.hasMany(models.KeyMapping, { foreignKey: 'assetId' });
     };
 
+    // Override toJSON to ensure url virtual field is included
+    Asset.prototype.toJSON = function() {
+        const values = Object.assign({}, this.get());
+        // Include url virtual field
+        values.url = this.url;
+        return values;
+    };
+
     return Asset;
 };
