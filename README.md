@@ -1,4 +1,4 @@
-# Web-DAW (YEEZY LOOP STATION)
+# WALL: Web-App Launchpad and Looper
 
 웹 기반 디지털 오디오 워크스테이션(Web DAW) 프로젝트입니다. React와 Vite로 구축된 프론트엔드와 Express.js 기반의 백엔드로 구성된 풀스택 애플리케이션으로, 온라인에서 음악 제작과 루핑이 가능한 런치패드 인터페이스를 제공합니다.
 
