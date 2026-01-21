@@ -391,8 +391,51 @@ router.post('/:id/download', async (req, res) => {
         }
 
         // Return post with full preset data for download (로그인 여부와 관계없이)
-        // Use toJSON() to ensure virtual fields (like Asset.url) are included
-        const postData = post.toJSON();
+        let postData = post.toJSON();
+        
+        // If using presetData (snapshot), we need to enrich Asset and GraphicAsset URLs
+        // because they're stored as JSON and don't have virtual fields
+        if (!postData.Preset && postData.presetData) {
+            // Enrich presetData with Asset and GraphicAsset URLs
+            if (postData.presetData.KeyMappings) {
+                for (const mapping of postData.presetData.KeyMappings) {
+                    // Enrich Asset URL
+                    if (mapping.Asset) {
+                        if (mapping.Asset.storageType === 's3' && mapping.Asset.s3Key) {
+                            const bucketName = process.env.AWS_BUCKET_NAME;
+                            const region = process.env.AWS_REGION;
+                            if (bucketName && region) {
+                                mapping.Asset.url = `https://${bucketName}.s3.${region}.amazonaws.com/${mapping.Asset.s3Key}`;
+                            } else {
+                                mapping.Asset.url = mapping.Asset.filePath || `/uploads/${mapping.Asset.filename}`;
+                            }
+                        } else {
+                            mapping.Asset.url = `/uploads/${mapping.Asset.filename}`;
+                        }
+                    }
+                    
+                    // Enrich GraphicAsset URL
+                    if (mapping.GraphicAsset) {
+                        if (mapping.GraphicAsset.storageType === 's3' && mapping.GraphicAsset.s3Key) {
+                            const bucketName = process.env.AWS_BUCKET_NAME;
+                            const region = process.env.AWS_REGION;
+                            if (bucketName && region) {
+                                mapping.GraphicAsset.url = `https://${bucketName}.s3.${region}.amazonaws.com/${mapping.GraphicAsset.s3Key}`;
+                            } else {
+                                mapping.GraphicAsset.url = mapping.GraphicAsset.filePath || `/uploads/graphics/${mapping.GraphicAsset.filename}`;
+                            }
+                        } else {
+                            if (mapping.GraphicAsset.filePath && mapping.GraphicAsset.filePath.startsWith('uploads/')) {
+                                mapping.GraphicAsset.url = `/${mapping.GraphicAsset.filePath}`;
+                            } else {
+                                mapping.GraphicAsset.url = `/uploads/graphics/${mapping.GraphicAsset.filename}`;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         res.json({
             success: true,
             downloadCount: post.downloadCount,
