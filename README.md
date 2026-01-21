@@ -1,6 +1,58 @@
 # WALL: Web-App Launchpad and Looper
 
-웹 기반 디지털 오디오 워크스테이션(Web DAW) 프로젝트입니다. React와 Vite로 구축된 프론트엔드와 Express.js 기반의 백엔드로 구성된 풀스택 애플리케이션으로, 온라인에서 음악 제작과 루핑이 가능한 런치패드 인터페이스를 제공합니다.
+언제나 어디서나 음악을 연주해보자!
+
+## 프로젝트 소개
+
+> 연주하고 싶은데 악기가 없을 때,  
+> 아이디어는 있지만 소프트웨어가 없을 때,  
+> 작곡 아이디어가 떠올랐는데 컴퓨터가 없을 때,
+>
+> WALL과 함께해볼래요?
+
+웹 기반 디지털 오디오 워크스테이션(Web DAW) 프로젝트입니다.  
+React와 Vite로 구축된 프론트엔드와 Express.js 기반의 백엔드로 구성된 풀스택 애플리케이션으로, 온라인에서 음악 제작과 루핑이 가능한 런치패드 인터페이스를 제공합니다.
+
+## 👥 팀원 소개
+
+<table>
+<tr>
+<td width="50%">
+
+<h3>김태우</h3>
+
+<ul>
+<li><strong>소속</strong>: 한양대학교 데이터사이언스전공 21학번</li>
+<li><strong>이메일</strong>: rlaxodn1030@hanyang.ac.kr</li>
+<li><strong>GitHub</strong>: <a href="https://github.com/twkim02">twkim02</a></li>
+</ul>
+
+<hr>
+
+<ul>
+<li><strong>담당</strong>: DB 및 서버 주로 담당</li>
+</ul>
+
+</td>
+<td width="50%">
+
+<h3>신민석</h3>
+
+<ul>
+<li><strong>소속</strong>: KAIST 전기전자공학부 23학번</li>
+<li><strong>이메일</strong>: poi82999@gmail.com</li>
+<li><strong>GitHub</strong>: <a href="https://github.com/poi82999">poi82999</a></li>
+</ul>
+
+<hr>
+
+<ul>
+<li><strong>담당</strong>: 기획 및 프론트 주로 담당</li>
+</ul>
+
+</td>
+</tr>
+</table>
 
 ## 🚀 빠른 시작
 

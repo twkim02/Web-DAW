@@ -1,6 +1,6 @@
 // Web-DAW Database Schema
 // Generated for dbdiagram.io
-// Project: Web-DAW (YEEZY LOOP STATION)
+// Project: WALL: Web-App Launchpad and Looper
 
 Table Users {
   id integer [pk, increment, note: 'Primary key']

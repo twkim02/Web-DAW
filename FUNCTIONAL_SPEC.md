@@ -1,4 +1,4 @@
-# Web-DAW (YEEZY LOOP STATION) 기능 명세서
+# WALL: Web-App Launchpad and Looper 기능 명세서
 
 > 버그 탐색 및 QA를 위한 상세 기능 명세서  
 > 작성일: 2024  
