@@ -91,6 +91,8 @@ const useStore = create((set) => ({
             originalName: null,
             name: null,
             assetId: null,
+            graphicAssetId: null,
+            image: null,
             chokeGroup: null
         };
 

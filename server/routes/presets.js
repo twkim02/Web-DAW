@@ -74,7 +74,10 @@ router.get('/:id', isAuthenticated, async (req, res) => {
             include: [
                 {
                     model: db.KeyMapping,
-                    include: [db.Asset] // Include file info
+                    include: [
+                        db.Asset, // Include file info
+                        db.GraphicAsset // Include pad image info
+                    ]
                 }
             ]
         });
@@ -122,18 +125,23 @@ router.post('/', isAuthenticated, async (req, res) => {
         }, { transaction: t });
 
         if (mappings && mappings.length > 0) {
-            const mappingData = mappings.map(m => ({
-                presetId: preset.id,
-                keyChar: m.keyChar,
-                mode: m.mode,
-                volume: m.volume,
-                type: m.type,
-                note: m.note || null,
-                assetId: m.assetId || null, // Optional if file linked
-                synthSettings: m.synthSettings || null, // Optional if type=synth
-                color: m.color || null,
-                image: m.image || null
-            }));
+            const mappingData = mappings.map(m => {
+                const data = {
+                    presetId: preset.id,
+                    keyChar: m.keyChar,
+                    mode: m.mode,
+                    volume: m.volume,
+                    type: m.type,
+                    note: m.note || null,
+                    assetId: m.assetId || null, // Optional if file linked
+                    synthSettings: m.synthSettings || null, // Optional if type=synth
+                    graphicAssetId: m.graphicAssetId || null, // Optional pad image
+                    color: m.color || null,
+                    image: m.image || null
+                };
+                console.log('Creating KeyMapping:', data); // Debug log
+                return data;
+            });
 
             await db.KeyMapping.bulkCreate(mappingData, { transaction: t });
         }

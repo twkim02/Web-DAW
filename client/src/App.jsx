@@ -167,7 +167,212 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setAudioContextReady]);
 
-  // ... (lines 165-351 skipped)
+  // Check for post ID or preset ID from community page (load after START button is clicked)
+  useEffect(() => {
+    const checkAndLoadPreset = async () => {
+      const postId = localStorage.getItem('loadPostId');
+      const presetId = localStorage.getItem('loadPresetId');
+
+      if (isAudioContextReady) {
+        if (postId) {
+          // Post ID가 있으면 downloadPost API로 프리셋 데이터 가져오기
+          localStorage.removeItem('loadPostId');
+          setTimeout(async () => {
+            try {
+              const { downloadPost } = await import('./api/posts');
+              const { getPresets } = await import('./api/presets');
+              const result = await downloadPost(parseInt(postId));
+
+              // 1. Result Check
+              if (result && result.post) {
+                const originalPreset = result.post.Preset;
+                const snapshotData = result.post.presetData;
+                const user = useStore.getState().user;
+
+                // 2. Original Preset Logic (if exists)
+                if (originalPreset) {
+                  // Simplified: Just load the data. 
+                  await loadPresetFromData(originalPreset);
+                  // Record access if preset has ID
+                  if (originalPreset.id) {
+                    recordPresetAccess(originalPreset.id).catch(err => {
+                      console.warn('Failed to record preset access:', err);
+                    });
+                  }
+                }
+                // 3. Snapshot Logic (Fallback)
+                else if (snapshotData) {
+                  await loadPresetFromData(snapshotData);
+                  // Snapshot data might not have ID, but try to record if it does
+                  if (snapshotData.id) {
+                    recordPresetAccess(snapshotData.id).catch(err => {
+                      console.warn('Failed to record preset access:', err);
+                    });
+                  }
+                } else {
+                  alert('프리셋 정보를 찾을 수 없습니다. (삭제됨)');
+                }
+              }
+            } catch (err) {
+              console.error('Failed to load preset from post:', err);
+              alert('프리셋을 불러오는데 실패했습니다.');
+            }
+          }, 500);
+        } else if (presetId) {
+          // Preset ID가 있으면 직접 로드 (자신의 프리셋)
+          localStorage.removeItem('loadPresetId');
+          setTimeout(() => {
+            loadPresetData(parseInt(presetId));
+          }, 500);
+        }
+      }
+    };
+
+    checkAndLoadPreset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAudioContextReady]);
+
+  const fetchPresets = async () => {
+    try {
+      const data = await getPresets();
+      useStore.getState().setPresets(data);
+    } catch (e) {
+      // console.error(e);
+    }
+  };
+
+  // 프리셋 데이터를 직접 로드하는 함수 (Post에서 가져온 데이터 또는 API로 가져온 데이터)
+  const loadPresetFromData = async (preset) => {
+    if (!preset) return;
+
+    try {
+      // 1. Load BPM
+      if (preset.bpm) setBpm(preset.bpm);
+
+      // 2. Load Global Settings
+      if (preset.settings) {
+        const s = preset.settings;
+        if (s.mixerLevels) useStore.setState({ mixerLevels: s.mixerLevels });
+        if (s.trackStates) useStore.setState({ trackStates: s.trackStates });
+        if (s.effects) useStore.setState({ effects: s.effects });
+        if (s.launchQuantization) setLaunchQuantization(s.launchQuantization);
+        if (s.customBackgroundImage) useStore.getState().setCustomBackgroundImage(s.customBackgroundImage);
+        if (s.currentThemeId) useStore.getState().setThemeId(s.currentThemeId);
+        if (s.visualizerMode) useStore.getState().setVisualizerMode(s.visualizerMode);
+        if (s.showVisualizer !== undefined) useStore.getState().setShowVisualizer(s.showVisualizer);
+      }
+
+      // 3. Load Mappings
+      if (preset.KeyMappings) {
+        // Clear existing mappings first (optional, or just overwrite)
+        for (let i = 0; i < 64; i++) useStore.getState().resetPad(i);
+
+        for (const mapping of preset.KeyMappings) {
+          const padId = parseInt(mapping.keyChar); // Assuming keyChar stored the ID
+
+          if (!isNaN(padId)) {
+            let fileUrl = null;
+            if (mapping.Asset) {
+              const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+              let assetPath = mapping.Asset.url || `/uploads/${mapping.Asset.filename}`;
+              if (assetPath && assetPath.trim().match(/^https?:\/\//)) {
+                fileUrl = assetPath;
+              } else {
+                // Ensure assetPath starts with / if local
+                if (assetPath && !assetPath.startsWith('/') && !assetPath.startsWith('http')) {
+                  assetPath = '/' + assetPath;
+                }
+
+                // Double check we aren't appending to an existing HTTP
+                if (assetPath.startsWith('http')) {
+                  fileUrl = assetPath;
+                } else {
+                  fileUrl = `${baseURL}${assetPath}`;
+                }
+              }
+
+              const SamplerMod = await import('./audio/Sampler');
+              SamplerMod.sampler.loadSample(padId, fileUrl);
+            }
+
+            // Get pad image URL from GraphicAsset
+            let padImageUrl = null;
+            if (mapping.GraphicAsset) {
+              const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+              let imagePath = mapping.GraphicAsset.url || mapping.GraphicAsset.filePath;
+              if (imagePath && imagePath.trim().match(/^https?:\/\//)) {
+                padImageUrl = imagePath;
+              } else {
+                if (imagePath && !imagePath.startsWith('/') && !imagePath.startsWith('http')) {
+                  imagePath = '/' + imagePath;
+                }
+                if (imagePath.startsWith('http')) {
+                  padImageUrl = imagePath;
+                } else {
+                  padImageUrl = `${baseURL}${imagePath}`;
+                }
+              }
+            }
+
+            const newMapping = {
+              mode: mapping.mode,
+              volume: mapping.volume,
+              file: fileUrl,
+              type: mapping.type,
+              note: mapping.note || 'C4',
+              assetId: mapping.Asset ? mapping.Asset.id : null,
+              originalName: mapping.Asset ? mapping.Asset.originalName : null,
+              image: padImageUrl || mapping.image || null, // Pad image from GraphicAsset (preferred) or legacy image
+              graphicAssetId: mapping.GraphicAsset ? mapping.GraphicAsset.id : null,
+              color: mapping.color || null,
+              // 향후 확장: 새 필드 지원 가능
+              // type: mapping.type,
+              // note: mapping.note,
+              // synthSettings: mapping.synthSettings ? JSON.parse(mapping.synthSettings) : null
+            };
+
+            useStore.getState().updatePadMapping(padId, newMapping);
+          }
+        }
+        // Refresh Library UI
+        useStore.getState().triggerLibraryRefresh();
+      }
+
+      // Record preset access and set current preset ID
+      if (preset.id) {
+        setCurrentPresetId(preset.id);
+        // Record access (async, don't wait)
+        recordPresetAccess(preset.id).catch(err => {
+          console.warn('Failed to record preset access:', err);
+        });
+      }
+
+      alert(`Loaded: ${preset.title || 'Preset'}`);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load preset');
+    }
+  };
+
+  const loadPresetData = async (presetId) => {
+    if (!presetId) return;
+
+    try {
+      // API 함수 사용 (세션 기반 인증 자동 처리) - 자신의 프리셋만 가능
+      const preset = await getPreset(presetId);
+      await loadPresetFromData(preset);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load preset');
+    }
+  };
+
+  // Listen for Custom Event from PresetManagerModal
+  useEffect(() => {
+    const handleLoadEvent = (e) => loadPresetData(e.detail);
+    window.addEventListener('loadPreset', handleLoadEvent);
+    return () => window.removeEventListener('loadPreset', handleLoadEvent);
+  }, []); // Empty dependency array ok here, or depend on store if needed for refreshes
 
   const handleStart = async () => {
     try {
@@ -213,18 +418,23 @@ function App() {
     if (!title) return;
 
     const mappings = padMappings
-      .filter(p => p.file || p.type) // Capture only active pads
-      .map(p => ({
-        keyChar: String(p.id),
-        mode: p.mode,
-        volume: p.volume,
-        type: p.type,
-        note: p.note || null,
-        assetId: p.assetId || null,
-        synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null,
-        color: p.color,
-        image: p.image
-      }));
+      .filter(p => p.file || p.type || p.graphicAssetId) // Capture active pads (with file, type, or image)
+      .map(p => {
+        const mapping = {
+          keyChar: String(p.id),
+          mode: p.mode,
+          volume: p.volume,
+          type: p.type,
+          note: p.note || null,
+          assetId: p.assetId || null,
+          graphicAssetId: p.graphicAssetId || null, // Pad image GraphicAsset ID
+          synthSettings: p.type === 'synth' && p.synthSettings ? p.synthSettings : null,
+          color: p.color || null,
+          image: p.image || null
+        };
+        console.log('Saving mapping for pad', p.id, ':', mapping); // Debug log
+        return mapping;
+      });
 
     // Capture Full State
     const globalSettings = {

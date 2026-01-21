@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import useStore from '../../store/useStore';
 import styles from '../Layout/RightSidebar.module.css'; // Reusing sidebar styles
 import ColorThief from 'colorthief';
+import { uploadGraphicAsset } from '../../api/graphicAssets';
+import client from '../../api/client';
 
 const PadSettingsPanel = () => {
     const editingPadId = useStore(state => state.editingPadId);
@@ -54,10 +56,11 @@ const PadSettingsPanel = () => {
         handleSave({ name: newName });
     };
 
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
+        // Show preview immediately
         const reader = new FileReader();
         reader.onload = (event) => {
             const dataUrl = event.target.result;
@@ -67,7 +70,7 @@ const PadSettingsPanel = () => {
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.src = dataUrl;
-            img.onload = () => {
+            img.onload = async () => {
                 try {
                     const colorThief = new ColorThief();
                     const rgb = colorThief.getColor(img);
@@ -77,10 +80,83 @@ const PadSettingsPanel = () => {
                     }).join('');
 
                     setColor(hex);
-                    handleSave({ image: dataUrl, color: hex });
+
+                    // Upload to server and get GraphicAsset
+                    try {
+                        const result = await uploadGraphicAsset(file, 'pad', false);
+                        console.log('Upload result:', result); // Debug log
+                        if (result && result.asset) {
+                            const graphicAsset = result.asset;
+                            // Get the URL from the asset - ensure it's a full URL
+                            let imageUrl = graphicAsset.url || dataUrl;
+                            
+                            // If URL is relative, make it absolute using server URL
+                            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+                                // Use server base URL (not client origin) for images
+                                const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+                                if (imageUrl.startsWith('/')) {
+                                    imageUrl = `${baseURL}${imageUrl}`;
+                                } else {
+                                    imageUrl = `${baseURL}/${imageUrl}`;
+                                }
+                            }
+                            
+                            console.log('Saving pad image:', { imageUrl, graphicAssetId: graphicAsset.id }); // Debug log
+                            // Update local state immediately for preview
+                            setImage(imageUrl);
+                            handleSave({ 
+                                image: imageUrl, 
+                                color: hex,
+                                graphicAssetId: graphicAsset.id 
+                            });
+                        } else {
+                            console.warn('Upload result missing asset:', result); // Debug log
+                            // Fallback to dataUrl if upload fails
+                            handleSave({ image: dataUrl, color: hex });
+                        }
+                    } catch (uploadErr) {
+                        console.error('Failed to upload pad image:', uploadErr);
+                        console.error('Upload error details:', uploadErr.response?.data || uploadErr.message); // Debug log
+                        // Fallback to dataUrl if upload fails
+                        handleSave({ image: dataUrl, color: hex });
+                    }
                 } catch (err) {
                     console.error('Color Extraction Failed:', err);
-                    handleSave({ image: dataUrl });
+                    // Try to upload anyway
+                    try {
+                        const result = await uploadGraphicAsset(file, 'pad', false);
+                        console.log('Upload result (no color):', result); // Debug log
+                        if (result && result.asset) {
+                            const graphicAsset = result.asset;
+                            let imageUrl = graphicAsset.url || dataUrl;
+                            
+                            // If URL is relative, make it absolute using server URL
+                            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+                                // Use server base URL (not client origin) for images
+                                const baseURL = client.defaults.baseURL || 'http://localhost:3001';
+                                if (imageUrl.startsWith('/')) {
+                                    imageUrl = `${baseURL}${imageUrl}`;
+                                } else {
+                                    imageUrl = `${baseURL}/${imageUrl}`;
+                                }
+                            }
+                            
+                            console.log('Saving pad image (no color):', { imageUrl, graphicAssetId: graphicAsset.id }); // Debug log
+                            // Update local state immediately for preview
+                            setImage(imageUrl);
+                            handleSave({ 
+                                image: imageUrl,
+                                graphicAssetId: graphicAsset.id 
+                            });
+                        } else {
+                            console.warn('Upload result missing asset (no color):', result); // Debug log
+                            handleSave({ image: dataUrl });
+                        }
+                    } catch (uploadErr) {
+                        console.error('Failed to upload pad image:', uploadErr);
+                        console.error('Upload error details:', uploadErr.response?.data || uploadErr.message); // Debug log
+                        handleSave({ image: dataUrl });
+                    }
                 }
             };
         };
@@ -89,7 +165,7 @@ const PadSettingsPanel = () => {
 
     const clearImage = () => {
         setImage(null);
-        handleSave({ image: null });
+        handleSave({ image: null, graphicAssetId: null });
     };
 
     // --- FX CHAIN HELPERS ---

@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
             comment: 'MIME 타입 (image/jpeg, image/png, image/gif, etc.)'
         },
         category: {
-            type: DataTypes.ENUM('background', 'icon', 'texture', 'overlay', 'other'),
+            type: DataTypes.ENUM('background', 'icon', 'texture', 'overlay', 'pad', 'other'),
             defaultValue: 'background',
             allowNull: false,
             comment: '그래픽 자산 카테고리'
@@ -105,6 +105,7 @@ module.exports = (sequelize, DataTypes) => {
             foreignKey: 'userId',
             onDelete: 'CASCADE'
         });
+        GraphicAsset.hasMany(models.KeyMapping, { foreignKey: 'graphicAssetId' });
     };
 
     // 테이블 생성 후 인덱스 추가 (컬럼이 먼저 생성된 후)
