@@ -134,16 +134,21 @@ app.use('/api/graphic-assets', graphicAssetRoutes);
         }
 
         // 다른 모델들은 정상적으로 alter 동기화
-        const modelsToSync = ['Preset', 'KeyMapping', 'Asset', 'Post', 'Comment', 'UserPreference', 'PresetAccess', 'GraphicAsset'];
-        for (const modelName of modelsToSync) {
-            if (db[modelName]) {
-                try {
-                    await db[modelName].sync({ alter: true });
-                    console.log(`${modelName} model: synced`);
-                } catch (err) {
-                    console.warn(`${modelName} model sync warning:`, err.message);
+        // AWS RDS 연결 시 속도 저하 방지를 위해 DB_SYNC 환경변수가 'true'일 때만 실행
+        if (process.env.DB_SYNC === 'true') {
+            const modelsToSync = ['Preset', 'KeyMapping', 'Asset', 'Post', 'Comment', 'UserPreference', 'PresetAccess', 'GraphicAsset'];
+            for (const modelName of modelsToSync) {
+                if (db[modelName]) {
+                    try {
+                        await db[modelName].sync({ alter: true });
+                        console.log(`${modelName} model: synced`);
+                    } catch (err) {
+                        console.warn(`${modelName} model sync warning:`, err.message);
+                    }
                 }
             }
+        } else {
+            console.log('Skipping DB Schema Sync (Set DB_SYNC=true to enable)');
         }
 
         // 테이블에 인덱스 추가 (컬럼 생성 후)
@@ -152,13 +157,13 @@ app.use('/api/graphic-assets', graphicAssetRoutes);
         } catch (err) {
             console.warn('GraphicAsset index addition skipped (may already exist):', err.message);
         }
-        
+
         try {
             await db.PresetAccess.addIndexes();
         } catch (err) {
             console.warn('PresetAccess index addition skipped (may already exist):', err.message);
         }
-        
+
         app.listen(PORT, () => {
             console.log(`Server running on http://localhost:${PORT}`);
         });

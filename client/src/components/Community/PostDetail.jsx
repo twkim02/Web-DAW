@@ -114,7 +114,7 @@ const PostDetail = () => {
         }
 
         localStorage.setItem('skipStartPage', 'true');
-        window.location.href = '/';
+        window.location.href = '/workspace';
     };
 
     const handleDelete = async () => {

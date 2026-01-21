@@ -19,7 +19,7 @@ const PostCard = ({ post, showEditDelete = false, onDelete }) => {
 
         localStorage.setItem('loadPostId', postId.toString());
         localStorage.setItem('skipStartPage', 'true');
-        window.location.href = '/'; // Go to DAW
+        window.location.href = '/workspace'; // Go to DAW
     };
 
     const handleDetail = (e) => {
