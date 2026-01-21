@@ -329,6 +329,7 @@ function App() {
               image: padImageUrl || mapping.image || null, // Pad image from GraphicAsset (preferred) or legacy image
               graphicAssetId: mapping.GraphicAsset ? mapping.GraphicAsset.id : null,
               color: mapping.color || null,
+              visualEffect: mapping.visualEffect || null, // Restore visual effect
               // 향후 확장: 새 필드 지원 가능
               // synthSettings: mapping.synthSettings ? JSON.parse(mapping.synthSettings) : null
             };
@@ -435,6 +436,7 @@ function App() {
           image: p.image || null,
           name: p.name || null, // Custom name
           effects: p.effects || null, // Effects chain
+          visualEffect: p.visualEffect || null, // Save visual effect
           chokeGroup: p.chokeGroup || null,
           instrumentPreset: p.preset || null // Instrument/Synth Preset Key
         };

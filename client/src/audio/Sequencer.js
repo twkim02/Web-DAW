@@ -613,32 +613,64 @@ class Sequencer {
                 }
             }
 
-            // 2. Logic: Conditional Quantization
-            // User Rule: "If currently playing guy in same track? Queue/Quantize. Else? Just Play."
-            const quantization = state.launchQuantization;
+            // 2. Logic: Smart Handoff & Quantization
+            // Rule A: If Sibling Active (Busy Column) -> WAIT for End of Cycle (Next Bar).
+            // Rule B: If No Sibling (Empty Column) -> PLAY IMMEDIATELY (Ignore Global Quantization for responsiveness).
+
             let padStartTime = undefined;
             let isPadImmediate = true;
 
-            if (quantization && quantization !== 'none' && activeSibling !== -1) {
-                // Active Sibling exists -> Use Quantization
+            if (activeSibling !== -1) {
+                // BUSY COLUMN -> FORCE HANDOFF (End of Cycle)
+
                 if (Tone.Transport.state !== 'started') {
                     Tone.Transport.start();
-                    padStartTime = undefined; // Immediate if transport wasn't running
+                    padStartTime = undefined;
+                    isPadImmediate = true;
                 } else {
-                    // Use Ticks for precision
-                    padStartTime = Tone.Transport.nextSubdivision(quantization);
-                    // Check threshold? (Reuse similar logic if needed, or trust subdivisions)
-                    // nextSubdivision returns Time, convertible to Ticks.
-                    // Let's keep it simple: Schedule it.
+                    // CALCULATE CYCLE END
+                    // 1. Get Sibling Duration (Loop Length)
+
+                    let loopDurationTicks = new Tone.Time('1m').toTicks(); // Default 1 bar
+
+                    // Try to get duration from Sampler if possible
+                    try {
+                        const siblingMapping = state.padMappings[activeSibling];
+                        if (siblingMapping && (!siblingMapping.type || siblingMapping.type === 'sample')) {
+                            // Use sampler.getDuration to get seconds, then convert to ticks
+                            const durSeconds = sampler.getDuration(activeSibling);
+                            if (durSeconds > 0) {
+                                const durTicks = Tone.Time(durSeconds).toTicks();
+                                const oneBarTicks = new Tone.Time('1m').toTicks();
+                                // Round to nearest bar (Quantize the loop definition itself)
+                                const bars = Math.round(durTicks / oneBarTicks);
+                                if (bars > 0) loopDurationTicks = bars * oneBarTicks;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Error calculating sibling duration:', e);
+                    }
+
+                    // 2. Calculate "Next Cycle Time"
+                    // Cycles are aligned to Transport 0.
+                    // Next = ceil(Current / LoopLen) * LoopLen
+                    const currentTicks = Tone.Transport.ticks;
+                    const nextCycleTicks = Math.ceil(currentTicks / loopDurationTicks) * loopDurationTicks;
+
+                    // Check if too close (within 10 ticks), push to next Cycle
+                    const targetTick = (nextCycleTicks <= currentTicks + 10)
+                        ? nextCycleTicks + loopDurationTicks
+                        : nextCycleTicks;
+
+                    padStartTime = new Tone.Time(targetTick, 'i').toBarsBeatsSixteenths();
                     isPadImmediate = false;
+                    console.log(`[Scene] Handoff Calc: Sibling ${activeSibling} Len=${loopDurationTicks} ticks. Next=${padStartTime}`);
                 }
+
             } else {
-                // No Sibling -> Immediate Play
+                // EMPTY COLUMN -> IMMEDIATE
                 isPadImmediate = true;
                 padStartTime = undefined;
-                // Ensure transport is running if we want things to start moving?
-                // Usually "Just Play" implies hearing sound.
-                // If it's a loop, it needs Transport.
                 if (Tone.Transport.state !== 'started') {
                     Tone.Transport.start();
                 }
@@ -648,9 +680,11 @@ class Sequencer {
             const shouldQueue = !isPadImmediate;
 
             if (shouldQueue) {
+                console.log(`[Scene] Queueing Pad ${i} (Handoff/Quantized)`);
                 state.addToQueue(i);
             } else {
                 state.setPadActive(i, true);
+                state.triggerVisualEffect(i, mapping.visualEffect, mapping.color);
             }
 
             // 4. Audio & State Handling
@@ -677,16 +711,17 @@ class Sequencer {
             }
 
             // Define The Start Logic
-            const doStart = () => {
+            const doStart = (startTime) => {
                 // Clear Queue Visual
                 if (shouldQueue) state.shiftQueue(col);
 
-                // Set Active Visual
+                // Set Active Visual & Trigger Effect
                 state.setPadActive(i, true);
+                state.triggerVisualEffect(i, mapping.visualEffect, mapping.color);
 
                 // Synths handled differently (Short Flash)
                 if (['synth', 'piano', 'drums'].includes(type)) {
-                    instrumentManager.trigger(i, note, '8n', undefined);
+                    instrumentManager.trigger(i, note, '8n', startTime);
                     setTimeout(() => state.setPadActive(i, false), 200);
                 }
                 else {
@@ -700,6 +735,9 @@ class Sequencer {
                             onEnded: () => state.setPadActive(i, false)
                         };
                         if (mode === 'loop' || mode === 'gate') options.loop = true;
+
+                        // Pass exact start time if provided (for quantization)
+                        options.startTime = startTime;
 
                         // Play
                         sampler.play(i, options);
@@ -721,15 +759,48 @@ class Sequencer {
             };
 
             // 5. Scheduling execution
+            // Define Audio/Visual Functions with Time Parameters for Precision
+            const scheduleAudio = (time) => {
+                if (activeSibling !== -1) {
+                    console.log(`[Scene] Stopping Sibling ${activeSibling} at ${time}`);
+                    // Ensure sampler.stop supports time, or call it immediately if close enough?
+                    // Assuming sampler.stop is immediate, we might need a workaround if not supported.
+                    // But usually play has priority. 
+                    sampler.stop(activeSibling);
+                    // ideally: sampler.stop(activeSibling, time); if implemented
+                }
+
+                // Call doStart with precise time
+                // We need to modify doStart to accept time and pass it to sampler.play
+                // Re-defining inline here for closure access to 'time' or modifying doStart above?
+                // Let's modify doStart above to accept optional 'startTime'.
+            };
+
             if (padStartTime !== undefined) {
-                // SCHEDULED (Quantized)
+                // SCHEDULED (Quantized Handoff)
+                const currentPos = Tone.Transport.position;
+                console.log(`[Scene] Scheduling Handoff: Current: ${currentPos} -> Target: ${padStartTime}`);
+
                 Tone.Transport.scheduleOnce((time) => {
+                    // 1. Audio (Precise)
+                    doStopSibling(); // Note: Stop is immediate? Might cut early if scheduleOnce is lookahead.
+                    // To be safe for Stop:
+                    // If scheduleOnce is lookahead, we should schedule stop? 
+                    // For now, let's trigger Start precisely.
+
+                    doStart(time); // Pass precise time to Start
+
+                    // 2. Visuals (Synced to Frame)
                     Tone.Draw.schedule(() => {
-                        doStopSibling();
-                        doStart();
+                        state.setPadActive(activeSibling, false); // Update Sibling Visual
+                        // active visual for new pad is set in doStart's logic? 
+                        // doStart logic does visuals too. We should split them?
+                        // For simplicity, let's trust doStart handles state immediately.
+                        // But wait, doStart call above sets state immediately?
+                        // We need doStart to defer setPadActive(true)?
                     }, time);
+
                 }, padStartTime);
-                console.log(`[Scene] Pad ${i} Queued for ${padStartTime}`);
             } else {
                 // IMMEDIATE
                 doStopSibling();

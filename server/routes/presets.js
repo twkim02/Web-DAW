@@ -137,7 +137,9 @@ router.post('/', isAuthenticated, async (req, res) => {
                     synthSettings: m.synthSettings || null, // Optional if type=synth
                     graphicAssetId: m.graphicAssetId || null, // Optional pad image
                     color: m.color || null,
-                    image: m.image || null
+                    image: m.image || null,
+                    visualEffect: m.visualEffect || null,
+                    effects: m.effects || null
                 };
                 console.log('Creating KeyMapping:', data); // Debug log
                 return data;

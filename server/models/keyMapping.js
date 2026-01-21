@@ -60,6 +60,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.TEXT, // URL can be long
             allowNull: true,
             comment: '패드 배경 이미지 URL (레거시 지원, graphicAssetId 사용 권장)'
+        },
+        visualEffect: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            comment: '패드 시각 효과 (ripple, cross 등)'
         }
     }, {
         tableName: 'KeyMappings',

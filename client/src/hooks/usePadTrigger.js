@@ -13,51 +13,9 @@ import * as Tone from 'tone';
 const usePadTrigger = () => {
     const setPadActive = useStore((state) => state.setPadActive);
 
-    // --- Helper: Visual FX Logic ---
+    // --- Helper: Visual FX Logic (Delegated to Store) ---
     const triggerVisualFX = useCallback((centerId, effect, color) => {
-        if (!effect || effect === 'none' || effect === 'pulse' || effect === 'flash') return;
-
-        const row = Math.floor(centerId / 8);
-        const col = centerId % 8;
-        const DELAY_STEP = 60;
-        const LIGHT_DURATION = 200;
-        const sourceColor = color || '#00ffcc';
-
-        const lightUp = (ids, delay) => {
-            setTimeout(() => {
-                ids.forEach(id => {
-                    if (id >= 0 && id < 64) {
-                        useStore.getState().setVisualState(id, { color: sourceColor });
-                        setTimeout(() => {
-                            useStore.getState().setVisualState(id, null);
-                        }, LIGHT_DURATION);
-                    }
-                });
-            }, delay);
-        };
-
-        if (effect === 'cross') {
-            // Horizontal & Vertical
-            for (let i = 0; i < 8; i++) {
-                if (i !== row) lightUp([i * 8 + col], Math.abs(i - row) * DELAY_STEP * 0.5); // Col
-                if (i !== col) lightUp([row * 8 + i], Math.abs(i - col) * DELAY_STEP * 0.5); // Row
-            }
-        } else if (effect === 'ripple') {
-            // Square Ripple
-            const MAX_RADIUS = 10;
-            for (let r = 1; r <= MAX_RADIUS; r++) {
-                const ringPads = [];
-                for (let c = col - r; c <= col + r; c++) {
-                    if (c >= 0 && c < 8 && (row - r) >= 0) ringPads.push((row - r) * 8 + c);
-                    if (c >= 0 && c < 8 && (row + r) < 8) ringPads.push((row + r) * 8 + c);
-                }
-                for (let ro = row - r + 1; ro <= row + r - 1; ro++) {
-                    if (ro >= 0 && ro < 8 && (col - r) >= 0) ringPads.push(ro * 8 + (col - r));
-                    if (ro >= 0 && ro < 8 && (col + r) < 8) ringPads.push(ro * 8 + (col + r));
-                }
-                if (ringPads.length > 0) lightUp(ringPads, r * DELAY_STEP);
-            }
-        }
+        useStore.getState().triggerVisualEffect(centerId, effect, color);
     }, []);
 
     // --- Internal Play Function (Bypasses Queue Check) ---
