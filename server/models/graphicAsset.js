@@ -108,6 +108,14 @@ module.exports = (sequelize, DataTypes) => {
         GraphicAsset.hasMany(models.KeyMapping, { foreignKey: 'graphicAssetId' });
     };
 
+    // Override toJSON to ensure url virtual field is included
+    GraphicAsset.prototype.toJSON = function() {
+        const values = Object.assign({}, this.get());
+        // Include url virtual field
+        values.url = this.url;
+        return values;
+    };
+
     // 테이블 생성 후 인덱스 추가 (컬럼이 먼저 생성된 후)
     GraphicAsset.addIndexes = async function() {
         const sequelize = this.sequelize;

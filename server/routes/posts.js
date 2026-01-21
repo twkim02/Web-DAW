@@ -210,7 +210,10 @@ router.post('/', isAuthenticated, async (req, res) => {
             include: [
                 {
                     model: db.KeyMapping,
-                    include: [db.Asset]
+                    include: [
+                        db.Asset,
+                        db.GraphicAsset // Include pad image info
+                    ]
                 }
             ]
         });
