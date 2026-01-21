@@ -111,8 +111,28 @@ module.exports = (sequelize, DataTypes) => {
     // Override toJSON to ensure url virtual field is included
     GraphicAsset.prototype.toJSON = function() {
         const values = Object.assign({}, this.get());
-        // Include url virtual field
-        values.url = this.url;
+        // Calculate url directly to ensure it's always correct
+        // Access properties directly from the instance, not from values
+        const storageType = this.getDataValue('storageType') || values.storageType;
+        const s3Key = this.getDataValue('s3Key') || values.s3Key;
+        const filename = this.getDataValue('filename') || values.filename;
+        const filePath = this.getDataValue('filePath') || values.filePath;
+        
+        if (storageType === 's3' && s3Key) {
+            const bucketName = process.env.AWS_BUCKET_NAME;
+            const region = process.env.AWS_REGION;
+            if (bucketName && region) {
+                values.url = `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
+            } else {
+                values.url = filePath || `/uploads/graphics/${filename}`;
+            }
+        } else {
+            if (filePath && filePath.startsWith('uploads/')) {
+                values.url = `/${filePath}`;
+            } else {
+                values.url = `/uploads/graphics/${filename}`;
+            }
+        }
         return values;
     };
 
