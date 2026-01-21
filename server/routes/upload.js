@@ -105,7 +105,26 @@ router.get('/', async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
         // Use toJSON() to ensure virtual fields (like url) are included
-        res.json(assets.map(asset => asset.toJSON()));
+        const assetsWithUrl = assets.map(asset => {
+            const assetJson = asset.toJSON();
+            // Double-check: ensure url is set correctly
+            // If url is missing or incorrect, recalculate it
+            if (!assetJson.url || (!assetJson.url.startsWith('http') && assetJson.storageType === 's3')) {
+                if (assetJson.storageType === 's3' && assetJson.s3Key) {
+                    const bucketName = process.env.AWS_BUCKET_NAME;
+                    const region = process.env.AWS_REGION;
+                    if (bucketName && region) {
+                        assetJson.url = `https://${bucketName}.s3.${region}.amazonaws.com/${assetJson.s3Key}`;
+                    } else {
+                        assetJson.url = assetJson.filePath || `/uploads/${assetJson.filename}`;
+                    }
+                } else {
+                    assetJson.url = `/uploads/${assetJson.filename}`;
+                }
+            }
+            return assetJson;
+        });
+        res.json(assetsWithUrl);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });

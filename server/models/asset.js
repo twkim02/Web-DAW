@@ -65,8 +65,23 @@ module.exports = (sequelize, DataTypes) => {
     // Override toJSON to ensure url virtual field is included
     Asset.prototype.toJSON = function() {
         const values = Object.assign({}, this.get());
-        // Include url virtual field
-        values.url = this.url;
+        // Calculate url directly to ensure it's always correct
+        // Access properties directly from the instance, not from values
+        const storageType = this.getDataValue('storageType') || values.storageType;
+        const s3Key = this.getDataValue('s3Key') || values.s3Key;
+        const filename = this.getDataValue('filename') || values.filename;
+        
+        if (storageType === 's3' && s3Key) {
+            const bucketName = process.env.AWS_BUCKET_NAME;
+            const region = process.env.AWS_REGION;
+            if (bucketName && region) {
+                values.url = `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
+            } else {
+                values.url = values.filePath || `/uploads/${filename}`;
+            }
+        } else {
+            values.url = `/uploads/${filename}`;
+        }
         return values;
     };
 
