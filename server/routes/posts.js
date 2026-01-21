@@ -393,47 +393,64 @@ router.post('/:id/download', async (req, res) => {
         // Return post with full preset data for download (로그인 여부와 관계없이)
         let postData = post.toJSON();
         
-        // If using presetData (snapshot), we need to enrich Asset and GraphicAsset URLs
-        // because they're stored as JSON and don't have virtual fields
-        if (!postData.Preset && postData.presetData) {
-            // Enrich presetData with Asset and GraphicAsset URLs
-            if (postData.presetData.KeyMappings) {
-                for (const mapping of postData.presetData.KeyMappings) {
-                    // Enrich Asset URL
-                    if (mapping.Asset) {
-                        if (mapping.Asset.storageType === 's3' && mapping.Asset.s3Key) {
-                            const bucketName = process.env.AWS_BUCKET_NAME;
-                            const region = process.env.AWS_REGION;
-                            if (bucketName && region) {
-                                mapping.Asset.url = `https://${bucketName}.s3.${region}.amazonaws.com/${mapping.Asset.s3Key}`;
-                            } else {
-                                mapping.Asset.url = mapping.Asset.filePath || `/uploads/${mapping.Asset.filename}`;
-                            }
-                        } else {
-                            mapping.Asset.url = `/uploads/${mapping.Asset.filename}`;
-                        }
+        // Helper function to enrich Asset and GraphicAsset URLs
+        const enrichAssetUrls = (mappings) => {
+            if (!mappings) return;
+            for (const mapping of mappings) {
+                // Enrich Asset URL
+                if (mapping.Asset) {
+                    // If url already exists and is a full URL, skip
+                    if (mapping.Asset.url && mapping.Asset.url.startsWith('http')) {
+                        continue;
                     }
-                    
-                    // Enrich GraphicAsset URL
-                    if (mapping.GraphicAsset) {
-                        if (mapping.GraphicAsset.storageType === 's3' && mapping.GraphicAsset.s3Key) {
-                            const bucketName = process.env.AWS_BUCKET_NAME;
-                            const region = process.env.AWS_REGION;
-                            if (bucketName && region) {
-                                mapping.GraphicAsset.url = `https://${bucketName}.s3.${region}.amazonaws.com/${mapping.GraphicAsset.s3Key}`;
-                            } else {
-                                mapping.GraphicAsset.url = mapping.GraphicAsset.filePath || `/uploads/graphics/${mapping.GraphicAsset.filename}`;
-                            }
+                    if (mapping.Asset.storageType === 's3' && mapping.Asset.s3Key) {
+                        const bucketName = process.env.AWS_BUCKET_NAME;
+                        const region = process.env.AWS_REGION;
+                        if (bucketName && region) {
+                            mapping.Asset.url = `https://${bucketName}.s3.${region}.amazonaws.com/${mapping.Asset.s3Key}`;
                         } else {
-                            if (mapping.GraphicAsset.filePath && mapping.GraphicAsset.filePath.startsWith('uploads/')) {
-                                mapping.GraphicAsset.url = `/${mapping.GraphicAsset.filePath}`;
-                            } else {
-                                mapping.GraphicAsset.url = `/uploads/graphics/${mapping.GraphicAsset.filename}`;
-                            }
+                            mapping.Asset.url = mapping.Asset.filePath || `/uploads/${mapping.Asset.filename}`;
+                        }
+                    } else {
+                        mapping.Asset.url = `/uploads/${mapping.Asset.filename}`;
+                    }
+                }
+                
+                // Enrich GraphicAsset URL
+                if (mapping.GraphicAsset) {
+                    // If url already exists and is a full URL, skip
+                    if (mapping.GraphicAsset.url && mapping.GraphicAsset.url.startsWith('http')) {
+                        continue;
+                    }
+                    if (mapping.GraphicAsset.storageType === 's3' && mapping.GraphicAsset.s3Key) {
+                        const bucketName = process.env.AWS_BUCKET_NAME;
+                        const region = process.env.AWS_REGION;
+                        if (bucketName && region) {
+                            mapping.GraphicAsset.url = `https://${bucketName}.s3.${region}.amazonaws.com/${mapping.GraphicAsset.s3Key}`;
+                        } else {
+                            mapping.GraphicAsset.url = mapping.GraphicAsset.filePath || `/uploads/graphics/${mapping.GraphicAsset.filename}`;
+                        }
+                    } else {
+                        if (mapping.GraphicAsset.filePath && mapping.GraphicAsset.filePath.startsWith('uploads/')) {
+                            mapping.GraphicAsset.url = `/${mapping.GraphicAsset.filePath}`;
+                        } else {
+                            mapping.GraphicAsset.url = `/uploads/graphics/${mapping.GraphicAsset.filename}`;
                         }
                     }
                 }
             }
+        };
+        
+        // Enrich URLs for Preset (if exists)
+        if (postData.Preset && postData.Preset.KeyMappings) {
+            enrichAssetUrls(postData.Preset.KeyMappings);
+        }
+        
+        // If using presetData (snapshot), we need to enrich Asset and GraphicAsset URLs
+        // because they're stored as JSON and don't have virtual fields
+        if (!postData.Preset && postData.presetData) {
+            // Enrich presetData with Asset and GraphicAsset URLs
+            enrichAssetUrls(postData.presetData.KeyMappings);
         }
         
         res.json({
